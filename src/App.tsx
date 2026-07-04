@@ -229,6 +229,8 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation }: Goog
         { elementType: 'geometry', stylers: [{ color: '#09081a' }] },
         { elementType: 'labels.text.stroke', stylers: [{ color: '#09081a' }] },
         { elementType: 'labels.text.fill', stylers: [{ color: '#8e90b3' }] },
+        { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#a5b4fc' }, { weight: 1.5 }] },
+        { featureType: 'administrative.province', elementType: 'geometry.stroke', stylers: [{ color: '#4f46e5' }, { weight: 1.0 }] },
         { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#d5d6f2' }] },
         { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#a5a7cc' }] },
         { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#0e0d24' }] },
