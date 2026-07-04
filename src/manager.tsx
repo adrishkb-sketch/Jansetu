@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { getAllDemands, updateDemandStatus } from './services/db';
 import { LanguageSelector, getInitialLanguage } from './App';
+import { AuthModal } from './AuthModal';
 import './index.css';
 
 function ManagerConsole() {
@@ -21,11 +22,14 @@ function ManagerConsole() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('manager_auth') === 'true');
 
   // Load demands
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
 
   const loadData = async () => {
     const data = await getAllDemands();
@@ -87,6 +91,7 @@ function ManagerConsole() {
 
   return (
     <>
+      {!isAuthenticated && <AuthModal role="manager" onSuccess={() => setIsAuthenticated(true)} onClose={() => window.location.href = '/'} />}
       <div id="google_translate_element" style={{ display: 'none' }}></div>
 
       <header className="header">

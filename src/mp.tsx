@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { getAllDemands, updateDemandStatus } from './services/db';
 import { LanguageSelector, getInitialLanguage, useGoogleMapsLoader } from './App';
+import { AuthModal } from './AuthModal';
 import './index.css';
 
 // Priority Score Ranker
@@ -55,10 +56,14 @@ function MPApp() {
   const [generatingBrief, setGeneratingBrief] = useState(false);
   const [showBriefModal, setShowBriefModal] = useState(false);
 
+  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('mp_auth') === 'true');
+
   // Load demands
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
 
   const loadData = async () => {
     const data = await getAllDemands();
@@ -227,6 +232,7 @@ Structure of Speech:
 
   return (
     <>
+      {!isAuthenticated && <AuthModal role="mp" onSuccess={() => setIsAuthenticated(true)} onClose={() => window.location.href = '/'} />}
       <div id="google_translate_element" style={{ display: 'none' }}></div>
 
       <header className="header">
