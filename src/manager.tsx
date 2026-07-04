@@ -110,6 +110,20 @@ function ManagerConsole() {
               <span className="pulse-dot" style={{ backgroundColor: '#14b8a6' }}></span>
               <span style={{ color: '#2dd4bf' }}>Database Connected</span>
             </div>
+            {isAuthenticated && (
+              <button 
+                onClick={() => {
+                  sessionStorage.removeItem('manager_auth');
+                  setIsAuthenticated(false);
+                }}
+                style={{
+                  background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: 'white',
+                  padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px'
+                }}
+              >
+                Logout
+              </button>
+            )}
           </div>
         </div>
       </header>

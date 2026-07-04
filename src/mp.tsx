@@ -251,6 +251,20 @@ Structure of Speech:
               <span className="pulse-dot" style={{ backgroundColor: '#fbbf24' }}></span>
               <span style={{ color: '#fbbf24' }}>MPLADS Ledger Verified</span>
             </div>
+            {isAuthenticated && (
+              <button 
+                onClick={() => {
+                  sessionStorage.removeItem('mp_auth');
+                  setIsAuthenticated(false);
+                }}
+                style={{
+                  background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: 'white',
+                  padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px'
+                }}
+              >
+                Logout
+              </button>
+            )}
           </div>
         </div>
       </header>
