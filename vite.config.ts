@@ -10,6 +10,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         complainant: resolve(__dirname, 'complainant.html'),
+        manager: resolve(__dirname, 'manager.html'),
+        mp: resolve(__dirname, 'mp.html'),
       },
     },
   },

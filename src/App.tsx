@@ -16,6 +16,7 @@ import {
   Info
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
+import { submitDemand, getNearbyHotspots, upvoteDemand } from './services/db';
 
 // ISO 639-1 / Google Translate codes for the 22 Scheduled Indian Languages + English
 const INDIAN_LANGUAGES = [
@@ -35,7 +36,7 @@ const INDIAN_LANGUAGES = [
   { name: 'संस्कृतम् (Sanskrit)', code: 'sa' },
   { name: 'नेपाली (Nepali)', code: 'ne' },
   { name: 'सिंधी (Sindhi)', code: 'sd' },
-  { name: 'कोंकणी (Konkani)', code: 'gom' },
+  { name: 'कोंकणी (Konkani)', code: 'kok' },
   { name: 'डोगरी (Dogri)', code: 'doi' },
   { name: 'मैथिली (Maithili)', code: 'mai' },
   { name: 'मणिपुरी (Manipuri)', code: 'mni' },
@@ -58,22 +59,21 @@ const getActiveLangCode = () => {
   if (val) {
     const parts = val.split('/');
     if (parts.length >= 3) {
-      return parts[2];
+      return parts[parts.length - 1].toLowerCase();
     }
   }
-  return 'en';
+  return null;
 };
 
 // Helper to fetch the initial language code reliably
 export const getInitialLanguage = () => {
-  const localVal = localStorage.getItem('jansetu_lang');
-  if (localVal) return localVal;
-
   const cookieVal = getActiveLangCode();
   if (cookieVal) {
     localStorage.setItem('jansetu_lang', cookieVal);
     return cookieVal;
   }
+  const localVal = localStorage.getItem('jansetu_lang');
+  if (localVal) return localVal;
   return 'en';
 };
 
@@ -87,6 +87,29 @@ export function LanguageSelector({ selectedLang, setSelectedLang }: { selectedLa
     const active = getInitialLanguage();
     setSelectedLang(active);
   }, [setSelectedLang]);
+
+  // Programmatically sync Google Translate dropdown element with selectedLang state
+  useEffect(() => {
+    let attempts = 0;
+    const interval = setInterval(() => {
+      const selectElement = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
+      if (selectElement) {
+        const hasOption = Array.from(selectElement.options).some(opt => opt.value === selectedLang);
+        if (hasOption) {
+          if (selectElement.value !== selectedLang) {
+            selectElement.value = selectedLang;
+            selectElement.dispatchEvent(new Event('change'));
+          }
+          clearInterval(interval);
+        }
+      }
+      attempts++;
+      if (attempts > 30) {
+        clearInterval(interval);
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, [selectedLang]);
 
   // Handle outside clicks to close the dropdown
   useEffect(() => {
@@ -105,21 +128,11 @@ export function LanguageSelector({ selectedLang, setSelectedLang }: { selectedLa
     setSelectedLang(langCode);
 
     // 2. Set the cookie at root path so Google Translate can read it on startup/transition
-    const domain = window.location.hostname;
     document.cookie = `googtrans=/en/${langCode}; path=/;`;
-    document.cookie = `googtrans=/en/${langCode}; path=/; domain=${domain};`;
+    setIsOpen(false);
 
-    // 3. Trigger the Google Translate select dropdown element if present
-    const selectElement = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
-    if (selectElement) {
-      selectElement.value = langCode;
-      selectElement.dispatchEvent(new Event('change'));
-      setIsOpen(false);
-    } else {
-      // Fallback: reload the page to apply translations on script load
-      setIsOpen(false);
-      window.location.reload();
-    }
+    // 3. Reload page to prevent React virtual DOM mismatches and apply fresh translation
+    window.location.reload();
   };
 
   const currentLangName = INDIAN_LANGUAGES.find(l => l.code === selectedLang)?.name || 'English';
@@ -148,7 +161,7 @@ export function LanguageSelector({ selectedLang, setSelectedLang }: { selectedLa
 }
 
 // Google Maps integration and loader hook
-function useGoogleMapsLoader(apiKey: string) {
+export function useGoogleMapsLoader(apiKey: string) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -200,16 +213,35 @@ interface Location {
   lng: number;
 }
 
-interface GoogleMapComponentProps {
-  apiKey: string;
-  onLocationSelect: (loc: Location, address: string) => void;
-  selectedLocation: Location | null;
+interface LocationInsights {
+  nearestSchool?: { name: string; distance: number };
+  nearestHospital?: { name: string; distance: number };
 }
 
-function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation }: GoogleMapComponentProps) {
+function getHaversineDistance(loc1: { lat: number; lng: number }, loc2: { lat: number; lng: number }) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (loc2.lat - loc1.lat) * Math.PI / 180;
+  const dLng = (loc2.lng - loc1.lng) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(loc1.lat * Math.PI / 180) * Math.cos(loc2.lat * Math.PI / 180) * 
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+}
+
+interface GoogleMapComponentProps {
+  apiKey: string;
+  onLocationSelect: (loc: Location, address: string, insights?: LocationInsights) => void;
+  selectedLocation: Location | null;
+  nearbyHotspots: any[];
+}
+
+function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearbyHotspots }: GoogleMapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const hotspotMarkersRef = useRef<any[]>([]);
   const { isLoaded, loadError } = useGoogleMapsLoader(apiKey);
   const [geocoding, setGeocoding] = useState(false);
 
@@ -254,6 +286,53 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation }: Goog
       marker.setPosition(selectedLocation);
     }
 
+    const queryPlacesInsights = (latLng: any, addressStr: string) => {
+      const googleObj = (window as any).google;
+      const loc = { lat: typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat, lng: typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng };
+      
+      if (!googleObj || !googleObj.maps || !googleObj.maps.places || !mapInstanceRef.current) {
+        onLocationSelect(loc, addressStr);
+        return;
+      }
+
+      const service = new googleObj.maps.places.PlacesService(mapInstanceRef.current);
+      const googleLatLng = typeof latLng.lat === 'function' ? latLng : new googleObj.maps.LatLng(loc.lat, loc.lng);
+      
+      const insights: LocationInsights = {};
+
+      service.nearbySearch({
+        location: googleLatLng,
+        radius: 5000,
+        type: 'school'
+      }, (schoolResults: any, status1: any) => {
+        if (status1 === googleObj.maps.places.PlacesServiceStatus.OK && schoolResults && schoolResults.length > 0) {
+          const closest = schoolResults[0];
+          const schoolLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
+          insights.nearestSchool = {
+            name: closest.name,
+            distance: getHaversineDistance(loc, schoolLoc)
+          };
+        }
+
+        service.nearbySearch({
+          location: googleLatLng,
+          radius: 5000,
+          type: 'hospital'
+        }, (hospitalResults: any, status2: any) => {
+          if (status2 === googleObj.maps.places.PlacesServiceStatus.OK && hospitalResults && hospitalResults.length > 0) {
+            const closest = hospitalResults[0];
+            const hospLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
+            insights.nearestHospital = {
+              name: closest.name,
+              distance: getHaversineDistance(loc, hospLoc)
+            };
+          }
+
+          onLocationSelect(loc, addressStr, insights);
+        });
+      });
+    };
+
     const handleGeocode = (latLng: any) => {
       setGeocoding(true);
       const geocoder = new google.maps.Geocoder();
@@ -265,7 +344,7 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation }: Goog
         } else {
           address = `Coordinates: ${latLng.lat().toFixed(5)}, ${latLng.lng().toFixed(5)}`;
         }
-        onLocationSelect({ lat: latLng.lat(), lng: latLng.lng() }, address);
+        queryPlacesInsights(latLng, address);
       });
     };
 
@@ -297,6 +376,51 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation }: Goog
     }
   }, [selectedLocation]);
 
+  // Handle drawing of nearby hotspot markers
+  useEffect(() => {
+    if (!isLoaded || !mapInstanceRef.current) return;
+    const google = (window as any).google;
+    if (!google) return;
+
+    // Clear old hotspot markers
+    hotspotMarkersRef.current.forEach(m => m.setMap(null));
+    hotspotMarkersRef.current = [];
+
+    // Create markers for nearby hotspots
+    nearbyHotspots.forEach(hotspot => {
+      if (selectedLocation && 
+          Math.abs(hotspot.location.lat - selectedLocation.lat) < 0.0001 && 
+          Math.abs(hotspot.location.lng - selectedLocation.lng) < 0.0001) {
+        return;
+      }
+
+      const marker = new google.maps.Marker({
+        position: hotspot.location,
+        map: mapInstanceRef.current,
+        title: `${hotspot.category.toUpperCase()}: ${hotspot.upvotes} upvotes`,
+        icon: {
+          url: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png'
+        }
+      });
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="color: #000; padding: 4px; font-family: sans-serif;">
+            <strong style="text-transform: capitalize; color: #ef4444;">⚠️ ${hotspot.category} Request</strong>
+            <p style="margin: 4px 0; font-size: 12px; font-weight: 500;">"${hotspot.items?.[0]?.content || hotspot.address}"</p>
+            <span style="font-size: 11px; color: #6366f1; font-weight: 600;">👍 Supported by ${hotspot.upvotes} Citizens</span>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(mapInstanceRef.current, marker);
+      });
+
+      hotspotMarkersRef.current.push(marker);
+    });
+  }, [nearbyHotspots, isLoaded, selectedLocation]);
+
   const handleAutoDetect = () => {
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser.');
@@ -321,7 +445,46 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation }: Goog
             } else {
               address = `Coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
             }
-            onLocationSelect(loc, address);
+            
+            // Query places service
+            const googleObj = (window as any).google;
+            if (googleObj && googleObj.maps && googleObj.maps.places && mapInstanceRef.current) {
+              const service = new googleObj.maps.places.PlacesService(mapInstanceRef.current);
+              const insights: LocationInsights = {};
+              
+              service.nearbySearch({
+                location: latLng,
+                radius: 5000,
+                type: 'school'
+              }, (schoolResults: any, status1: any) => {
+                if (status1 === googleObj.maps.places.PlacesServiceStatus.OK && schoolResults && schoolResults.length > 0) {
+                  const closest = schoolResults[0];
+                  const schoolLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
+                  insights.nearestSchool = {
+                    name: closest.name,
+                    distance: getHaversineDistance(loc, schoolLoc)
+                  };
+                }
+                
+                service.nearbySearch({
+                  location: latLng,
+                  radius: 5000,
+                  type: 'hospital'
+                }, (hospitalResults: any, status2: any) => {
+                  if (status2 === googleObj.maps.places.PlacesServiceStatus.OK && hospitalResults && hospitalResults.length > 0) {
+                    const closest = hospitalResults[0];
+                    const hospLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
+                    insights.nearestHospital = {
+                      name: closest.name,
+                      distance: getHaversineDistance(loc, hospLoc)
+                    };
+                  }
+                  onLocationSelect(loc, address, insights);
+                });
+              });
+            } else {
+              onLocationSelect(loc, address);
+            }
           });
         } else {
           setGeocoding(false);
@@ -393,7 +556,7 @@ const LANG_TO_SPEECH_LOCALE: Record<string, string> = {
   sa: 'sa-IN',
   ne: 'ne-NP',
   sd: 'sd-IN',
-  gom: 'gom-IN',
+  kok: 'kok-IN',
   doi: 'doi-IN',
   mai: 'mai-IN',
   mni: 'mni-IN',
@@ -410,7 +573,17 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   const [address, setAddress] = useState('');
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg');
   const [tempApiKey, setTempApiKey] = useState(apiKey);
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg');
+  const [tempGeminiKey, setTempGeminiKey] = useState(geminiKey);
   const [showApiSettings, setShowApiSettings] = useState(false);
+
+  // New structured metadata states
+  const [category, setCategory] = useState('others');
+  const [scope, setScope] = useState('street');
+  const [insights, setInsights] = useState<LocationInsights | null>(null);
+  const [nearbyHotspots, setNearbyHotspots] = useState<any[]>([]);
+  const [ticketId, setTicketId] = useState('');
+  const [aiIndicator, setAiIndicator] = useState<{ active: boolean; message: string }>({ active: false, message: '' });
 
   const [items, setItems] = useState<SubmissionItem[]>([]);
   const [textNote, setTextNote] = useState('');
@@ -427,27 +600,113 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   // Success modal
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const handleLocationSelect = (loc: Location, addr: string) => {
+  // Query hotspots when location changes
+  useEffect(() => {
+    if (location) {
+      getNearbyHotspots(location.lat, location.lng).then(data => {
+        setNearbyHotspots(data);
+      });
+    }
+  }, [location]);
+
+  const handleLocationSelect = (loc: Location, addr: string, locInsights?: LocationInsights) => {
     setLocation(loc);
     setAddress(addr);
+    if (locInsights) {
+      setInsights(locInsights);
+    }
   };
 
-  const handleSaveApiKey = () => {
+  const handleSaveApiKeys = () => {
     localStorage.setItem('jansetu_gmaps_key', tempApiKey);
+    localStorage.setItem('jansetu_gemini_key', tempGeminiKey);
     setApiKey(tempApiKey);
-    alert('Google Maps API Key saved. Reloading the page to apply...');
+    setGeminiKey(tempGeminiKey);
+    alert('API Settings saved. Reloading the page to apply...');
     window.location.reload();
+  };
+
+  const handleUpvote = async (id: string) => {
+    const updatedVotes = await upvoteDemand(id);
+    setNearbyHotspots(prev => prev.map(h => h.id === id ? { ...h, upvotes: updatedVotes } : h));
+  };
+
+  const callGeminiExtraction = async (textToAnalyze: string) => {
+    const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    if (!activeKey) return;
+
+    setAiIndicator({ active: true, message: 'AI parsing text inputs...' });
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `You are the AI engine of Jansetu Citizen Complainant Portal. Analyze the following transcript of a citizen's complaint (submitted in their regional language, translated to English, or in English).
+Extract:
+1. The category: Choose exactly one from: "water", "roads", "education", "health", "power", "agriculture", "others".
+2. The impact scope: Choose exactly one from: "household", "street", "ward", "constituency".
+
+Format the output strictly as a JSON object:
+{
+  "category": "water",
+  "scope": "street"
+}
+
+Transcript: "${textToAnalyze}"
+JSON:`
+            }]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        })
+      });
+
+      const json = await response.json();
+      const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        const result = JSON.parse(text);
+        let matchCount = 0;
+        if (result.category) {
+          setCategory(result.category);
+          matchCount++;
+        }
+        if (result.scope) {
+          setScope(result.scope);
+          matchCount++;
+        }
+        if (matchCount > 0) {
+          setAiIndicator({ 
+            active: true, 
+            message: `✨ AI Auto-Synced: Set Category to "${result.category.toUpperCase()}" & Scope to "${result.scope.toUpperCase()}"` 
+          });
+          setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
+        } else {
+          setAiIndicator({ active: false, message: '' });
+        }
+      }
+    } catch (e) {
+      console.error("Gemini AI extraction failed: ", e);
+      setAiIndicator({ active: false, message: '' });
+    }
   };
 
   const handleAddText = () => {
     if (!textNote.trim()) return;
+    const content = textNote.trim();
     const newItem: SubmissionItem = {
       id: Date.now().toString(),
       type: 'text',
-      content: textNote.trim()
+      content
     };
     setItems(prev => [...prev, newItem]);
     setTextNote('');
+    callGeminiExtraction(content);
   };
 
   const startRecording = async () => {
@@ -457,6 +716,13 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
 
+      // Programmatically turn off translation during recording to prevent live transcript nodes from getting corrupted
+      const selectElement = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
+      if (selectElement && selectElement.value !== 'en') {
+        selectElement.value = 'en';
+        selectElement.dispatchEvent(new Event('change'));
+      }
+
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
@@ -464,7 +730,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
       };
 
       recorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
         const audioUrl = URL.createObjectURL(audioBlob);
         const finalTranscript = liveTranscriptRef.current;
 
@@ -481,36 +747,97 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
         liveTranscriptRef.current = '';
 
         stream.getTracks().forEach(track => track.stop());
+
+        // Restore Google Translate back to selected language
+        const restoreSelect = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
+        const activeLang = getActiveLangCode() || selectedLang;
+        if (restoreSelect && restoreSelect.value !== activeLang) {
+          restoreSelect.value = activeLang;
+          restoreSelect.dispatchEvent(new Event('change'));
+        }
+
+        if (finalTranscript) {
+          callGeminiExtraction(finalTranscript);
+        }
       };
 
       // Realtime transcription during recording using browser recognition
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = LANG_TO_SPEECH_LOCALE[selectedLang] || 'en-IN';
+        let recognition = new SpeechRecognition();
+        const activeLang = getActiveLangCode() || selectedLang;
+        const startLang = LANG_TO_SPEECH_LOCALE[activeLang] || 'en-IN';
+        const attemptedLangs = new Set<string>();
+        let accumulatedText = '';
 
-        recognition.onresult = (event: any) => {
-          let interimTranscript = '';
-          let finalTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript;
-            } else {
-              interimTranscript += event.results[i][0].transcript;
+        const initRecognition = (langCode: string) => {
+          attemptedLangs.add(langCode);
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = langCode;
+
+          recognition.onresult = (event: any) => {
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              const transcript = event.results[i][0].transcript;
+              if (event.results[i].isFinal) {
+                accumulatedText += transcript + ' ';
+              } else {
+                interimTranscript += transcript;
+              }
             }
-          }
-          const currentText = finalTranscript || interimTranscript;
-          setLiveTranscript(currentText);
-          liveTranscriptRef.current = currentText;
+            const currentText = accumulatedText + interimTranscript;
+            setLiveTranscript(currentText.trim());
+            liveTranscriptRef.current = currentText.trim();
+          };
+
+          recognition.onerror = (err: any) => {
+            console.error('Speech recognition error:', err);
+            if (err.error === 'language-not-supported') {
+              let nextLang: string | null = null;
+              
+              if (langCode.includes('-')) {
+                const short = langCode.split('-')[0];
+                if (!attemptedLangs.has(short)) {
+                  nextLang = short;
+                }
+              }
+              
+              if (!nextLang && !langCode.startsWith('hi') && !langCode.startsWith('en')) {
+                if (!attemptedLangs.has('hi-IN')) {
+                  nextLang = 'hi-IN';
+                } else if (!attemptedLangs.has('hi')) {
+                  nextLang = 'hi';
+                }
+              }
+              
+              if (!nextLang && !attemptedLangs.has('en-IN')) {
+                nextLang = 'en-IN';
+              }
+              
+              if (nextLang) {
+                console.warn(`Language ${langCode} not supported. Trying fallback ${nextLang}`);
+                try {
+                  recognition.abort();
+                } catch (e) {}
+
+                recognition = new SpeechRecognition();
+                initRecognition(nextLang);
+                try {
+                  recognition.start();
+                } catch (e) {
+                  console.error('Failed to start fallback recognition:', e);
+                }
+              } else {
+                console.error('All speech recognition fallbacks exhausted.');
+              }
+            }
+          };
+
+          recognitionRef.current = recognition;
         };
 
-        recognition.onerror = (err: any) => {
-          console.error('Speech recognition error:', err);
-        };
-
-        recognitionRef.current = recognition;
+        initRecognition(startLang);
         recognition.start();
       }
 
@@ -594,6 +921,46 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
 
   const isSubmitDisabled = !location || items.length === 0;
 
+  const SECTOR_CATEGORIES = [
+    { id: 'water', label: 'Water & Sanitation', icon: '🚰' },
+    { id: 'roads', label: 'Roads & Transport', icon: '🛣️' },
+    { id: 'education', label: 'Education & Schools', icon: '🏫' },
+    { id: 'health', label: 'Healthcare Clinics', icon: '🏥' },
+    { id: 'power', label: 'Power & Electricity', icon: '⚡' },
+    { id: 'agriculture', label: 'Agriculture & Irrigation', icon: '🌾' },
+    { id: 'others', label: 'Others / General', icon: '📁' }
+  ];
+
+  const SCOPE_STEPS = [
+    { id: 'household', label: 'Household', count: '👤 ~5 citizens affected' },
+    { id: 'street', label: 'Neighborhood / Street', count: '👥 ~150 citizens affected' },
+    { id: 'ward', label: 'Village / Ward', count: '🏘️ ~5,000 citizens affected' },
+    { id: 'constituency', label: 'Constituency-wide', count: '🌐 ~100,000+ citizens affected' }
+  ];
+
+  const handleSubmit = async () => {
+    if (isSubmitDisabled) return;
+
+    const submissionData = {
+      category,
+      scope,
+      location: location!,
+      address,
+      items: items.map(item => ({
+        type: item.type,
+        content: item.content,
+        fileUrl: item.fileUrl || '',
+        speechTranscript: item.speechTranscript || ''
+      })),
+      email: email.trim() || undefined,
+      phone: phone.trim() || undefined
+    };
+
+    const id = await submitDemand(submissionData);
+    setTicketId(id);
+    setShowSuccess(true);
+  };
+
   return (
     <div className="complainant-portal container">
       {/* Title block with back action */}
@@ -651,17 +1018,28 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
 
             {showApiSettings && (
               <div className="api-key-panel">
-                <label>Google Maps API Key</label>
-                <div className="api-key-input-row">
+                <div className="input-group">
+                  <label>Google Maps API Key</label>
                   <input
                     type="text"
                     placeholder="AIzaSy..."
                     value={tempApiKey}
                     onChange={e => setTempApiKey(e.target.value)}
                   />
-                  <button type="button" onClick={handleSaveApiKey}>Apply</button>
                 </div>
-                <p className="api-help">If empty, loads in development mode with a watermark.</p>
+                <div className="input-group" style={{ marginTop: '10px' }}>
+                  <label>Google Gemini API Key (Google AI Studio)</label>
+                  <input
+                    type="text"
+                    placeholder="AIzaSy..."
+                    value={tempGeminiKey}
+                    onChange={e => setTempGeminiKey(e.target.value)}
+                  />
+                </div>
+                <button type="button" className="btn-add-action" style={{ marginTop: '12px', width: '100%' }} onClick={handleSaveApiKeys}>
+                  Apply API Credentials
+                </button>
+                <p className="api-help">If empty, loads with default credentials for fast prototyping.</p>
               </div>
             )}
 
@@ -676,8 +1054,96 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
               apiKey={apiKey}
               onLocationSelect={handleLocationSelect}
               selectedLocation={location}
+              nearbyHotspots={nearbyHotspots}
             />
           </div>
+
+          {/* AI Local Insights Gap factsheet */}
+          {insights && (
+            <div className="insights-card notranslate">
+              <div className="insights-header">
+                <Sparkles size={16} />
+                <h4>AI Local Insights & Infrastructure Gaps</h4>
+              </div>
+              <div className="insights-body">
+                <div className="insight-row">
+                  <span className="insight-title">🏫 Nearest Public School (Real Places Data):</span>
+                  {insights.nearestSchool ? (
+                    <div className="insight-value">
+                      <strong>{insights.nearestSchool.name}</strong>
+                      <span className="distance-badge">
+                        {insights.nearestSchool.distance.toFixed(2)} km
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="insight-no-data">Searching local databases...</span>
+                  )}
+                </div>
+                <div className="insight-row" style={{ marginTop: '12px' }}>
+                  <span className="insight-title">🏥 Nearest Public Hospital/Clinic (Real Places Data):</span>
+                  {insights.nearestHospital ? (
+                    <div className="insight-value">
+                      <strong>{insights.nearestHospital.name}</strong>
+                      <span className="distance-badge">
+                        {insights.nearestHospital.distance.toFixed(2)} km
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="insight-no-data">Searching local databases...</span>
+                  )}
+                </div>
+                <div className="insight-gap-analysis" style={{ marginTop: '16px' }}>
+                  <span className="gap-title">Sector Gap Rating:</span>
+                  {(() => {
+                    const schoolDist = insights.nearestSchool?.distance || 5;
+                    const hospDist = insights.nearestHospital?.distance || 5;
+                    const maxDist = Math.max(schoolDist, hospDist);
+                    if (maxDist > 3.0) {
+                      return <span className="rating-badge critical">🚨 Critically Deficient (High Infrastructure Gap)</span>;
+                    } else if (maxDist > 1.5) {
+                      return <span className="rating-badge warning">⚠️ Moderate (Needs Expansion)</span>;
+                    } else {
+                      return <span className="rating-badge optimal">✅ Good (Optimal Access)</span>;
+                    }
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Nearby hotspots overlay votes */}
+          {nearbyHotspots.length > 0 && (
+            <div className="hotspots-card notranslate">
+              <h4>⚠️ Existing Active Issues in this Area ({nearbyHotspots.length})</h4>
+              <p className="hotspots-help">To prevent duplicate entries, you can support an existing complaint below:</p>
+              <div className="hotspots-list">
+                {nearbyHotspots.map(hotspot => (
+                  <div key={hotspot.id} className="hotspot-item">
+                    <div className="hotspot-info">
+                      <span className="hotspot-badge" style={{ textTransform: 'capitalize' }}>
+                        {hotspot.category === 'water' && '🚰'}
+                        {hotspot.category === 'roads' && '🛣️'}
+                        {hotspot.category === 'education' && '🏫'}
+                        {hotspot.category === 'health' && '🏥'}
+                        {hotspot.category === 'power' && '⚡'}
+                        {hotspot.category === 'agriculture' && '🌾'}
+                        {hotspot.category === 'others' && '📁'}
+                        {hotspot.category}
+                      </span>
+                      <p className="hotspot-text">{"\"" + (hotspot.items[0]?.content || hotspot.address) + "\""}</p>
+                    </div>
+                    <button 
+                      type="button" 
+                      className="btn-upvote" 
+                      onClick={() => handleUpvote(hotspot.id)}
+                    >
+                      👍 Support ({hotspot.upvotes})
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
 
@@ -687,15 +1153,69 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
             <h3>3. Add Suggestion Details & Attach Evidence</h3>
             <p className="section-help">You can attach multiple entries. At least one attachment is required.</p>
 
+            {/* AI sync status banner */}
+            {aiIndicator.active && (
+              <div className="ai-indicator-banner notranslate">
+                <Sparkles size={14} />
+                <span>{aiIndicator.message}</span>
+              </div>
+            )}
+
+            {/* Visual Category Selector Grid */}
+            <div className="input-box-sub" style={{ marginTop: '20px' }}>
+              <label>Select Category Tag (AI Auto-detects)</label>
+              <div className="category-grid notranslate">
+                {SECTOR_CATEGORIES.map(cat => (
+                  <div 
+                    key={cat.id} 
+                    className={'category-card ' + (category === cat.id ? 'active' : '')}
+                    onClick={() => setCategory(cat.id)}
+                  >
+                    <span className="category-icon">{cat.icon}</span>
+                    <span className="category-label">{cat.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Impact Scope Slider */}
+            <div className="input-box-sub" style={{ marginTop: '20px' }}>
+              <label>Impact Scope (How many citizens are affected?)</label>
+              <div className="scope-slider-container notranslate">
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="3" 
+                  value={SCOPE_STEPS.findIndex(s => s.id === scope)}
+                  onChange={(e) => setScope(SCOPE_STEPS[parseInt(e.target.value)].id)}
+                  className="scope-slider"
+                />
+                <div className="scope-labels-row">
+                  {SCOPE_STEPS.map((step) => (
+                    <span 
+                      key={step.id} 
+                      className={'scope-label ' + (scope === step.id ? 'active' : '')}
+                      onClick={() => setScope(step.id)}
+                    >
+                      {step.label}
+                    </span>
+                  ))}
+                </div>
+                <div className="scope-info-box">
+                  <strong>Estimated Impact:</strong> {SCOPE_STEPS.find(s => s.id === scope)?.count}
+                </div>
+              </div>
+            </div>
+
             {/* Evidence inputs */}
-            <div className="evidence-inputs" style={{ marginTop: '16px' }}>
+            <div className="evidence-inputs" style={{ marginTop: '24px' }}>
               
-              {/* Text Input */}
+              {/* Text Description Box */}
               <div className="input-box-sub">
                 <label>Add Text Description</label>
                 <div className="text-area-row">
                   <textarea
-                    placeholder="Enter description of public infrastructure need..."
+                    placeholder="Enter description of public infrastructure need (AI will auto-tag and set scope)..."
                     value={textNote}
                     onChange={e => setTextNote(e.target.value)}
                   />
@@ -712,7 +1232,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
                 <div className="voice-row">
                   <button
                     type="button"
-                    className={`btn-record ${isRecording ? 'recording' : ''}`}
+                    className={'btn-record ' + (isRecording ? 'recording' : '')}
                     onClick={isRecording ? stopRecording : startRecording}
                   >
                     <span className="record-icon"></span>
@@ -720,9 +1240,9 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
                   </button>
                 </div>
                 {isRecording && (
-                  <div className="voice-feedback">
+                  <div className="voice-feedback notranslate">
                     <span className="pulse-circle"></span>
-                    <span className="live-trans-preview">
+                    <span className="live-trans-preview notranslate">
                       {liveTranscript || 'Listening... speak now.'}
                     </span>
                   </div>
@@ -762,7 +1282,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
               ) : (
                 <div className="attachments-list">
                   {items.map(item => (
-                    <div key={item.id} className={`attachment-card ${item.type}`}>
+                    <div key={item.id} className={'attachment-card ' + item.type}>
                       <div className="attachment-card-header">
                         <span className="item-badge">
                           {item.type === 'text' && '✍️ Text Description'}
@@ -776,16 +1296,16 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
 
                       <div className="attachment-card-body">
                         {item.type === 'text' && (
-                          <p className="text-content">"{item.content}"</p>
+                          <p className="text-content">{"\"" + item.content + "\""}</p>
                         )}
 
                         {item.type === 'audio' && (
                           <div className="audio-item-wrapper">
                             <audio src={item.fileUrl} controls className="audio-control-bar" />
                             {item.speechTranscript && (
-                              <div className="speech-transcript-box">
+                              <div className="speech-transcript-box notranslate">
                                 <span className="box-title">Speech-to-Text Transcript:</span>
-                                <p className="transcript-text">"{item.speechTranscript}"</p>
+                                <p className="transcript-text notranslate">{"\"" + item.speechTranscript + "\""}</p>
                               </div>
                             )}
                           </div>
@@ -805,7 +1325,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
                                 item.ocrText && (
                                   <div className="ocr-text-box">
                                     <span className="box-title">Extracted Text (OCR):</span>
-                                    <p className="ocr-text">"{item.ocrText}"</p>
+                                    <p className="ocr-text">{"\"" + item.ocrText + "\""}</p>
                                   </div>
                                 )
                               )}
@@ -826,11 +1346,11 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
       {/* Submit verification bar */}
       <div className="submit-bar">
         <div className="checklist">
-          <div className={`checklist-item ${location ? 'checked' : ''}`}>
+          <div className={'checklist-item ' + (location ? 'checked' : '')}>
             <span className="checkbox"></span>
             <span>Map Coordinates Placed</span>
           </div>
-          <div className={`checklist-item ${items.length > 0 ? 'checked' : ''}`}>
+          <div className={'checklist-item ' + (items.length > 0 ? 'checked' : '')}>
             <span className="checkbox"></span>
             <span>Evidence Material Provided</span>
           </div>
@@ -840,7 +1360,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
           type="button"
           className="btn-submit-proposal"
           disabled={isSubmitDisabled}
-          onClick={() => setShowSuccess(true)}
+          onClick={handleSubmit}
         >
           <span>Submit Suggestion to Registry</span>
           <ArrowRight size={18} />
@@ -862,12 +1382,16 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
             <div className="modal-summary-card">
               <h4>Submission Summary</h4>
               <div className="summary-row">
+                <span>Ticket Reference ID:</span>
+                <strong>{ticketId}</strong>
+              </div>
+              <div className="summary-row">
                 <span>Contact Info:</span>
-                <strong>{email || phone ? `${email} ${phone}`.trim() : 'Anonymous'}</strong>
+                <strong>{email || phone ? (email + " " + phone).trim() : 'Anonymous'}</strong>
               </div>
               <div className="summary-row">
                 <span>Coordinates:</span>
-                <strong>{location ? `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : 'N/A'}</strong>
+                <strong>{location ? location.lat.toFixed(5) + ", " + location.lng.toFixed(5) : 'N/A'}</strong>
               </div>
               <div className="summary-row">
                 <span>Address:</span>
@@ -887,6 +1411,15 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
                   <span>Photos</span>
                 </div>
               </div>
+              
+              <div className="qr-container" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <img 
+                  src={"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" + encodeURIComponent("https://jansetu.org/track/" + ticketId)}
+                  alt="Track Ticket QR" 
+                  style={{ width: '120px', height: '120px', borderRadius: '8px', border: '1px solid #4f46e5' }}
+                />
+                <span style={{ fontSize: '11px', color: '#8e90b3', fontWeight: '600' }}>Scan to track status on WhatsApp API</span>
+              </div>
             </div>
 
             <button type="button" className="btn-modal-close" onClick={() => {
@@ -896,6 +1429,11 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
               setPhone('');
               setLocation(null);
               setAddress('');
+              setCategory('others');
+              setScope('street');
+              setInsights(null);
+              setNearbyHotspots([]);
+              setTicketId('');
               onBack(); // Return to landing
             }}>
               Return to Portal Home
@@ -911,13 +1449,15 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
 function App() {
   const [selectedLang, setSelectedLang] = useState(getInitialLanguage);
 
+
+
   // Initialize Google Translate Widget dynamically
   useEffect(() => {
     // Define the global callback function for Google Translate Element Init
     (window as any).googleTranslateElementInit = () => {
       new (window as any).google.translate.TranslateElement({
         pageLanguage: 'en',
-        includedLanguages: 'en,hi,bn,te,mr,ta,gu,kn,ml,or,pa,as,ur,sa,ne,sd,gom,doi,mai,mni,brx,sat,ks',
+        includedLanguages: 'en,hi,bn,te,mr,ta,gu,kn,ml,or,pa,as,ur,sa,ne,sd,kok',
         layout: (window as any).google.translate.TranslateElement.InlineLayout.SIMPLE,
         autoDisplay: false
       }, 'google_translate_element');
@@ -927,7 +1467,7 @@ function App() {
     if (!document.getElementById('google-translate-script')) {
       const script = document.createElement('script');
       script.id = 'google-translate-script';
-      script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
       script.async = true;
       document.body.appendChild(script);
     }
@@ -1001,7 +1541,7 @@ function App() {
             </div>
 
             {/* Portal 2: Manager */}
-            <div className="role-card card-manager" id="portal-manager" onClick={() => alert('Access to the Manager Workspace is disabled for this Citizen submission demo.')}>
+            <div className="role-card card-manager" id="portal-manager" onClick={() => window.location.href = '/manager.html'}>
               <div className="card-content">
                 <div className="icon-box">
                   <Database size={28} />
@@ -1013,7 +1553,7 @@ function App() {
                 </p>
               </div>
               <div className="card-action">
-                <button className="role-btn" onClick={(e) => { e.stopPropagation(); alert('Access to the Manager Workspace is disabled for this Citizen submission demo.'); }}>
+                <button className="role-btn" onClick={(e) => { e.stopPropagation(); window.location.href = '/manager.html'; }}>
                   <span>Manager</span>
                   <ArrowRight size={16} />
                 </button>
@@ -1021,7 +1561,7 @@ function App() {
             </div>
 
             {/* Portal 3: MP */}
-            <div className="role-card card-mp" id="portal-mp" onClick={() => alert('Access to the MP Workspace is disabled for this Citizen submission demo.')}>
+            <div className="role-card card-mp" id="portal-mp" onClick={() => window.location.href = '/mp.html'}>
               <div className="card-content">
                 <div className="icon-box">
                   <Award size={28} />
@@ -1033,7 +1573,7 @@ function App() {
                 </p>
               </div>
               <div className="card-action">
-                <button className="role-btn" onClick={(e) => { e.stopPropagation(); alert('Access to the MP Workspace is disabled for this Citizen submission demo.'); }}>
+                <button className="role-btn" onClick={(e) => { e.stopPropagation(); window.location.href = '/mp.html'; }}>
                   <span>MP</span>
                   <ArrowRight size={16} />
                 </button>
