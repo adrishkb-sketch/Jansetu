@@ -919,7 +919,7 @@ JSON:`
     setItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const isSubmitDisabled = !location || items.length === 0;
+  const isSubmitDisabled = false;
 
   const SECTOR_CATEGORIES = [
     { id: 'water', label: 'Water & Sanitation', icon: '🚰' },
@@ -944,7 +944,7 @@ JSON:`
     const submissionData = {
       category,
       scope,
-      location: location!,
+      location: location || { lat: 0, lng: 0 },
       address,
       items: items.map(item => ({
         type: item.type,

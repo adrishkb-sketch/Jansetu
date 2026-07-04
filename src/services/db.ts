@@ -38,8 +38,13 @@ const getFirebaseConfig = () => {
 let db: any = null;
 
 try {
-  const app = initializeApp(getFirebaseConfig());
-  db = getFirestore(app);
+  const config = getFirebaseConfig();
+  if (config.apiKey !== "AIzaSyDummyKeyForJansetuFastPrototypeScale") {
+    const app = initializeApp(config);
+    db = getFirestore(app);
+  } else {
+    console.log("Using dummy Firebase keys. Falling back to local storage emulator.");
+  }
 } catch (error) {
   console.error("Firebase failed to initialize. Falling back to local storage emulator.", error);
 }
@@ -265,5 +270,24 @@ export async function updateDemandStatus(id: string, status: string): Promise<vo
 
   const localDb = getLocalEmulatorData();
   const updated = localDb.map(item => item.id === id ? { ...item, status } : item);
+  saveLocalEmulatorData(updated);
+}
+
+/**
+ * Updates any details of a demand.
+ */
+export async function updateDemandDetails(id: string, customUpdates: any): Promise<void> {
+  try {
+    if (db && !id.startsWith('local_')) {
+      const docRef = doc(db, 'demands', id);
+      await updateDoc(docRef, customUpdates);
+      return;
+    }
+  } catch (e) {
+    console.error("Firestore update failed, saving locally: ", e);
+  }
+
+  const localDb = getLocalEmulatorData();
+  const updated = localDb.map(item => item.id === id ? { ...item, ...customUpdates } : item);
   saveLocalEmulatorData(updated);
 }
