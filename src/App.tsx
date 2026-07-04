@@ -646,9 +646,9 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are the AI engine of Jansetu Citizen Complainant Portal. Analyze the following transcript of a citizen's complaint (submitted in their regional language, translated to English, or in English).
+              text: `You are the AI engine of Jansetu Citizen Complainant Portal. Analyze the following transcript of a citizen's complaint (which may be submitted natively in Hindi, Bengali, Tamil, Telugu, Marathi, or any other regional Indian language). You must seamlessly understand the native language and analyze it.
 Extract:
-1. The category: Choose exactly one from: "water", "roads", "education", "health", "power", "agriculture", "others".
+1. The category: Choose exactly one from: "water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others".
 2. The impact scope: Choose exactly one from: "household", "street", "ward", "constituency".
 
 Format the output strictly as a JSON object:
@@ -928,6 +928,27 @@ JSON:`
     { id: 'health', label: 'Healthcare Clinics', icon: '🏥' },
     { id: 'power', label: 'Power & Electricity', icon: '⚡' },
     { id: 'agriculture', label: 'Agriculture & Irrigation', icon: '🌾' },
+    { id: 'safety', label: 'Public Safety & Police', icon: '🚓' },
+    { id: 'environment', label: 'Environment & Parks', icon: '🌳' },
+    { id: 'welfare', label: 'Social Welfare & Pensions', icon: '🤝' },
+    { id: 'housing', label: 'Housing & Urban Dev', icon: '🏗️' },
+    { id: 'anticorruption', label: 'Anti-Corruption & Vigilance', icon: '🛡️' },
+    { id: 'digital', label: 'Digital Infrastructure', icon: '💻' },
+    { id: 'disaster', label: 'Disaster Management', icon: '🚨' },
+    { id: 'women', label: 'Women & Child Development', icon: '👩‍👧' },
+    { id: 'justice', label: 'Justice & Law Enforcement', icon: '⚖️' },
+    { id: 'economy', label: 'Job Creation & Economy', icon: '📈' },
+    { id: 'consumer', label: 'Consumer Rights', icon: '🛒' },
+    { id: 'taxes', label: 'Taxes, Revenue & Land', icon: '📜' },
+    { id: 'tourism', label: 'Arts, Culture & Tourism', icon: '🎭' },
+    { id: 'youth', label: 'Youth Affairs & Sports', icon: '⚽' },
+    { id: 'innovation', label: 'Science & Innovation', icon: '🚀' },
+    { id: 'rural', label: 'Rural Development', icon: '🏡' },
+    { id: 'security', label: 'National Security & Defense', icon: '🪖' },
+    { id: 'cyber', label: 'AI & Cyber Security', icon: '🤖' },
+    { id: 'climate', label: 'Climate & Sustainability', icon: '🌱' },
+    { id: 'space', label: 'Space & Advanced Tech', icon: '🛰️' },
+    { id: 'foreign', label: 'International Relations', icon: '🌍' },
     { id: 'others', label: 'Others / General', icon: '📁' }
   ];
 
