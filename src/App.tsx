@@ -406,7 +406,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   
   const [location, setLocation] = useState<Location | null>(null);
   const [address, setAddress] = useState('');
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('jansetu_gmaps_key') || '');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg');
   const [tempApiKey, setTempApiKey] = useState(apiKey);
   const [showApiSettings, setShowApiSettings] = useState(false);
 
