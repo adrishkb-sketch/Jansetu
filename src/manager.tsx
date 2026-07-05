@@ -450,6 +450,45 @@ function ManagerConsole() {
                     </div>
                   </div>
 
+                  {/* Interactive Map Coordinates Block */}
+                  <div>
+                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#c7d2fe', marginBottom: '8px', textAlign: 'left' }}>
+                      <MapPin size={14} style={{ color: '#818cf8' }} /> Google Map Grievance Location & Circle Boundaries
+                    </strong>
+                    <div style={{ height: '260px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <GoogleMapComponent
+                        apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
+                        onLocationSelect={() => {}}
+                        selectedLocation={selectedDemand.location}
+                        nearbyHotspots={[]}
+                        focusedPlace={{ lat: selectedDemand.location.lat, lng: selectedDemand.location.lng, name: selectedDemand.associatedPlace?.name || 'Citizen Location' }}
+                        circleData={selectedDemand.circleData || { lat: selectedDemand.location.lat, lng: selectedDemand.location.lng, radius: 100 }}
+                      />
+                    </div>
+                  </div>
+
+                  {selectedDemand.associatedPlace && (
+                    <div style={{ background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)', padding: '14px', borderRadius: '8px', textAlign: 'left' }}>
+                      <strong style={{ color: '#818cf8', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                        📌 Linked Infrastructure/Target Landmark
+                      </strong>
+                      <span style={{ color: 'white', fontSize: '14px' }}>
+                        Name: <strong>{selectedDemand.associatedPlace.name}</strong> ({selectedDemand.associatedPlace.type})
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedDemand.circleData && (
+                    <div style={{ background: 'rgba(20, 184, 166, 0.05)', border: '1px solid rgba(20, 184, 166, 0.15)', padding: '14px', borderRadius: '8px', textAlign: 'left' }}>
+                      <strong style={{ color: '#2dd4bf', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                        ⭕ Selected Impact Boundary Region
+                      </strong>
+                      <span style={{ color: 'white', fontSize: '13px' }}>
+                        Scope Radius: <strong>{selectedDemand.circleData.radius.toFixed(0)} meters</strong> centered at coords ({selectedDemand.circleData.lat.toFixed(5)}, {selectedDemand.circleData.lng.toFixed(5)})
+                      </span>
+                    </div>
+                  )}
+
                   {/* AI Validation Gauge & Clusters */}
                   <div className="role-grid" style={{ gridTemplateColumns: '1fr 1.2fr', gap: '16px' }}>
                     <div style={{ border: '1px solid rgba(99, 102, 241, 0.15)', background: 'rgba(99, 102, 241, 0.02)', padding: '16px', borderRadius: '12px' }}>
@@ -701,7 +740,7 @@ function ManagerConsole() {
                         onLocationSelect={() => {}}
                         selectedLocation={selectedComplaint.location}
                         nearbyHotspots={[]}
-                        focusedPlace={{ lat: selectedComplaint.location.lat, lng: selectedComplaint.location.lng, name: selectedComplaint.associatedPlace?.name || selectedComplaint.category || 'Complaint Location' }}
+                        focusedPlace={{ lat: selectedComplaint.location.lat, lng: selectedComplaint.location.lng, name: selectedComplaint.associatedPlace?.name || 'Citizen Location' }}
                         circleData={selectedComplaint.circleData || { lat: selectedComplaint.location.lat, lng: selectedComplaint.location.lng, radius: 100 }}
                       />
                     </div>
@@ -709,6 +748,28 @@ function ManagerConsole() {
                       📍 Geocoded Address: <strong>{selectedComplaint.address}</strong> (Coords: {selectedComplaint.location.lat.toFixed(5)}, {selectedComplaint.location.lng.toFixed(5)})
                     </span>
                   </div>
+
+                  {selectedComplaint.associatedPlace && (
+                    <div style={{ background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)', padding: '14px', borderRadius: '8px' }}>
+                      <strong style={{ color: '#818cf8', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                        📌 Linked Infrastructure/Target Landmark
+                      </strong>
+                      <span style={{ color: 'white', fontSize: '14px' }}>
+                        Name: <strong>{selectedComplaint.associatedPlace.name}</strong> ({selectedComplaint.associatedPlace.type})
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedComplaint.circleData && (
+                    <div style={{ background: 'rgba(20, 184, 166, 0.05)', border: '1px solid rgba(20, 184, 166, 0.15)', padding: '14px', borderRadius: '8px' }}>
+                      <strong style={{ color: '#2dd4bf', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                        ⭕ Selected Impact Boundary Region
+                      </strong>
+                      <span style={{ color: 'white', fontSize: '13px' }}>
+                        Scope Radius: <strong>{selectedComplaint.circleData.radius.toFixed(0)} meters</strong> centered at coords ({selectedComplaint.circleData.lat.toFixed(5)}, {selectedComplaint.circleData.lng.toFixed(5)})
+                      </span>
+                    </div>
+                  )}
 
                   {/* Contact details */}
                   <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '14px', borderRadius: '8px' }}>
