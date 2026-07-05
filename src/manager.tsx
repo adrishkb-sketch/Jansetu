@@ -66,6 +66,12 @@ function ManagerConsole() {
   const [scopeSliderFilter, setScopeSliderFilter] = useState<string>('all');
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('manager_auth') === 'true');
   const [selectedGlobalConstituency, setSelectedGlobalConstituency] = useState<string>('Rampur');
+  const [constituencySearchQuery, setConstituencySearchQuery] = useState('Rampur');
+  const [showConstituencyDropdown, setShowConstituencyDropdown] = useState(false);
+
+  useEffect(() => {
+    setConstituencySearchQuery(selectedGlobalConstituency);
+  }, [selectedGlobalConstituency]);
 
   // AI Thematic Clustering States
   const [clusteringResults, setClusteringResults] = useState<any[]>(() => {
@@ -2150,15 +2156,87 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                     <Award size={20} />
                     <span>Constituency Demographics Profile</span>
                   </div>
-                  <select 
-                    value={selectedGlobalConstituency} 
-                    onChange={e => setSelectedGlobalConstituency(e.target.value)}
-                    style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '4px 8px', borderRadius: '4px', maxWidth: '300px' }}
-                  >
-                    {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
-                      <option key={cName} value={cName} style={{ color: 'black' }}>{cName} ({ALL_CONSTITUENCIES_DATA[cName].state})</option>
-                    ))}
-                  </select>
+                  <div style={{ position: 'relative', width: '280px', display: 'inline-block' }}>
+                    {showConstituencyDropdown && (
+                      <div 
+                        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999, cursor: 'default' }} 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowConstituencyDropdown(false);
+                        }} 
+                      />
+                    )}
+                    <input 
+                      type="text"
+                      value={constituencySearchQuery}
+                      placeholder="🔍 Search Constituency..."
+                      onChange={e => {
+                        setConstituencySearchQuery(e.target.value);
+                        setShowConstituencyDropdown(true);
+                      }}
+                      onFocus={() => setShowConstituencyDropdown(true)}
+                      style={{ 
+                        background: 'rgba(255,255,255,0.08)', 
+                        color: 'white', 
+                        border: '1px solid rgba(255,255,255,0.18)', 
+                        padding: '6px 12px', 
+                        borderRadius: '6px', 
+                        width: '100%', 
+                        boxSizing: 'border-box',
+                        fontSize: '13px',
+                        position: 'relative',
+                        zIndex: 1000
+                      }}
+                    />
+                    {showConstituencyDropdown && (() => {
+                      const filtered = Object.keys(ALL_CONSTITUENCIES_DATA)
+                        .filter(c => c.toLowerCase().includes(constituencySearchQuery.toLowerCase()))
+                        .sort();
+                      return (
+                        <div style={{ 
+                          position: 'absolute', 
+                          top: '100%', 
+                          left: 0, 
+                          right: 0, 
+                          background: '#0d0c22', 
+                          border: '1px solid rgba(255,255,255,0.15)', 
+                          borderRadius: '6px', 
+                          maxHeight: '220px', 
+                          overflowY: 'auto', 
+                          zIndex: 1001, 
+                          marginTop: '4px',
+                          boxShadow: '0 8px 16px rgba(0,0,0,0.5)'
+                        }}>
+                          {filtered.length > 0 ? (
+                            filtered.map(cName => (
+                              <div 
+                                key={cName}
+                                onClick={() => {
+                                  setSelectedGlobalConstituency(cName);
+                                  setConstituencySearchQuery(cName);
+                                  setShowConstituencyDropdown(false);
+                                }}
+                                style={{ 
+                                  padding: '8px 12px', 
+                                  cursor: 'pointer', 
+                                  fontSize: '12.5px',
+                                  color: cName === selectedGlobalConstituency ? '#818cf8' : 'white',
+                                  background: cName === selectedGlobalConstituency ? 'rgba(129, 140, 248, 0.15)' : 'transparent',
+                                  borderBottom: '1px solid rgba(255,255,255,0.03)'
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = cName === selectedGlobalConstituency ? 'rgba(129, 140, 248, 0.15)' : 'transparent'; }}
+                              >
+                                📍 {cName} <span style={{ color: '#8e90b3', fontSize: '11px', float: 'right' }}>({ALL_CONSTITUENCIES_DATA[cName].state})</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div style={{ padding: '8px 12px', color: '#8e90b3', fontSize: '12px', textAlign: 'center' }}>No matches found</div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginTop: '6px' }}>
                   <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
