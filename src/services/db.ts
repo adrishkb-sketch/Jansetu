@@ -1,6 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, 
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection, 
   addDoc, 
   getDocs, 
@@ -13,8 +16,8 @@ import {
   limit
 } from 'firebase/firestore';
 
-// Default Firebase Configuration (Fast Prototyping - standard Hackathon setup)
-// Allows user to plug in their own config via localStorage
+// Default Firebase Configuration (Production online setup)
+// Allows user to override via localStorage if needed
 const getFirebaseConfig = () => {
   const customConfig = localStorage.getItem('jansetu_firebase_config');
   if (customConfig) {
@@ -25,14 +28,14 @@ const getFirebaseConfig = () => {
     }
   }
   
-  // Free tier demo fallback configuration (can be substituted with active keys)
   return {
-    apiKey: "AIzaSyDummyKeyForJansetuFastPrototypeScale",
-    authDomain: "jansetu-citizen.firebaseapp.com",
-    projectId: "jansetu-citizen",
-    storageBucket: "jansetu-citizen.appspot.com",
-    messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:abc123xyz"
+    apiKey: "AIzaSyADllQ8Um7qsJ4trH5WkRCWfVvHVh_qpp4",
+    authDomain: "jansetu-ef57d.firebaseapp.com",
+    projectId: "jansetu-ef57d",
+    storageBucket: "jansetu-ef57d.firebasestorage.app",
+    messagingSenderId: "219029213168",
+    appId: "1:219029213168:web:a6767bd2efe3bfa3101735",
+    measurementId: "G-4X9G3G92V1"
   };
 };
 
@@ -40,9 +43,19 @@ let db: any = null;
 
 try {
   const config = getFirebaseConfig();
-  if (config.apiKey !== "AIzaSyDummyKeyForJansetuFastPrototypeScale") {
+  if (config.apiKey && config.apiKey !== "AIzaSyDummyKeyForJansetuFastPrototypeScale") {
     const app = initializeApp(config);
-    db = getFirestore(app);
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        })
+      });
+      console.log("Firestore initialized with multi-tab persistent offline cache.");
+    } catch (e) {
+      console.warn("Failed to initialize persistent cache, falling back to standard Firestore:", e);
+      db = getFirestore(app);
+    }
   } else {
     console.log("Using dummy Firebase keys. Falling back to local storage emulator.");
   }
