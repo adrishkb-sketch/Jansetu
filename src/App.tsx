@@ -989,88 +989,6 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
       ].join('\n');
     }
 
-    if (!activeKey || activeKey === 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
-      // Mock Fallback Analysis to allow testing/verification without API keys
-      setTimeout(() => {
-        const textLower = textToAnalyze.toLowerCase();
-        const categoryMatch = 
-          textLower.includes('water') || textLower.includes('drain') || textLower.includes('pipe') ? 'water' :
-          textLower.includes('road') || textLower.includes('pothole') || textLower.includes('street') ? 'roads' :
-          textLower.includes('school') || textLower.includes('education') || textLower.includes('teacher') ? 'education' :
-          textLower.includes('hospital') || textLower.includes('health') || textLower.includes('doctor') ? 'health' :
-          textLower.includes('electricity') || textLower.includes('power') || textLower.includes('light') ? 'power' : 'others';
-
-        const notesCount = textToAnalyze.split('User Text Note:').length - 1;
-        const voiceCount = textToAnalyze.split('User Voice Transcript:').length - 1;
-        const totalItemsCount = notesCount + voiceCount;
-
-        const hasSpecifics = 
-          (totalItemsCount > 1) || 
-          (
-            (textLower.includes('near') || textLower.includes('behind') || textLower.includes('opposite') || textLower.includes('street') || textLower.includes('road') || textLower.includes('market') || textLower.includes('school') || textLower.includes('hospital') || textLower.includes('station') || textLower.includes('gate') || textLower.includes('village') || textLower.includes('block') || textLower.includes('tehsil') || textLower.includes('sector')) && 
-            (textLower.length > 70)
-          );
-        
-        let requiresClarification = !hasSpecifics;
-        let clarificationQuestion = null;
-
-        if (requiresClarification) {
-          if (categoryMatch === 'water') {
-            clarificationQuestion = "We noticed local schools and PHCs are nearby. Could you please clarify the water leakage depth, color, or duration of the outage?";
-          } else if (categoryMatch === 'roads') {
-            clarificationQuestion = "Could you please specify the approximate pothole dimensions (depth/width) or the length of the road affected?";
-          } else if (categoryMatch === 'education') {
-            clarificationQuestion = "Could you please specify the school name, sub-district block, or missing facilities you are reporting?";
-          } else if (categoryMatch === 'health') {
-            clarificationQuestion = "Could you please specify the hospital name, block, or missing medicine details you are reporting?";
-          } else if (categoryMatch === 'power') {
-            clarificationQuestion = "Could you please specify the daily power cut duration, transformer location, or street light IDs?";
-          } else {
-            clarificationQuestion = "Could you please specify the street name, block, or nearby landmark where this issue is occurring?";
-          }
-        }
-
-        setCategory(categoryMatch);
-        setScope(textLower.includes('constituency') ? 'constituency' : textLower.includes('ward') ? 'ward' : 'street');
-        setAiPopulationAffected(120);
-        setUrgency('moderate');
-        setAssetType('others');
-        setFundingSource('municipality');
-        setAiOverview({
-          brief: `Mock audited summary of citizen ${categoryMatch} ticket.`,
-          priorityScore: 65,
-          priorityLabel: 'Medium Priority',
-          estimatedBudget: 'Medium Budget',
-          safetyRisk: 'Moderate'
-        });
-
-        if (requiresClarification) {
-          setAiClarificationQuestion(clarificationQuestion);
-          setAiUnderstood(false);
-        } else {
-          setAiClarificationQuestion(null);
-          setAiUnderstood(true);
-        }
-
-        setCircleData({
-          lat: location.lat,
-          lng: location.lng,
-          radius: 150
-        });
-
-        setShowAiAutoDetectSection(true);
-        setAiIndicator({
-          active: true,
-          message: requiresClarification 
-            ? '⚠️ AI Needs Clarification: Please read request below.'
-            : `✨ AI Auto-Synced (Demo Mode): Category is "${categoryMatch.toUpperCase()}"`
-        });
-        setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
-        setIsAiAnalyzing(false);
-      }, 1000);
-      return;
-    }
-
     try {
       const hotspotsList = nearbyHotspots.map(h => ({
         id: h.id,
@@ -1093,13 +1011,6 @@ Current selected map pin coordinates: Lat: ${location?.lat || 28.6139}, Lng: ${l
 
 Verify the user's ${ticketType} against the Ground Truth Local Infrastructure list:
 ${insightsText}
-
-${aiClarificationQuestion ? `
-[PREVIOUS AI CLARIFICATION REQUEST]
-You previously asked the citizen the following clarification question to resolve/confirm their submission:
-"${aiClarificationQuestion}"
-Please evaluate if the user's follow-up texts or voice notes (provided in the transcript below) have now answered or clarified this request. If the user has provided ANY follow-up details addressing the core issues or added location description context, you MUST set 'requiresClarification' to false and 'clarificationQuestion' to null. Do not keep asking for details indefinitely.
-` : ''}
 
 You must:
 1. Translate it to English if it is in another Indian language or written in regional mixed dialects (such as Hinglish, Banglish, or other languages mixed with English terms, local slang, or local spelling variations). Normalise all local slang and abbreviations into standard English. Provide this standard English translation in the 'translatedText' field.
@@ -1137,10 +1048,8 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
   * power suggestion: solar panels square footage, LED streetlight locations.
   * other suggestions: proposed execution timeline, community benefits, target group.
   If these details are missing, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these suggestion details.
-- Location Validation: If the citizen's transcript does not specify a precise street name, block, colony, or relative landmark boundary, you MUST set 'requiresClarification' to true and ask them in 'clarificationQuestion' to specify exactly where this issue is located. General phrases like "in my area", "in Swar", or "near me" are NOT specific enough.
-- Detail Completeness: Ensure the description contains sufficient quantitative or severity details to solve it. If they are missing, you must set 'requiresClarification' to true. For stray dogs/animals or safety issues, ask for details on approximate count of dogs, their behavior, or if they have bitten specific people.
 - If the user's input is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem/suggestion in a full sentence.
-- If the input is specific, names a landmark/street, and describes severity (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
+- If the input is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
 7. Mentioned Landmark Identification: Check if the user's transcript explicitly mentions any of the landmark names (or partial name matches) in the Ground Truth list above. If they mention one, return its exact name in 'mentionedLandmarkName'. If they don't mention any nearby landmarks, return null.
 8. Extra Classifications:
 - Determine urgency: Choose exactly one from: ["immediate", "moderate", "long_term"]
@@ -1297,19 +1206,12 @@ JSON:`
             : `✨ AI Auto-Synced: Set Category to "${result.category.toUpperCase()}" & Scope to "${result.scope.toUpperCase()}"` 
         });
         setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
-      } else {
-        throw new Error(json.error?.message || "Invalid response format from Gemini API");
       }
       setIsAiAnalyzing(false);
     } catch (e) {
       console.error("Gemini AI extraction failed: ", e);
-      setAiIndicator({ active: true, message: '❌ Gemini API call failed. Verify your key in API settings.' });
-      setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
+      setAiIndicator({ active: false, message: '' });
       setIsAiAnalyzing(false);
-      
-      // Fallback behavior on invalid key to avoid system lockup
-      setAiClarificationQuestion(null);
-      setAiUnderstood(true);
     }
   };
 
