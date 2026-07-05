@@ -31,6 +31,7 @@ function ManagerConsole() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterTicketType, setFilterTicketType] = useState('all');
+  const [sortBy, setSortBy] = useState<string>('newest');
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('manager_auth') === 'true');
 
   // Load demands
@@ -97,8 +98,28 @@ function ManagerConsole() {
     const matchesCategory = filterCategory === 'all' || d.category === filterCategory;
     const matchesStatus = filterStatus === 'all' || d.status === filterStatus;
     const matchesTicketType = activeTab === 'registry' ? true : (filterTicketType === 'all' || (d.ticketType || 'complaint') === filterTicketType);
-
     return matchesSearch && matchesCategory && matchesStatus && matchesTicketType;
+  });
+
+  // Sort the filtered list
+  const sortedDemands = [...filteredDemands].sort((a, b) => {
+    if (sortBy === 'priority') {
+      const scoreA = a.aiOverview?.priorityScore || 0;
+      const scoreB = b.aiOverview?.priorityScore || 0;
+      return scoreB - scoreA;
+    }
+    if (sortBy === 'upvotes') {
+      const votesA = a.upvotes || 1;
+      const votesB = b.upvotes || 1;
+      return votesB - votesA;
+    }
+    if (sortBy === 'impact') {
+      const impactA = a.estimatedImpact || 150;
+      const impactB = b.estimatedImpact || 150;
+      return impactB - impactA;
+    }
+    // Default newest
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
 
   return (
@@ -260,6 +281,27 @@ function ManagerConsole() {
               <option value="health">🏥 Healthcare</option>
               <option value="power">⚡ Power & Grid</option>
               <option value="agriculture">🌾 Agriculture</option>
+              <option value="safety">🚓 Public Safety & Police</option>
+              <option value="environment">🌳 Environment & Forestry</option>
+              <option value="welfare">🤝 Social Welfare & Pension</option>
+              <option value="housing">🏗️ Housing & Urban Dev</option>
+              <option value="anticorruption">⚖️ Anti-Corruption</option>
+              <option value="digital">💻 Digital Services & IT</option>
+              <option value="disaster">🌪️ Disaster Management</option>
+              <option value="women">👩 Women & Child Welfare</option>
+              <option value="justice">🏛️ Law & Justice</option>
+              <option value="economy">📈 Economy & Commerce</option>
+              <option value="consumer">🛍️ Consumer Affairs</option>
+              <option value="taxes">💵 Revenue & Taxes</option>
+              <option value="tourism">🗺️ Tourism & Culture</option>
+              <option value="youth">⚽ Youth & Sports</option>
+              <option value="innovation">🔬 Science & Innovation</option>
+              <option value="rural">🏡 Rural Infrastructure</option>
+              <option value="security">🛡️ Defence & Security</option>
+              <option value="cyber">🔒 Cyber Security</option>
+              <option value="climate">🌍 Climate Change Action</option>
+              <option value="space">🚀 Space Exploration</option>
+              <option value="foreign">🌐 Foreign Relations</option>
               <option value="others">📁 Others / Misc</option>
             </select>
 
@@ -272,6 +314,17 @@ function ManagerConsole() {
               <option value="pending">⏳ Pending Review</option>
               <option value="approved">✅ Approved</option>
               <option value="reviewed">🛠️ Under Review</option>
+            </select>
+
+            <select 
+              value={sortBy} 
+              onChange={e => setSortBy(e.target.value)}
+              style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: '600' }}
+            >
+              <option value="newest">📅 Sort by: Newest First</option>
+              <option value="priority">🔥 Sort by: Priority Score</option>
+              <option value="upvotes">👍 Sort by: Signatures</option>
+              <option value="impact">👥 Sort by: Est. Impact</option>
             </select>
 
             {activeTab === 'complaints' && (
@@ -294,13 +347,13 @@ function ManagerConsole() {
             
             {/* Left Column: Demands List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '680px', paddingRight: '4px' }}>
-              {filteredDemands.length === 0 ? (
+              {sortedDemands.length === 0 ? (
                 <div className="empty-attachments" style={{ padding: '40px' }}>
                   <AlertTriangle size={24} />
                   <span>No registered demands match this search criteria.</span>
                 </div>
               ) : (
-                filteredDemands.map(d => (
+                sortedDemands.map(d => (
                   <div 
                     key={d.id} 
                     onClick={() => setSelectedDemand(d)}
@@ -536,13 +589,13 @@ function ManagerConsole() {
             
             {/* Left Column: Direct Submissions List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '680px', paddingRight: '4px' }}>
-              {filteredDemands.length === 0 ? (
+              {sortedDemands.length === 0 ? (
                 <div className="empty-attachments" style={{ padding: '40px' }}>
                   <AlertTriangle size={24} />
                   <span>No direct submissions match this search criteria.</span>
                 </div>
               ) : (
-                filteredDemands.map(d => {
+                sortedDemands.map(d => {
                   const isSug = d.ticketType === 'suggestion';
                   return (
                     <div 
@@ -648,7 +701,7 @@ function ManagerConsole() {
                         onLocationSelect={() => {}}
                         selectedLocation={selectedComplaint.location}
                         nearbyHotspots={[]}
-                        focusedPlace={selectedComplaint.location}
+                        focusedPlace={{ lat: selectedComplaint.location.lat, lng: selectedComplaint.location.lng, name: selectedComplaint.associatedPlace?.name || selectedComplaint.category || 'Complaint Location' }}
                         circleData={selectedComplaint.circleData || { lat: selectedComplaint.location.lat, lng: selectedComplaint.location.lng, radius: 100 }}
                       />
                     </div>
@@ -716,78 +769,86 @@ function ManagerConsole() {
                       📁 Citizen Evidence Materials & Transcripts ({selectedComplaint.items?.length || 0})
                     </strong>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {selectedComplaint.items?.map((item: any, idx: number) => (
-                        <div key={idx} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', padding: '14px', borderRadius: '8px' }}>
-                          <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.05)', color: '#8e90b3', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block', marginBottom: '8px', textTransform: 'uppercase' }}>
-                            {item.type === 'text' && '✍️ Text Description'}
-                            {item.type === 'audio' && '🔊 Audio Speech Transcript (STT)'}
-                            {item.type === 'photo' && '🖼️ Image Evidence'}
-                          </span>
+                      {selectedComplaint.items && selectedComplaint.items.length > 0 ? (
+                        selectedComplaint.items.map((item: any, idx: number) => (
+                          <div key={idx} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', padding: '14px', borderRadius: '8px' }}>
+                            <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.05)', color: '#8e90b3', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block', marginBottom: '8px', textTransform: 'uppercase' }}>
+                              Attachment #{idx + 1} — {item.type === 'text' ? '✍️ Description' : item.type === 'audio' ? '🔊 Voice Note' : '🖼️ Photo Evidence'}
+                            </span>
 
-                          {item.type === 'text' && (
-                            <p style={{ margin: 0, color: 'white', fontSize: '13px', lineHeight: '1.4' }}>
-                              "{item.content}"
-                            </p>
-                          )}
-
-                          {item.type === 'audio' && (
-                            <div>
-                              <p style={{ margin: '4px 0 0', color: 'white', fontSize: '13px', lineHeight: '1.4', fontStyle: 'italic' }}>
-                                "{item.speechTranscript || item.content}"
+                            {item.content && (
+                              <p style={{ margin: '4px 0 6px', color: 'white', fontSize: '13px', lineHeight: '1.4' }}>
+                                <strong>Content Description:</strong> "{item.content}"
                               </p>
-                              <span style={{ fontSize: '10.5px', color: '#818cf8', display: 'block', marginTop: '6px' }}>
-                                🔊 Voice notes are not stored on servers to protect privacy; only speech transcripts are recorded.
+                            )}
+
+                            {item.speechTranscript && (
+                              <p style={{ margin: '4px 0 6px', color: '#a5b4fc', fontSize: '13px', lineHeight: '1.4', fontStyle: 'italic' }}>
+                                <strong>Transcribed Voice (Speech-to-Text):</strong> "{item.speechTranscript}"
+                              </p>
+                            )}
+
+                            {item.ocrText && (
+                              <p style={{ margin: '4px 0 6px', color: '#6ee7b7', fontSize: '13px', lineHeight: '1.4' }}>
+                                <strong>Extracted OCR Document Text:</strong> "{item.ocrText}"
+                              </p>
+                            )}
+
+                            {item.type === 'audio' && (
+                              <span style={{ fontSize: '10px', color: '#8e90b3', display: 'block', marginTop: '6px' }}>
+                                🔊 Voice note recordings are stored as transcribed text on registry servers to protect user privacy.
                               </span>
-                            </div>
-                          )}
+                            )}
 
-                          {item.type === 'photo' && (
-                            <div>
-                              {item.fileUrl ? (
-                                <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                                    <img src={item.fileUrl} alt="Evidence" style={{ width: '160px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }} />
-                                    
-                                    {/* Bounding Boxes Overlays */}
-                                    {item.boundingBoxes && item.boundingBoxes.map((box: any, bIdx: number) => (
-                                      <div 
-                                        key={bIdx}
-                                        style={{
-                                          position: 'absolute',
-                                          border: '2px solid #ef4444',
-                                          background: 'rgba(239, 68, 68, 0.15)',
-                                          left: `${box.box_2d[1]}%`,
-                                          top: `${box.box_2d[0]}%`,
-                                          width: `${box.box_2d[3] - box.box_2d[1]}%`,
-                                          height: `${box.box_2d[2] - box.box_2d[0]}%`
-                                        }}
-                                      >
-                                        <span style={{ position: 'absolute', top: '-14px', left: 0, fontSize: '8px', background: '#ef4444', color: 'white', padding: '0 3px', borderRadius: '2px', whiteSpace: 'nowrap' }}>
-                                          {box.label}
-                                        </span>
-                                      </div>
-                                    ))}
+                            {item.type === 'photo' && (
+                              <div style={{ marginTop: '8px' }}>
+                                {item.fileUrl ? (
+                                  <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                                      <img src={item.fileUrl} alt="Evidence" style={{ width: '160px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                      
+                                      {/* Bounding Boxes Overlays */}
+                                      {item.boundingBoxes && item.boundingBoxes.map((box: any, bIdx: number) => (
+                                        <div 
+                                          key={bIdx}
+                                          style={{
+                                            position: 'absolute',
+                                            border: '2px solid #ef4444',
+                                            background: 'rgba(239, 68, 68, 0.15)',
+                                            left: `${box.box_2d[1]}%`,
+                                            top: `${box.box_2d[0]}%`,
+                                            width: `${box.box_2d[3] - box.box_2d[1]}%`,
+                                            height: `${box.box_2d[2] - box.box_2d[0]}%`
+                                          }}
+                                        >
+                                          <span style={{ position: 'absolute', top: '-14px', left: 0, fontSize: '8px', background: '#ef4444', color: 'white', padding: '0 3px', borderRadius: '2px', whiteSpace: 'nowrap' }}>
+                                            {box.label}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div>
+                                      <strong style={{ fontSize: '12px', color: 'white', display: 'block' }}>Verified Image Context</strong>
+                                      <p style={{ fontSize: '11px', color: '#8e90b3', margin: '4px 0 0' }}>
+                                        Image is processed and retained because it contains essential landmarks context.
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <strong style={{ fontSize: '12px', color: 'white', display: 'block' }}>Verified Image Context</strong>
-                                    <p style={{ fontSize: '11.5px', color: '#8e90b3', margin: '4px 0 0' }}>
-                                      "{item.content}"
-                                    </p>
+                                ) : (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <ImageIcon size={18} style={{ color: '#fbbf24' }} />
+                                    <span style={{ fontSize: '12px', color: '#fbbf24', fontWeight: 'bold' }}>
+                                      Image details discarded by AI (not deemed necessary to identify the problem).
+                                    </span>
                                   </div>
-                                </div>
-                              ) : (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <ImageIcon size={18} style={{ color: '#fbbf24' }} />
-                                  <span style={{ fontSize: '12px', color: '#fbbf24', fontWeight: 'bold' }}>
-                                    Image details discarded by AI (not deemed necessary to identify the problem).
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                        </div>
-                      ))}
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p style={{ color: '#8e90b3', fontStyle: 'italic', fontSize: '13px' }}>No attachments logged for this ticket.</p>
+                      )}
                     </div>
                   </div>
 
