@@ -2390,19 +2390,12 @@ JSON:`
               </div>
             )}
 
-            {/* AI sync status banner */}
-            {aiIndicator.active && (
-              <div className="ai-indicator-banner notranslate">
-                <Sparkles size={14} />
-                <span>{aiIndicator.message}</span>
-              </div>
-            )}
 
             {isAiAnalyzing && (
               <div className="ai-verifying-banner" style={{ marginTop: '12px', border: '1px solid #6366f1', padding: '10px 14px', borderRadius: '8px', background: 'rgba(99,102,241,0.08)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Loader2 className="spinner" size={18} style={{ color: '#818cf8' }} />
                 <div>
-                  <strong style={{ display: 'block', fontSize: '13px', color: '#c7d2fe' }}>Verifying with AI...</strong>
+                  <strong style={{ display: 'block', fontSize: '13px', color: '#c7d2fe' }}>{aiIndicator.message || "Verifying with AI..."}</strong>
                   <span style={{ fontSize: '11px', color: '#a5b4fc' }}>Cross-referencing details, categories, and local landmark parameters.</span>
                 </div>
               </div>
