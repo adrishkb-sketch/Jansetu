@@ -889,14 +889,6 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   };
 
   const handleSaveApiKeys = () => {
-    if (tempGeminiKey && tempGeminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg' && !tempGeminiKey.startsWith('AIzaSy')) {
-      alert("⚠️ Error: The Google Gemini API key must start with 'AIzaSy' (standard Google AI Studio format). Keys starting with 'AQ.' or other prefixes are invalid for Google AI Studio API developer access.");
-      return;
-    }
-    if (tempApiKey && tempApiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg' && !tempApiKey.startsWith('AIzaSy')) {
-      alert("⚠️ Error: The Google Maps API key must start with 'AIzaSy'. Please verify your credentials.");
-      return;
-    }
     localStorage.setItem('jansetu_gmaps_key', tempApiKey);
     localStorage.setItem('jansetu_gemini_key', tempGeminiKey);
     setApiKey(tempApiKey);
@@ -2718,7 +2710,7 @@ JSON:`
                 </p>
                 <div style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)' }}>
                   <p style={{ margin: 0, fontSize: '11.5px', color: '#fbcfe8', lineHeight: '1.5' }}>
-                    💡 <strong>Quick Fix:</strong> Your Gemini API key must start with <strong>AIzaSy</strong> (standard developer key from Google AI Studio). The key you entered starts with another prefix which is invalid for direct API developer endpoints. Please click <strong>API Settings</strong> under Section 2 to verify your key.
+                    💡 <strong>Quick Fix:</strong> Please verify that you copied the complete API key from Google AI Studio. Google AI Studio keys start with either the <strong>AIzaSy</strong> or <strong>AQ.</strong> prefix. If you see this card, the API call failed (e.g. invalid permissions, incorrect project setup, or network timeout).
                   </p>
                 </div>
                 <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
