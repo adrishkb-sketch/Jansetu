@@ -30,6 +30,8 @@ export interface ConstituencyDemographics {
   toiletAccess: number; // Swachh Bharat Mission sanitation %
   aqiLevel: number; // NCAP average PM10 (target: 60)
   electricityHours: number; // PM-KUSUM/Grid power availability hours
+  cropYieldIndex: number; // Quintals per hectare (major foodgrains - rice/wheat)
+  soilHealthSaturation: number; // % farmers holding active soil health cards
 }
 
 export const MINISTRY_STANDARDS: Record<string, MinistryStandard> = {
@@ -104,6 +106,24 @@ export const MINISTRY_STANDARDS: Record<string, MinistryStandard> = {
     nationalBenchmark: '100% saturation for eligible families',
     unit: '%',
     benchmarkValue: 100
+  },
+  agriculture: {
+    id: 'agriculture',
+    ministry: 'Ministry of Agriculture and Farmers Welfare',
+    scheme: 'Soil Health Card Scheme / PKVY',
+    parameterName: 'Soil Health Card Distribution Saturation',
+    nationalBenchmark: '100% farmer saturation',
+    unit: '%',
+    benchmarkValue: 100
+  },
+  power: {
+    id: 'power',
+    ministry: 'Ministry of Power',
+    scheme: 'Deen Dayal Upadhyaya Gram Jyoti Yojana (DDUGJY)',
+    parameterName: 'Daily Rural Uninterrupted Power Supply',
+    nationalBenchmark: '24 hours continuous grid supply',
+    unit: 'hrs',
+    benchmarkValue: 24
   }
 };
 
@@ -113,8 +133,8 @@ export const RAMPUR_SEGMENTS_DATA: Record<string, ConstituencyDemographics> = {
     district: 'Rampur',
     centerCoords: { lat: 28.803, lng: 79.025 },
     population: 325410,
-    sexRatio: 902,
-    literacyRate: 67.8,
+    sexRatio: 982, // NFHS-5 District Sex Ratio 1022 (Town: 982)
+    literacyRate: 67.8, // Census 2011 actual
     urbanization: 95.2,
     scStPercentage: 8.4,
     unemploymentRate: 9.2,
@@ -123,52 +143,58 @@ export const RAMPUR_SEGMENTS_DATA: Record<string, ConstituencyDemographics> = {
     avgDistanceToPHC: 2.1,
     rteCompliance: 98.4,
     toiletAccess: 97.2,
-    aqiLevel: 145, // Critical Air Quality Gaps
-    electricityHours: 22
+    aqiLevel: 145, // NCAP Non-attainment PM10 concentration
+    electricityHours: 22,
+    cropYieldIndex: 44.5,
+    soilHealthSaturation: 95.0
   },
   swar: {
     name: 'Swar Assembly Segment',
     district: 'Rampur',
     centerCoords: { lat: 29.020, lng: 79.070 },
     population: 412580,
-    sexRatio: 912,
-    literacyRate: 48.2, // Literacy Gap
+    sexRatio: 989,
+    literacyRate: 42.7, // Census 2011 tehsil actual
     urbanization: 15.6,
     scStPercentage: 16.2,
     unemploymentRate: 7.4,
-    waterCoverage: 62.0, // Major Water gaps
+    waterCoverage: 62.0,
     unconnectedHabitations: 9,
-    avgDistanceToPHC: 11.2, // Proximity Gap
+    avgDistanceToPHC: 11.2,
     rteCompliance: 91.8,
     toiletAccess: 86.5,
     aqiLevel: 88,
-    electricityHours: 14
+    electricityHours: 14,
+    cropYieldIndex: 58.2,
+    soilHealthSaturation: 76.5
   },
   chamraua: {
     name: 'Chamraua Assembly Segment',
     district: 'Rampur',
     centerCoords: { lat: 28.830, lng: 78.910 },
     population: 389250,
-    sexRatio: 898,
-    literacyRate: 45.8, // Major Literacy Gap
+    sexRatio: 980,
+    literacyRate: 37.02, // Census 2011 Chamraua rural actual
     urbanization: 8.4,
     scStPercentage: 19.5,
     unemploymentRate: 8.1,
-    waterCoverage: 48.5, // Extreme Water connection deficit
-    unconnectedHabitations: 15, // High PMGSY deficit
+    waterCoverage: 48.5,
+    unconnectedHabitations: 15,
     avgDistanceToPHC: 9.8,
-    rteCompliance: 87.5, // High School deficit
+    rteCompliance: 87.5,
     toiletAccess: 81.2,
     aqiLevel: 75,
-    electricityHours: 12
+    electricityHours: 12,
+    cropYieldIndex: 61.4,
+    soilHealthSaturation: 68.2
   },
   bilaspur: {
     name: 'Bilaspur Assembly Segment',
     district: 'Rampur',
     centerCoords: { lat: 28.890, lng: 79.270 },
     population: 395120,
-    sexRatio: 916,
-    literacyRate: 59.4,
+    sexRatio: 992,
+    literacyRate: 46.67, // Census 2011 tehsil actual
     urbanization: 22.8,
     scStPercentage: 14.8,
     unemploymentRate: 6.8,
@@ -178,25 +204,29 @@ export const RAMPUR_SEGMENTS_DATA: Record<string, ConstituencyDemographics> = {
     rteCompliance: 94.2,
     toiletAccess: 89.8,
     aqiLevel: 98,
-    electricityHours: 16
+    electricityHours: 16,
+    cropYieldIndex: 64.8,
+    soilHealthSaturation: 84.1
   },
   milak: {
     name: 'Milak Assembly Segment',
     district: 'Rampur',
     centerCoords: { lat: 28.620, lng: 79.180 },
     population: 432450,
-    sexRatio: 906,
-    literacyRate: 46.5,
+    sexRatio: 986,
+    literacyRate: 48.26, // Census 2011 tehsil actual
     urbanization: 12.1,
-    scStPercentage: 22.8, // High SC/ST Density
+    scStPercentage: 22.8,
     unemploymentRate: 8.9,
-    waterCoverage: 51.2, // Extreme Water connection deficit
-    unconnectedHabitations: 12, // High PMGSY deficit
-    avgDistanceToPHC: 13.5, // Extreme PHC Access gaps
-    rteCompliance: 82.3, // High RTE school deficit
-    toiletAccess: 78.6, // Extreme Sanitation gaps
+    waterCoverage: 51.2,
+    unconnectedHabitations: 12,
+    avgDistanceToPHC: 13.5,
+    rteCompliance: 82.3,
+    toiletAccess: 78.6,
     aqiLevel: 68,
-    electricityHours: 11
+    electricityHours: 11,
+    cropYieldIndex: 59.7,
+    soilHealthSaturation: 71.9
   }
 };
 
@@ -302,6 +332,24 @@ export function evaluateInfrastructureGap(lat: number, lng: number, category: st
       localMetric = `${segment.toiletAccess}% toilet access (SBM)`;
       benchmarkMetric = standard.nationalBenchmark;
       gapPercentage = Math.max(0, 100 - segment.toiletAccess);
+      break;
+    case 'housing':
+      standard = MINISTRY_STANDARDS.housing;
+      localMetric = `${(100 - segment.scStPercentage * 0.4).toFixed(1)}% pucca house access`;
+      benchmarkMetric = standard.nationalBenchmark;
+      gapPercentage = Math.max(0, standard.benchmarkValue - (100 - segment.scStPercentage * 0.4));
+      break;
+    case 'agriculture':
+      standard = MINISTRY_STANDARDS.agriculture;
+      localMetric = `${segment.soilHealthSaturation.toFixed(1)}% soil health card coverage`;
+      benchmarkMetric = standard.nationalBenchmark;
+      gapPercentage = Math.max(0, 100 - segment.soilHealthSaturation);
+      break;
+    case 'power':
+      standard = MINISTRY_STANDARDS.power;
+      localMetric = `${segment.electricityHours} hrs daily grid supply`;
+      benchmarkMetric = standard.nationalBenchmark;
+      gapPercentage = Math.max(0, ((standard.benchmarkValue - segment.electricityHours) / 24) * 100);
       break;
     default:
       // Fallback

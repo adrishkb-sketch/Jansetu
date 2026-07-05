@@ -16,6 +16,7 @@ import {
 import { getAllDemands, updateDemandStatus, getActionPlan } from './services/db';
 import { LanguageSelector, getInitialLanguage, useGoogleMapsLoader } from './App';
 import { AuthModal } from './AuthModal';
+import { RAMPUR_SEGMENTS_DATA } from './services/constituency_datasets';
 import './index.css';
 
 // Priority Score Ranker
@@ -543,6 +544,67 @@ Structure of Speech:
 
           </div>
 
+        </div>
+
+        {/* Sub-District Deficits Table */}
+        <div className="form-card" style={{ padding: '20px 24px', marginTop: '24px', textAlign: 'left' }}>
+          <h4 style={{ color: '#2dd4bf', margin: '0 0 12px 0' }}>📂 Sub-District Infrastructure & Agriculture Deficit Auditor Matrix</h4>
+          <p style={{ fontSize: '12px', color: 'var(--text-desc)', margin: '0 0 16px 0' }}>
+            Cross-referencing active assembly segments against Union Ministry standards (NFHS-5, CPCB NCAP, JJM, Census 2011) to highlight critical regional gaps.
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#2dd4bf', fontWeight: 'bold' }}>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Assembly Segment</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>Total Population</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>Literacy %</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>JJM Water Coverage</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>PMGSY Unconnected Roads</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>NHM Healthcare Proximity</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>RTE School Compliance</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>SBM Toilet Saturation</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>DDUGJY Power Grid</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>NCAP PM10 AQI</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>Agri Yield Index</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>Soil Health Saturation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(RAMPUR_SEGMENTS_DATA).map(key => {
+                  const seg = RAMPUR_SEGMENTS_DATA[key];
+                  return (
+                    <tr key={key} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
+                      <td style={{ padding: '10px', fontWeight: 'bold', textAlign: 'left' }}>📍 {seg.name.replace(" Assembly Segment", "")}</td>
+                      <td style={{ padding: '10px', textAlign: 'center' }}>{seg.population.toLocaleString()}</td>
+                      <td style={{ padding: '10px', textAlign: 'center', color: seg.literacyRate < 50 ? '#f87171' : 'white' }}>{seg.literacyRate}%</td>
+                      <td style={{ padding: '10px', textAlign: 'center', color: seg.waterCoverage < 60 ? '#f87171' : '#34d399', fontWeight: 'bold' }}>
+                        {seg.waterCoverage}% {seg.waterCoverage < 60 && '⚠️'}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center', color: seg.unconnectedHabitations > 5 ? '#f87171' : 'white' }}>
+                        {seg.unconnectedHabitations} villages {seg.unconnectedHabitations > 5 && '⚠️'}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center', color: seg.avgDistanceToPHC > 8 ? '#f87171' : 'white' }}>
+                        {seg.avgDistanceToPHC} km {seg.avgDistanceToPHC > 8 && '⚠️'}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center' }}>{seg.rteCompliance}%</td>
+                      <td style={{ padding: '10px', textAlign: 'center', color: seg.toiletAccess < 80 ? '#f87171' : 'white' }}>{seg.toiletAccess}%</td>
+                      <td style={{ padding: '10px', textAlign: 'center', color: seg.electricityHours < 15 ? '#f87171' : 'white' }}>
+                        {seg.electricityHours} hrs/day {seg.electricityHours < 15 && '⚠️'}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center', color: seg.aqiLevel > 100 ? '#f87171' : '#34d399', fontWeight: 'bold' }}>
+                        {seg.aqiLevel} µg/m³ {seg.aqiLevel > 100 && '⚠️'}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center' }}>{seg.cropYieldIndex} q/ha</td>
+                      <td style={{ padding: '10px', textAlign: 'center', color: seg.soilHealthSaturation < 75 ? '#f87171' : 'white' }}>
+                        {seg.soilHealthSaturation}% {seg.soilHealthSaturation < 75 && '⚠️'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
 

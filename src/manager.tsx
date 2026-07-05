@@ -2022,9 +2022,9 @@ Provide your response ONLY as a valid JSON object matching the following schema.
 
             {/* Sub-District Deficits Table */}
             <div className="form-card" style={{ padding: '20px 24px' }}>
-              <h4 style={{ color: '#2dd4bf', margin: '0 0 12px 0' }}>📂 Sub-District Infrastructure Deficit Auditor Matrix</h4>
+              <h4 style={{ color: '#2dd4bf', margin: '0 0 12px 0' }}>📂 Sub-District Infrastructure & Agriculture Deficit Auditor Matrix</h4>
               <p style={{ fontSize: '12px', color: 'var(--text-desc)', margin: '0 0 16px 0' }}>
-                Cross-referencing active assembly segments against Union Ministry guidelines to highlight critical gaps.
+                Cross-referencing active assembly segments against Union Ministry standards (NFHS-5, CPCB NCAP, JJM, Census 2011) to highlight critical regional gaps.
               </p>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
@@ -2038,6 +2038,10 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                       <th style={{ padding: '10px', textAlign: 'center' }}>NHM Healthcare Proximity</th>
                       <th style={{ padding: '10px', textAlign: 'center' }}>RTE School Compliance</th>
                       <th style={{ padding: '10px', textAlign: 'center' }}>SBM Toilet Saturation</th>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>DDUGJY Power Grid</th>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>NCAP PM10 AQI</th>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>Agri Yield Index</th>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>Soil Health Saturation</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2059,6 +2063,16 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                           </td>
                           <td style={{ padding: '10px', textAlign: 'center' }}>{seg.rteCompliance}%</td>
                           <td style={{ padding: '10px', textAlign: 'center', color: seg.toiletAccess < 80 ? '#f87171' : 'white' }}>{seg.toiletAccess}%</td>
+                          <td style={{ padding: '10px', textAlign: 'center', color: seg.electricityHours < 15 ? '#f87171' : 'white' }}>
+                            {seg.electricityHours} hrs/day {seg.electricityHours < 15 && '⚠️'}
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'center', color: seg.aqiLevel > 100 ? '#f87171' : '#34d399', fontWeight: 'bold' }}>
+                            {seg.aqiLevel} µg/m³ {seg.aqiLevel > 100 && '⚠️'}
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'center' }}>{seg.cropYieldIndex} q/ha</td>
+                          <td style={{ padding: '10px', textAlign: 'center', color: seg.soilHealthSaturation < 75 ? '#f87171' : 'white' }}>
+                            {seg.soilHealthSaturation}% {seg.soilHealthSaturation < 75 && '⚠️'}
+                          </td>
                         </tr>
                       );
                     })}
