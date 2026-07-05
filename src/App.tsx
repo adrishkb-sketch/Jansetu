@@ -1058,7 +1058,7 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
   If these details are missing, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these suggestion details.
 - If the user's input is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem/suggestion in a full sentence.
 - If the input is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
-7. Mentioned Landmark Identification: Check if the user's transcript mentions, refers to, or describes an issue happening near any of the landmarks, schools, hospitals, police stations, parks, transit stations, or temples in the Ground Truth list above. Even if they do not type the exact name, if they mention "temple" and "Hatpukur Kali Temple" is in the Ground Truth list, or if they mention a general area and there is a prominent nearby infrastructure facility from the list that is highly relevant, you must return that landmark's exact name from the Ground Truth list in 'mentionedLandmarkName'. If no landmarks are mentioned or relevant, return null.
+7. Mentioned Landmark Identification: Check if the user's transcript mentions, refers to, or describes an issue happening near any specific place, establishment, shop, street, road, landmark, school, hospital, park, temple, or facility (either from the Ground Truth list above or general text). If yes, extract and return the exact name of that landmark, shop, street, road, temple, or establishment in the 'mentionedLandmarkName' field (e.g. "Hatpukur Kali Temple", "Joy Maa Store", "Netaji Road", "Dasnagar Market"). If no specific place or landmark is mentioned, return null.
 8. Extra Classifications:
 - Determine urgency: Choose exactly one from: ["immediate", "moderate", "long_term"]
 - Determine assetType: Choose exactly one from: ["roadway", "drainage", "building", "electrical_grid", "waste_management", "public_safety_asset", "social_facility", "others"]
@@ -1162,40 +1162,65 @@ JSON:`
 
         if (result.mentionedLandmarkName) {
           const queryStr = result.mentionedLandmarkName.toLowerCase();
-          let matchedPlace: any = null;
-          let matchedType = '';
-
-          const groups = [
-            { type: 'school', list: insights?.schools },
-            { type: 'hospital', list: insights?.hospitals },
-            { type: 'police', list: insights?.policeStations },
-            { type: 'park', list: insights?.parks },
-            { type: 'transit', list: insights?.transitStations },
-            { type: 'railway', list: insights?.railways },
-            { type: 'postOffice', list: insights?.postOffices },
-            { type: 'temple', list: insights?.temples }
-          ];
-
-          for (const g of groups) {
-            if (g.list) {
-              const found = g.list.find(p => p.name.toLowerCase().includes(queryStr) || queryStr.includes(p.name.toLowerCase()));
-              if (found) {
-                matchedPlace = found;
-                matchedType = g.type;
-                break;
+          const google = (window as any).google;
+          
+          const fallbackLocalGroupLookup = () => {
+            let matchedPlace: any = null;
+            let matchedType = '';
+            const groups = [
+              { type: 'school', list: insights?.schools },
+              { type: 'hospital', list: insights?.hospitals },
+              { type: 'police', list: insights?.policeStations },
+              { type: 'park', list: insights?.parks },
+              { type: 'transit', list: insights?.transitStations },
+              { type: 'railway', list: insights?.railways },
+              { type: 'postOffice', list: insights?.postOffices },
+              { type: 'temple', list: insights?.temples }
+            ];
+            for (const g of groups) {
+              if (g.list) {
+                const found = g.list.find(p => p.name.toLowerCase().includes(queryStr) || queryStr.includes(p.name.toLowerCase()));
+                if (found) {
+                  matchedPlace = found;
+                  matchedType = g.type;
+                  break;
+                }
               }
             }
-          }
+            if (matchedPlace) {
+              setAiSuggestedLandmark({
+                name: matchedPlace.name,
+                type: matchedType,
+                lat: matchedPlace.lat,
+                lng: matchedPlace.lng
+              });
+            } else {
+              setAiSuggestedLandmark(null);
+            }
+          };
 
-          if (matchedPlace) {
-            setAiSuggestedLandmark({
-              name: matchedPlace.name,
-              type: matchedType,
-              lat: matchedPlace.lat,
-              lng: matchedPlace.lng
+          if (google && google.maps && google.maps.places && mapContainerRef.current) {
+            const service = new google.maps.places.PlacesService(mapContainerRef.current);
+            const request = {
+              location: location ? new google.maps.LatLng(location.lat, location.lng) : new google.maps.LatLng(28.6139, 77.2090),
+              radius: 5000,
+              query: result.mentionedLandmarkName
+            };
+            service.textSearch(request, (results: any, status: any) => {
+              if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                const topResult = results[0];
+                setAiSuggestedLandmark({
+                  name: topResult.name,
+                  type: 'custom',
+                  lat: topResult.geometry.location.lat(),
+                  lng: topResult.geometry.location.lng()
+                });
+              } else {
+                fallbackLocalGroupLookup();
+              }
             });
           } else {
-            setAiSuggestedLandmark(null);
+            fallbackLocalGroupLookup();
           }
         } else {
           setAiSuggestedLandmark(null);
