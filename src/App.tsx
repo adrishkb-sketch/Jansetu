@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Network, 
   Megaphone, 
@@ -2089,13 +2089,60 @@ JSON:`
                                 borderRadius: '4px', 
                                 fontWeight: 'bold',
                                 color: 'white',
-                                background: demand.status === 'approved' ? '#10b981' : demand.status === 'needs_info' ? '#ef4444' : '#f59e0b'
+                                background: demand.status === 'completed' ? '#10b981' :
+                                            demand.status === 'work_started' ? '#3b82f6' :
+                                            demand.status === 'funded' ? '#fbbf24' :
+                                            demand.status === 'approved' ? '#818cf8' :
+                                            demand.status === 'needs_info' ? '#ef4444' : '#f59e0b'
                               }}>
-                                {demand.status === 'approved' ? 'Approved by MLA Workspace' : demand.status === 'needs_info' ? 'Needs More Info' : 'Pending Verification'}
+                                {demand.status === 'completed' ? 'Completed' :
+                                 demand.status === 'work_started' ? 'Work Started' :
+                                 demand.status === 'funded' ? 'Funded' :
+                                 demand.status === 'approved' ? 'Speech Raised' :
+                                 demand.status === 'needs_info' ? 'Needs More Info' : 'Pending Verification'}
                               </span>
                               <span style={{ display: 'block', fontSize: '11px', color: '#a5b4fc', marginTop: '6px' }}>
                                 👍 {demand.upvotes || 1} Agreements
                               </span>
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: '14px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '12px' }}>
+                            <span style={{ fontSize: '11px', color: '#8e90b3', display: 'block', marginBottom: '8px' }}>
+                              📋 Visual Implementation Timeline:
+                            </span>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                              {[
+                                { key: 'pending', label: 'Pending' },
+                                { key: 'reviewed', label: 'Proposed' },
+                                { key: 'approved', label: 'Speech Raised' },
+                                { key: 'funded', label: 'Funded' },
+                                { key: 'work_started', label: 'In Progress' },
+                                { key: 'completed', label: 'Completed' }
+                              ].map((step, sIdx, arr) => {
+                                const statusList = ['pending', 'reviewed', 'approved', 'funded', 'work_started', 'completed'];
+                                const currentIdx = statusList.indexOf(demand.status || 'pending');
+                                const targetIdx = statusList.indexOf(step.key);
+                                const isDone = targetIdx <= currentIdx;
+                                const color = isDone ? (step.key === 'completed' ? '#34d399' : '#818cf8') : 'rgba(255,255,255,0.08)';
+
+                                return (
+                                  <React.Fragment key={step.key}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                      <div style={{
+                                        width: '10px', height: '10px', borderRadius: '50%',
+                                        background: color, border: '2px solid rgba(0,0,0,0.3)'
+                                      }} />
+                                      <span style={{ fontSize: '8px', color: isDone ? 'white' : '#8e90b3', marginTop: '2px', display: 'block', whiteSpace: 'nowrap' }}>
+                                        {step.label}
+                                      </span>
+                                    </div>
+                                    {sIdx < arr.length - 1 && (
+                                      <div style={{ height: '2px', background: isDone && (sIdx < currentIdx) ? '#818cf8' : 'rgba(255,255,255,0.08)', flex: 1, marginBottom: '10px' }} />
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
                             </div>
                           </div>
 

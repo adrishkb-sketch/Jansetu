@@ -28,7 +28,7 @@ import {
   ChevronUp,
   Loader2
 } from 'lucide-react';
-import { getAllDemands, updateDemandStatus, saveActionPlan, getActionPlan, updateDemandDetails } from './services/db';
+import { getAllDemands, updateDemandStatus, saveActionPlan, getActionPlan, updateDemandDetails, getAllActionPlans, saveActionPlanByConstituency, getActionPlanByConstituency } from './services/db';
 import { LanguageSelector, getInitialLanguage, GoogleMapComponent } from './App';
 import { AuthModal } from './AuthModal';
 import { 
@@ -53,12 +53,16 @@ function ManagerConsole() {
   const [demands, setDemands] = useState<any[]>([]);
   const [selectedDemand, setSelectedDemand] = useState<any | null>(null);
   const [selectedComplaint, setSelectedComplaint] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<'registry' | 'complaints' | 'clustering' | 'datasets' | 'proposal'>('registry');
+  const [activeTab, setActiveTab] = useState<'registry' | 'complaints' | 'clustering' | 'datasets' | 'proposal' | 'tracking'>('registry');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterTicketType, setFilterTicketType] = useState('all');
   const [filterTime, setFilterTime] = useState<string>('all');
+  const [filterConstituency, setFilterConstituency] = useState<string>('all');
+  const [clubbingMode, setClubbingMode] = useState<'none' | 'category' | 'constituency'>('none');
+  const [allActionPlans, setAllActionPlans] = useState<any[]>([]);
+  const [selectedTrackingPlan, setSelectedTrackingPlan] = useState<any | null>(null);
   const [sortBy, setSortBy] = useState<string>('cpi');
   const [prioritySlider, setPrioritySlider] = useState<number>(0);
   const [signatureSlider, setSignatureSlider] = useState<number>(0);
@@ -143,6 +147,8 @@ function ManagerConsole() {
       setSelectedDemand(data[0]);
       setSelectedComplaint(data[0]);
     }
+    const plans = await getAllActionPlans();
+    setAllActionPlans(plans);
   };
 
   const runThematicClustering = async () => {
@@ -637,8 +643,68 @@ Provide your response ONLY as a valid JSON object matching the following schema.
       }
     }
 
-    return matchesSearch && matchesCategory && matchesStatus && matchesTicketType;
+    const matchesConstituency = filterConstituency === 'all' || (d.constituency || 'Rampur') === filterConstituency;
+
+    return matchesSearch && matchesCategory && matchesStatus && matchesTicketType && matchesConstituency;
   });
+
+  const getClubbedGroups = () => {
+    if (clubbingMode === 'none') return [];
+    const groups: Record<string, any[]> = {};
+    
+    // Sort demands by date or CPI
+    const sourceDemands = [...filteredDemands];
+    if (sortBy === 'cpi') {
+      sourceDemands.sort((a, b) => (b.cpi || 0) - (a.cpi || 0));
+    } else if (sortBy === 'priority') {
+      sourceDemands.sort((a, b) => (b.aiOverview?.priorityScore || 0) - (a.aiOverview?.priorityScore || 0));
+    } else if (sortBy === 'upvotes') {
+      sourceDemands.sort((a, b) => (b.upvotes || 1) - (a.upvotes || 1));
+    } else {
+      sourceDemands.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    sourceDemands.forEach(d => {
+      const key = clubbingMode === 'category' ? d.category : (d.constituency || 'Rampur');
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(d);
+    });
+
+    return Object.keys(groups).map(key => {
+      const groupDemands = groups[key];
+      const totalUpvotes = groupDemands.reduce((acc, curr) => acc + (curr.upvotes || 0), 0);
+      const avgCPI = Math.round(groupDemands.reduce((acc, curr) => acc + (curr.cpi || 0), 0) / groupDemands.length);
+      const statusCounts = groupDemands.reduce((acc: any, curr) => {
+        acc[curr.status] = (acc[curr.status] || 0) + 1;
+        return acc;
+      }, {});
+      
+      const statusSummary = Object.keys(statusCounts)
+        .map(s => `${statusCounts[s]} ${s.toUpperCase()}`)
+        .join(', ');
+
+      const displayName = clubbingMode === 'category' 
+        ? `${key.charAt(0).toUpperCase() + key.slice(1)} Issues` 
+        : `${key} Constituency`;
+
+      return {
+        id: `clubbed_${clubbingMode}_${key}`,
+        key,
+        name: displayName,
+        demands: groupDemands,
+        totalUpvotes,
+        avgCPI,
+        statusSummary,
+        category: clubbingMode === 'category' ? key : 'general',
+        constituency: clubbingMode === 'constituency' ? key : 'all',
+        ticketType: 'clubbed'
+      };
+    }).sort((a, b) => b.avgCPI - a.avgCPI);
+  };
+
+  const clubbedGroups = getClubbedGroups();
 
   // Dynamic real-data calculations based on filters and sliders
   const totalCount = filteredDemands.length;
@@ -955,6 +1021,27 @@ Provide your response ONLY as a valid JSON object matching the following schema.
             <FileText size={16} />
             Lok Sabha Proposal
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('tracking')}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              fontSize: '13.5px',
+              border: '1px solid',
+              borderColor: activeTab === 'tracking' ? '#14b8a6' : 'rgba(255,255,255,0.1)',
+              background: activeTab === 'tracking' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(0,0,0,0.2)',
+              color: activeTab === 'tracking' ? '#2dd4bf' : '#8e90b3',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <CheckCircle size={16} />
+            Progress Tracking
+          </button>
         </div>
 
         {/* Dynamic Parameter Tuning Controls */}
@@ -1172,6 +1259,27 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                 <option value="week">⏰ Last 7 Days</option>
                 <option value="month">⏰ Last 30 Days</option>
                 <option value="6months">⏰ Last 6 Months</option>
+              </select>
+
+              <select
+                value={filterConstituency}
+                onChange={e => setFilterConstituency(e.target.value)}
+                style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: '600', maxWidth: '180px' }}
+              >
+                <option value="all">📍 All Constituencies</option>
+                {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
+                  <option key={cName} value={cName}>{cName}</option>
+                ))}
+              </select>
+
+              <select
+                value={clubbingMode}
+                onChange={e => setClubbingMode(e.target.value as any)}
+                style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: '600' }}
+              >
+                <option value="none">🥞 No Clubbing</option>
+                <option value="category">📂 Group by Nature</option>
+                <option value="constituency">📍 Group by Constituency</option>
               </select>
 
               <select 
@@ -1587,64 +1695,122 @@ Provide your response ONLY as a valid JSON object matching the following schema.
             
             {/* Left Column: Direct Submissions List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '680px', paddingRight: '4px' }}>
-              {sortedDemands.length === 0 ? (
-                <div className="empty-attachments" style={{ padding: '40px' }}>
-                  <AlertTriangle size={24} />
-                  <span>No direct submissions match this search criteria.</span>
-                </div>
-              ) : (
-                sortedDemands.map(d => {
-                  const isSug = d.ticketType === 'suggestion';
-                  return (
+              {clubbingMode !== 'none' ? (
+                clubbedGroups.length === 0 ? (
+                  <div className="empty-attachments" style={{ padding: '40px' }}>
+                    <AlertTriangle size={24} />
+                    <span>No clubbed issues found matching this filter criteria.</span>
+                  </div>
+                ) : (
+                  clubbedGroups.map(g => (
                     <div 
-                      key={d.id} 
-                      onClick={() => setSelectedComplaint(d)}
+                      key={g.id} 
+                      onClick={() => setSelectedComplaint(g)}
                       style={{
-                        background: selectedComplaint?.id === d.id ? 'rgba(20, 184, 166, 0.08)' : 'rgba(13, 12, 29, 0.4)',
-                        border: selectedComplaint?.id === d.id ? '1px solid rgba(20, 184, 166, 0.5)' : '1px solid var(--border-light)',
+                        background: selectedComplaint?.id === g.id ? 'rgba(20, 184, 166, 0.08)' : 'rgba(13, 12, 29, 0.4)',
+                        border: selectedComplaint?.id === g.id ? '1px solid rgba(20, 184, 166, 0.5)' : '1px solid var(--border-light)',
                         borderRadius: '12px',
                         padding: '16px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
-                        borderLeft: isSug ? '4px solid #10b981' : '4px solid #fbbf24',
                         textAlign: 'left'
                       }}
                     >
                       <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '0.75rem', background: isSug ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSug ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                          {isSug ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
+                        <span style={{ fontSize: '0.75rem', background: 'rgba(129, 140, 248, 0.15)', color: '#818cf8', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                          📦 CLUBBED GROUP
                         </span>
                         <span style={{ 
                           fontSize: '0.75rem', 
-                          background: d.status === 'approved' ? 'rgba(52, 211, 153, 0.15)' : d.status === 'pending' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                          color: d.status === 'approved' ? '#34d399' : d.status === 'pending' ? '#fbbf24' : 'white',
+                          background: 'rgba(255,255,255,0.08)',
+                          color: 'white',
                           padding: '2px 8px', 
                           borderRadius: '8px', 
                           fontWeight: 'bold' 
                         }}>
-                          {d.status}
+                          {g.demands.length} items
                         </span>
                       </div>
-                      <strong style={{ display: 'block', fontSize: '0.9rem', color: 'white', marginBottom: '4px', textTransform: 'capitalize' }}>
-                        {d.category} — {d.scope} scope
+                      <strong style={{ display: 'block', fontSize: '1rem', color: 'white', marginBottom: '4px' }}>
+                        {g.name}
                       </strong>
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-desc)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        📍 {d.address}
+                        🎯 Status: {g.statusSummary}
                       </p>
                       <div style={{ display: 'flex', gap: '12px', marginTop: '10px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        <span>👍 {d.upvotes || 1} support signatures</span>
-                        <span><Calendar size={12} style={{ marginRight: '4px', verticalAlign: 'middle', color: '#14b8a6' }} /> {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : 'N/A'}</span>
+                        <span>👍 {g.totalUpvotes} signatures</span>
+                        <span style={{ color: g.avgCPI > 70 ? '#fca5a5' : '#86efac', fontWeight: 'bold' }}>🎯 CPI: {g.avgCPI}/100</span>
                       </div>
                     </div>
-                  );
-                })
+                  ))
+                )
+              ) : (
+                sortedDemands.length === 0 ? (
+                  <div className="empty-attachments" style={{ padding: '40px' }}>
+                    <AlertTriangle size={24} />
+                    <span>No direct submissions match this search criteria.</span>
+                  </div>
+                ) : (
+                  sortedDemands.map(d => {
+                    const isSug = d.ticketType === 'suggestion';
+                    return (
+                      <div 
+                        key={d.id} 
+                        onClick={() => setSelectedComplaint(d)}
+                        style={{
+                          background: selectedComplaint?.id === d.id ? 'rgba(20, 184, 166, 0.08)' : 'rgba(13, 12, 29, 0.4)',
+                          border: selectedComplaint?.id === d.id ? '1px solid rgba(20, 184, 166, 0.5)' : '1px solid var(--border-light)',
+                          borderRadius: '12px',
+                          padding: '16px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          borderLeft: isSug ? '4px solid #10b981' : '4px solid #fbbf24',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '0.75rem', background: isSug ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSug ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                            {isSug ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
+                          </span>
+                          <span style={{ 
+                            fontSize: '0.75rem', 
+                            background: d.status === 'approved' ? 'rgba(52, 211, 153, 0.15)' : d.status === 'pending' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                            color: d.status === 'approved' ? '#34d399' : d.status === 'pending' ? '#fbbf24' : 'white',
+                            padding: '2px 8px', 
+                            borderRadius: '8px', 
+                            fontWeight: 'bold' 
+                          }}>
+                            {d.status}
+                          </span>
+                        </div>
+                        <strong style={{ display: 'block', fontSize: '0.9rem', color: 'white', marginBottom: '4px', textTransform: 'capitalize' }}>
+                          {d.category} — {d.scope} scope
+                        </strong>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-desc)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          📍 {d.address}
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '10px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          <span>👍 {d.upvotes || 1} support signatures</span>
+                          <span><Calendar size={12} style={{ marginRight: '4px', verticalAlign: 'middle', color: '#14b8a6' }} /> {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : 'N/A'}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )
               )}
             </div>
 
             {/* Right Column: Comprehensive Complaint/Submission View */}
             <div>
               {selectedComplaint ? (
-                <div className="form-card" style={{ minHeight: '600px', display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left' }}>
+                selectedComplaint.id.startsWith('clubbed_') ? (
+                  <ClubbedDetailPanel 
+                    group={selectedComplaint} 
+                    onClose={() => setSelectedComplaint(null)} 
+                    loadData={loadData}
+                  />
+                ) : (
+                  <div className="form-card" style={{ minHeight: '600px', display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left' }}>
                   
                   {/* Header metadata row */}
                   <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
@@ -1936,6 +2102,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                   </div>
 
                 </div>
+                )
               ) : (
                 <div className="form-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '600px', color: 'var(--text-muted)' }}>
                   <div className="text-center">
@@ -2971,6 +3138,146 @@ Provide your response ONLY as a valid JSON object matching the following schema.
           </div>
         )}
 
+        {/* Tab 6: Progress Tracking Page */}
+        {activeTab === 'tracking' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '32px', textAlign: 'left' }} className="no-print">
+            <div className="form-card" style={{ padding: '24px 30px' }}>
+              <h3 style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 16px 0' }}>
+                <CheckCircle size={22} style={{ color: '#2dd4bf' }} />
+                <span>AI Constituency Action Plan Progress & Execution Tracker</span>
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+                <label style={{ fontSize: '13px', color: '#c7d2fe', fontWeight: 'bold' }}>
+                  Select Development Plan to Track:
+                </label>
+                <select
+                  value={selectedTrackingPlan?.id || ''}
+                  onChange={e => {
+                    const plan = allActionPlans.find(p => p.id === e.target.value);
+                    setSelectedTrackingPlan(plan || null);
+                  }}
+                  style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '10px 14px', borderRadius: '8px', fontWeight: '600', maxWidth: '400px' }}
+                >
+                  <option value="">-- Choose an Approved Action Plan --</option>
+                  {allActionPlans.map(p => (
+                    <option key={p.id} value={p.id}>{p.planName || p.id} ({p.constituency})</option>
+                  ))}
+                </select>
+              </div>
+
+              {!selectedTrackingPlan ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '12px', background: 'rgba(0,0,0,0.1)' }}>
+                  <Database size={36} style={{ color: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
+                  <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: 0 }}>
+                    Please select an approved development action plan from the dropdown above to track its execution.
+                  </p>
+                  <p style={{ color: 'var(--text-desc)', fontSize: '12px', marginTop: '6px' }}>
+                    If no plans appear, go to <strong>Lok Sabha Proposal</strong> or use the <strong>Group by Constituency/Nature</strong> option in Tab 2 to generate and approve an Action Plan.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  
+                  {/* Plan Header details */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', background: 'rgba(255,255,255,0.02)', padding: '16px 20px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div>
+                      <h4 style={{ fontSize: '1.25rem', color: 'white', margin: 0 }}>{selectedTrackingPlan.planName}</h4>
+                      <p style={{ fontSize: '13px', color: 'var(--text-desc)', margin: '6px 0 0 0' }}>{selectedTrackingPlan.summary}</p>
+                      <p style={{ fontSize: '11px', color: '#8e90b3', margin: '4px 0 0 0' }}>Target Constituency: <strong>{selectedTrackingPlan.constituency}</strong> | Last Updated: {new Date(selectedTrackingPlan.updatedAt || '').toLocaleString()}</p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>TOTAL BUDGET LEDGER</span>
+                      <strong style={{ fontSize: '1.4rem', color: '#fbbf24' }}>
+                        ₹{((selectedTrackingPlan.detailedSteps || []).reduce((acc: number, s: any) => acc + (s.cost || 0), 0) / 100000).toFixed(1)} Lakhs
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Step list with progress checkmarks */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <h4 style={{ color: 'white', fontSize: '15px', margin: '0 0 4px 0' }}>Plan Implementation Progress Checklist</h4>
+                    
+                    {(selectedTrackingPlan.detailedSteps || []).map((step: any, idx: number) => {
+                      const currentStatus = step.status || 'proposed';
+                      
+                      const handleStatusChange = async (newStatus: string) => {
+                        const updatedPlan = { ...selectedTrackingPlan };
+                        updatedPlan.detailedSteps[idx].status = newStatus;
+                        
+                        await saveActionPlanByConstituency(selectedTrackingPlan.constituency || 'general', updatedPlan);
+                        setSelectedTrackingPlan(updatedPlan);
+                        
+                        let complaintStatus = 'reviewed';
+                        if (newStatus === 'completed') complaintStatus = 'completed';
+                        else if (newStatus === 'work_started') complaintStatus = 'work_started';
+                        else if (newStatus === 'funded') complaintStatus = 'funded';
+                        else if (newStatus === 'raised') complaintStatus = 'approved';
+
+                        for (const complaintId of selectedTrackingPlan.associatedComplaintIds || []) {
+                          await updateDemandStatus(complaintId, complaintStatus);
+                        }
+                        
+                        alert(`Step "${step.title}" marked as ${newStatus.toUpperCase()}. Associated citizen complaints status synchronized successfully!`);
+                        loadData();
+                      };
+
+                      return (
+                        <div key={idx} style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                            <div>
+                              <h5 style={{ color: 'white', fontSize: '14px', margin: 0 }}>
+                                <span style={{ color: '#2dd4bf', marginRight: '6px' }}>{step.id}:</span> {step.title}
+                              </h5>
+                              <p style={{ fontSize: '12.5px', color: 'var(--text-desc)', margin: '4px 0 0 0' }}>{step.description}</p>
+                              <span style={{ fontSize: '11px', color: '#8e90b3', display: 'block', marginTop: '4px' }}>
+                                Responsible Agency: <strong>{step.agency || 'N/A'}</strong> | Budget: <strong>₹{(step.cost || 0).toLocaleString()}</strong>
+                              </span>
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              {[
+                                { val: 'proposed', label: 'Proposed', color: '#8e90b3' },
+                                { val: 'raised', label: 'Speech Raised', color: '#818cf8' },
+                                { val: 'funded', label: 'Funded', color: '#fbbf24' },
+                                { val: 'work_started', label: 'Work Started', color: '#60a5fa' },
+                                { val: 'completed', label: 'Completed', color: '#34d399' }
+                              ].map(st => {
+                                const active = currentStatus === st.val;
+                                return (
+                                  <button
+                                    key={st.val}
+                                    type="button"
+                                    onClick={() => handleStatusChange(st.val)}
+                                    style={{
+                                      padding: '4px 10px',
+                                      fontSize: '11px',
+                                      borderRadius: '4px',
+                                      border: '1px solid',
+                                      borderColor: active ? st.color : 'rgba(255,255,255,0.08)',
+                                      background: active ? `${st.color}1c` : 'transparent',
+                                      color: active ? st.color : '#8e90b3',
+                                      fontWeight: active ? 'bold' : 'normal',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    {active ? '● ' : ''}{st.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </main>
 
       <footer className="footer" style={{ marginTop: '40px' }}>
@@ -2984,6 +3291,312 @@ Provide your response ONLY as a valid JSON object matching the following schema.
         </div>
       </footer>
     </>
+  );
+}
+
+interface ClubbedDetailPanelProps {
+  group: any;
+  onClose: () => void;
+  loadData: () => Promise<void>;
+}
+
+function ClubbedDetailPanel({ group, onClose, loadData }: ClubbedDetailPanelProps) {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [planDraft, setPlanDraft] = useState<any | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkExistingPlan = async () => {
+      const plan = await getActionPlanByConstituency(group.key);
+      if (plan) {
+        setPlanDraft(plan);
+      } else {
+        setPlanDraft(null);
+      }
+    };
+    checkExistingPlan();
+  }, [group.key]);
+
+  const handleGeneratePlan = async () => {
+    setIsGenerating(true);
+    setAiError(null);
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+
+    try {
+      const complaintsText = group.demands.map((d: any, idx: number) => 
+        `Grievance #${idx+1}: Category: ${d.category}, Address: ${d.address}, Scope: ${d.scope}, Description: ${d.items?.[0]?.content || d.items?.[0]?.speechTranscript || 'No description'}, Upvotes: ${d.upvotes || 1}`
+      ).join('\n');
+
+      const prompt = `
+        You are an expert public policy advisor. The following is a list of citizen grievances in ${group.name}:
+        
+        ${complaintsText}
+        
+        Generate a 4-step Development Plan with action steps, a cost estimate (in Rupees) for each step, and funding recommendations.
+        Return ONLY a clean JSON object containing the plan, formatted exactly like this (do not wrap in markdown blocks or backticks, just raw json):
+        {
+          "planName": "AI Development Plan for ${group.name}",
+          "summary": "Provide a 1-2 sentence executive summary of the plan.",
+          "detailedSteps": [
+            {
+              "id": "STEP-1",
+              "title": "Title of step 1",
+              "description": "Action step details",
+              "agency": "Responsible government department",
+              "cost": 1500000,
+              "status": "proposed"
+            },
+            {
+              "id": "STEP-2",
+              "title": "Title of step 2",
+              "description": "Action step details",
+              "agency": "Responsible government department",
+              "cost": 2200000,
+              "status": "proposed"
+            },
+            {
+              "id": "STEP-3",
+              "title": "Title of step 3",
+              "description": "Action step details",
+              "agency": "Responsible government department",
+              "cost": 800000,
+              "status": "proposed"
+            },
+            {
+              "id": "STEP-4",
+              "title": "Title of step 4",
+              "description": "Action step details",
+              "agency": "Responsible government department",
+              "cost": 3500000,
+              "status": "proposed"
+            }
+          ],
+          "flowchart": [
+            { "phase": "Phase 1", "duration": "1-2 Months", "description": "Phase 1 activities" },
+            { "phase": "Phase 2", "duration": "2-4 Months", "description": "Phase 2 activities" },
+            { "phase": "Phase 3", "duration": "4-6 Months", "description": "Phase 3 activities" },
+            { "phase": "Phase 4", "duration": "6-12 Months", "description": "Phase 4 activities" }
+          ]
+        }
+      `;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate: HTTP ${response.status}`);
+      }
+
+      const resData = await response.json();
+      const text = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const parsedPlan = JSON.parse(cleanJson);
+      
+      parsedPlan.associatedComplaintIds = group.demands.map((d: any) => d.id);
+      parsedPlan.constituency = group.constituency;
+      parsedPlan.category = group.category;
+      parsedPlan.isApproved = false;
+      
+      setPlanDraft(parsedPlan);
+    } catch (err: any) {
+      console.error(err);
+      setAiError(err.message || 'Error communicating with Gemini');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleApprovePlan = async () => {
+    if (!planDraft) return;
+    try {
+      const planPayload = {
+        ...planDraft,
+        isApproved: true,
+        updatedAt: new Date().toISOString()
+      };
+      await saveActionPlanByConstituency(group.key, planPayload);
+      
+      for (const id of planPayload.associatedComplaintIds || []) {
+        await updateDemandStatus(id, 'approved');
+      }
+
+      alert('AI Development Plan successfully approved and published to the MP Portal!');
+      setPlanDraft(planPayload);
+      loadData();
+    } catch (err: any) {
+      alert(`Failed to save plan: ${err.message}`);
+    }
+  };
+
+  return (
+    <div className="form-card" style={{ minHeight: '600px', display: 'flex', flexDirection: 'column', gap: '20px', textAlign: 'left', padding: '24px 30px' }}>
+      <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
+        <div>
+          <span style={{ fontSize: '0.75rem', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+            CLUBBED GROUP DETAILS
+          </span>
+          <h3 style={{ fontSize: '1.4rem', color: 'white', marginTop: '8px', marginBottom: 0 }}>
+            {group.name}
+          </h3>
+        </div>
+        <button 
+          onClick={onClose}
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-light)', color: 'white', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}
+        >
+          Back
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>SUPPORT SUMMARY</span>
+          <h4 style={{ fontSize: '1.2rem', color: '#fbbf24', margin: '4px 0 0 0' }}>👍 {group.totalUpvotes} Support Signatures</h4>
+        </div>
+        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>PRIORITY ORDER</span>
+          <h4 style={{ fontSize: '1.2rem', color: '#fca5a5', margin: '4px 0 0 0' }}>🎯 Avg CPI: {group.avgCPI}/100</h4>
+        </div>
+      </div>
+
+      <div>
+        <h4 style={{ color: 'white', fontSize: '14px', marginBottom: '10px' }}>Constituent Tickets ({group.demands.length})</h4>
+        <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+          {group.demands.map((d: any) => (
+            <div key={d.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '10px 14px', borderRadius: '6px', fontSize: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8e90b3', marginBottom: '4px' }}>
+                <span>ID: {d.id} ({d.category})</span>
+                <span style={{ color: '#fbbf24' }}>👍 {d.upvotes} votes</span>
+              </div>
+              <p style={{ margin: 0, color: 'white', fontWeight: 'bold' }}>📍 {d.address}</p>
+              <p style={{ margin: '4px 0 0 0', color: 'var(--text-desc)', fontStyle: 'italic' }}>
+                "{d.items?.[0]?.content || d.items?.[0]?.speechTranscript || 'No text content'}"
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '20px' }}>
+        <h3 style={{ fontSize: '1.1rem', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+          <Sparkles size={18} style={{ color: '#2dd4bf' }} />
+          <span>AI Constituency Development Plan & Action Steps</span>
+        </h3>
+
+        {aiError && (
+          <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#fca5a5', padding: '12px', borderRadius: '8px', fontSize: '12.5px', marginBottom: '14px' }}>
+            ⚠️ {aiError}
+          </div>
+        )}
+
+        {!planDraft ? (
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <p style={{ color: 'var(--text-desc)', fontSize: '13px', marginBottom: '16px' }}>
+              No Development Action Plan configured for this clubbed group. Generate one to map out execution phases and budget allocations.
+            </p>
+            <button
+              onClick={handleGeneratePlan}
+              disabled={isGenerating}
+              style={{ background: 'var(--manager-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 auto' }}
+            >
+              {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              <span>{isGenerating ? 'Generating Plan...' : 'Generate Plan using Gemini AI'}</span>
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h4 style={{ color: '#a5b4fc', margin: 0 }}>Proposed Plan: {planDraft.planName}</h4>
+              {planDraft.isApproved ? (
+                <span style={{ color: '#34d399', fontWeight: 'bold', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <CheckCircle size={14} /> Approved & Published
+                </span>
+              ) : (
+                <button
+                  onClick={handleApprovePlan}
+                  style={{ background: '#10b981', border: 'none', color: 'white', fontWeight: 'bold', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}
+                >
+                  Approve & Publish to MP Portal
+                </button>
+              )}
+            </div>
+            <p style={{ fontStyle: 'italic', fontSize: '12.5px', color: 'var(--text-desc)', background: 'rgba(0,0,0,0.15)', padding: '10px 14px', borderRadius: '6px', margin: 0 }}>
+              "{planDraft.summary}"
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {planDraft.detailedSteps.map((step: any, idx: number) => (
+                <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', color: 'white', fontSize: '13px' }}>
+                      {step.id}: <input 
+                        type="text" 
+                        value={step.title} 
+                        disabled={planDraft.isApproved}
+                        onChange={e => {
+                          const steps = [...planDraft.detailedSteps];
+                          steps[idx].title = e.target.value;
+                          setPlanDraft({ ...planDraft, detailedSteps: steps });
+                        }}
+                        style={{ background: 'transparent', border: planDraft.isApproved ? 'none' : '1px solid var(--border-light)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '13px', width: '220px' }}
+                      />
+                    </span>
+                    <span style={{ color: '#fbbf24', fontSize: '12.5px', fontWeight: 'bold' }}>
+                      Est Cost: ₹
+                      <input 
+                        type="number" 
+                        value={step.cost}
+                        disabled={planDraft.isApproved}
+                        onChange={e => {
+                          const steps = [...planDraft.detailedSteps];
+                          steps[idx].cost = parseFloat(e.target.value) || 0;
+                          setPlanDraft({ ...planDraft, detailedSteps: steps });
+                        }}
+                        style={{ background: 'transparent', border: planDraft.isApproved ? 'none' : '1px solid var(--border-light)', color: '#fbbf24', padding: '2px 6px', borderRadius: '4px', fontSize: '12.5px', width: '100px', fontWeight: 'bold', textAlign: 'right' }}
+                      />
+                    </span>
+                  </div>
+                  <textarea
+                    value={step.description}
+                    disabled={planDraft.isApproved}
+                    rows={2}
+                    onChange={e => {
+                      const steps = [...planDraft.detailedSteps];
+                      steps[idx].description = e.target.value;
+                      setPlanDraft({ ...planDraft, detailedSteps: steps });
+                    }}
+                    style={{ background: 'transparent', border: planDraft.isApproved ? 'none' : '1px solid var(--border-light)', color: 'var(--text-desc)', padding: '6px 10px', borderRadius: '4px', fontSize: '12px', resize: 'vertical' }}
+                  />
+                  <div style={{ fontSize: '11px', color: '#8e90b3' }}>
+                    Responsible Agency: <input 
+                      type="text" 
+                      value={step.agency} 
+                      disabled={planDraft.isApproved}
+                      onChange={e => {
+                        const steps = [...planDraft.detailedSteps];
+                        steps[idx].agency = e.target.value;
+                        setPlanDraft({ ...planDraft, detailedSteps: steps });
+                      }}
+                      style={{ background: 'transparent', border: planDraft.isApproved ? 'none' : '1px solid var(--border-light)', color: '#8e90b3', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', width: '150px' }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {!planDraft.isApproved && (
+              <button 
+                onClick={() => setPlanDraft(null)}
+                style={{ background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#fca5a5', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', alignSelf: 'flex-start' }}
+              >
+                Reset Draft
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

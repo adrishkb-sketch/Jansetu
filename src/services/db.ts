@@ -407,3 +407,121 @@ export async function getActionPlan(): Promise<any | null> {
     return null;
   }
 }
+
+/**
+ * Saves/updates a Constituency Development Action Plan to Firestore by Constituency or General key.
+ */
+export async function saveActionPlanByConstituency(key: string, plan: any): Promise<void> {
+  const planData = {
+    ...plan,
+    updatedAt: new Date().toISOString()
+  };
+  const docId = `plan_${key.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  try {
+    if (db) {
+      const docRef = doc(db, 'plans', docId);
+      await setDoc(docRef, planData);
+      return;
+    }
+  } catch (e) {
+    console.error("Firestore saveActionPlanByConstituency failed, using local storage: ", e);
+  }
+  localStorage.setItem(`jansetu_plan_${docId}`, JSON.stringify(planData));
+}
+
+/**
+ * Fetches the active action plan by constituency or general key.
+ */
+export async function getActionPlanByConstituency(key: string): Promise<any | null> {
+  const docId = `plan_${key.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  try {
+    if (db) {
+      const docRef = doc(db, 'plans', docId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data();
+      }
+    }
+  } catch (e) {
+    console.error("Firestore getActionPlanByConstituency failed, reading locally: ", e);
+  }
+
+  try {
+    const saved = localStorage.getItem(`jansetu_plan_${docId}`);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches all active Action Plans.
+ */
+export async function getAllActionPlans(): Promise<any[]> {
+  try {
+    if (db) {
+      const qSnapshot = await getDocs(collection(db, 'plans'));
+      const results: any[] = [];
+      qSnapshot.forEach((docSnap) => {
+        results.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      if (results.length > 0) return results;
+    }
+  } catch (e) {
+    console.error("Firestore getAllActionPlans failed, using local storage: ", e);
+  }
+
+  const results: any[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('jansetu_plan_')) {
+      try {
+        results.push(JSON.parse(localStorage.getItem(key) || '{}'));
+      } catch {}
+    }
+  }
+  return results;
+}
+
+/**
+ * Saves available funds and reset frequency for a constituency.
+ */
+export async function saveMPFunds(constituency: string, fundsData: { totalFunds: number; resetFrequency: string; lastResetDate?: string }): Promise<void> {
+  const docId = constituency.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  try {
+    if (db) {
+      const docRef = doc(db, 'mp_funds', docId);
+      await setDoc(docRef, { ...fundsData, updatedAt: new Date().toISOString() });
+      return;
+    }
+  } catch (e) {
+    console.error("Firestore saveMPFunds failed, saving locally: ", e);
+  }
+  localStorage.setItem(`jansetu_mp_funds_${docId}`, JSON.stringify(fundsData));
+}
+
+/**
+ * Fetches MP funds configuration for a constituency.
+ */
+export async function getMPFunds(constituency: string): Promise<any | null> {
+  const docId = constituency.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  try {
+    if (db) {
+      const docRef = doc(db, 'mp_funds', docId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data();
+      }
+    }
+  } catch (e) {
+    console.error("Firestore getMPFunds failed, reading locally: ", e);
+  }
+
+  try {
+    const saved = localStorage.getItem(`jansetu_mp_funds_${docId}`);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+

@@ -269,6 +269,41 @@ export function getClosestConstituencySegment(lat: number, lng: number): Constit
 }
 
 /**
+ * Resolves the Lok Sabha constituency based on address text matching or closest center coordinates.
+ */
+export function getConstituencyOfLocation(lat: number, lng: number, address: string = ''): string {
+  if (!address) address = '';
+  const addrLower = address.toLowerCase();
+
+  // 1. Scan address text for any of the 543 constituency names
+  // Sort keys by length descending to match longer names first
+  const constituencyNames = Object.keys(ALL_CONSTITUENCIES_DATA).sort((a, b) => b.length - a.length);
+  for (const name of constituencyNames) {
+    if (addrLower.includes(name.toLowerCase())) {
+      return name;
+    }
+  }
+
+  // 2. Bounding/Distance fallback: Find closest constituency by centerCoords
+  let closestName = 'Rampur';
+  let minDistance = Infinity;
+
+  for (const name of constituencyNames) {
+    const coords = ALL_CONSTITUENCIES_DATA[name]?.centerCoords;
+    if (coords && coords.lat && coords.lng) {
+      const dist = getHaversineDistance(lat, lng, coords.lat, coords.lng);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestName = name;
+      }
+    }
+  }
+
+  return closestName;
+}
+
+
+/**
  * Evaluates the specific category gap index based on coordinates.
  * Returns gap severity percentage (0 = compliant with Ministry standards, 100 = extreme deficit).
  */

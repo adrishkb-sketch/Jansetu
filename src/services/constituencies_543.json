@@ -15,7 +15,11 @@
     "aqiLevel": 81,
     "electricityHours": 24,
     "cropYieldIndex": 64.7,
-    "soilHealthSaturation": 93.6
+    "soilHealthSaturation": 93.6,
+    "centerCoords": {
+      "lat": 19.67203,
+      "lng": 78.5359
+    }
   },
   "Agra": {
     "name": "Agra",
@@ -33,7 +37,11 @@
     "aqiLevel": 128,
     "electricityHours": 17,
     "cropYieldIndex": 53.8,
-    "soilHealthSaturation": 78.8
+    "soilHealthSaturation": 78.8,
+    "centerCoords": {
+      "lat": 27.19219,
+      "lng": 78.00005
+    }
   },
   "Ahmadnagar": {
     "name": "Ahmadnagar",
@@ -51,7 +59,11 @@
     "aqiLevel": 93,
     "electricityHours": 22,
     "cropYieldIndex": 65.8,
-    "soilHealthSaturation": 85.1
+    "soilHealthSaturation": 85.1,
+    "centerCoords": {
+      "lat": 18.975,
+      "lng": 72.8258
+    }
   },
   "Ahmedabad East": {
     "name": "Ahmedabad East",
@@ -69,7 +81,11 @@
     "aqiLevel": 112,
     "electricityHours": 24,
     "cropYieldIndex": 67.5,
-    "soilHealthSaturation": 98.7
+    "soilHealthSaturation": 98.7,
+    "centerCoords": {
+      "lat": 23.415599999999998,
+      "lng": 72.8369
+    }
   },
   "Ahmedabad West": {
     "name": "Ahmedabad West",
@@ -87,7 +103,11 @@
     "aqiLevel": 112,
     "electricityHours": 24,
     "cropYieldIndex": 65.2,
-    "soilHealthSaturation": 97.1
+    "soilHealthSaturation": 97.1,
+    "centerCoords": {
+      "lat": 23.415599999999998,
+      "lng": 72.8369
+    }
   },
   "Ajmer": {
     "name": "Ajmer",
@@ -105,7 +125,11 @@
     "aqiLevel": 104,
     "electricityHours": 20,
     "cropYieldIndex": 45.2,
-    "soilHealthSaturation": 81.7
+    "soilHealthSaturation": 81.7,
+    "centerCoords": {
+      "lat": 26.46554,
+      "lng": 74.63173
+    }
   },
   "Akbarpur": {
     "name": "Akbarpur",
@@ -123,7 +147,11 @@
     "aqiLevel": 107,
     "electricityHours": 20,
     "cropYieldIndex": 56.7,
-    "soilHealthSaturation": 83.7
+    "soilHealthSaturation": 83.7,
+    "centerCoords": {
+      "lat": 27.246699999999997,
+      "lng": 81.34620000000001
+    }
   },
   "Akola": {
     "name": "Akola",
@@ -141,7 +169,11 @@
     "aqiLevel": 98,
     "electricityHours": 24,
     "cropYieldIndex": 60.6,
-    "soilHealthSaturation": 92.9
+    "soilHealthSaturation": 92.9,
+    "centerCoords": {
+      "lat": 20.70535,
+      "lng": 77.00218
+    }
   },
   "Alappuzha": {
     "name": "Alappuzha",
@@ -159,7 +191,11 @@
     "aqiLevel": 58,
     "electricityHours": 22,
     "cropYieldIndex": 73.9,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 9.5013,
+      "lng": 76.33233
+    }
   },
   "Alathur": {
     "name": "Alathur",
@@ -177,7 +213,11 @@
     "aqiLevel": 39,
     "electricityHours": 24,
     "cropYieldIndex": 76.1,
-    "soilHealthSaturation": 99.6
+    "soilHealthSaturation": 99.6,
+    "centerCoords": {
+      "lat": 8.8741,
+      "lng": 77.28659999999999
+    }
   },
   "Aligarh": {
     "name": "Aligarh",
@@ -195,7 +235,11 @@
     "aqiLevel": 118,
     "electricityHours": 20,
     "cropYieldIndex": 57.3,
-    "soilHealthSaturation": 94.7
+    "soilHealthSaturation": 94.7,
+    "centerCoords": {
+      "lat": 27.88636,
+      "lng": 78.07375
+    }
   },
   "Alipurduars": {
     "name": "Alipurduars",
@@ -213,7 +257,11 @@
     "aqiLevel": 118,
     "electricityHours": 22,
     "cropYieldIndex": 62.6,
-    "soilHealthSaturation": 82.2
+    "soilHealthSaturation": 82.2,
+    "centerCoords": {
+      "lat": 26.51644,
+      "lng": 89.53307
+    }
   },
   "Allahabad": {
     "name": "Allahabad",
@@ -231,7 +279,11 @@
     "aqiLevel": 124,
     "electricityHours": 20,
     "cropYieldIndex": 59.1,
-    "soilHealthSaturation": 80.0
+    "soilHealthSaturation": 80.0,
+    "centerCoords": {
+      "lat": 27.296699999999998,
+      "lng": 81.39620000000001
+    }
   },
   "Almora": {
     "name": "Almora",
@@ -249,7 +301,11 @@
     "aqiLevel": 47,
     "electricityHours": 20,
     "cropYieldIndex": 52.1,
-    "soilHealthSaturation": 90.4
+    "soilHealthSaturation": 90.4,
+    "centerCoords": {
+      "lat": 29.59681,
+      "lng": 79.65171
+    }
   },
   "Alwar": {
     "name": "Alwar",
@@ -267,7 +323,11 @@
     "aqiLevel": 110,
     "electricityHours": 21,
     "cropYieldIndex": 49.4,
-    "soilHealthSaturation": 80.1
+    "soilHealthSaturation": 80.1,
+    "centerCoords": {
+      "lat": 27.55619,
+      "lng": 76.61238
+    }
   },
   "Amalapuram": {
     "name": "Amalapuram",
@@ -285,7 +345,11 @@
     "aqiLevel": 80,
     "electricityHours": 23,
     "cropYieldIndex": 56.1,
-    "soilHealthSaturation": 98.1
+    "soilHealthSaturation": 98.1,
+    "centerCoords": {
+      "lat": 16.5062,
+      "lng": 80.648
+    }
   },
   "Ambala": {
     "name": "Ambala",
@@ -303,7 +367,11 @@
     "aqiLevel": 169,
     "electricityHours": 22,
     "cropYieldIndex": 77.0,
-    "soilHealthSaturation": 89.4
+    "soilHealthSaturation": 89.4,
+    "centerCoords": {
+      "lat": 30.36099,
+      "lng": 76.79782
+    }
   },
   "Ambedkar Nagar": {
     "name": "Ambedkar Nagar",
@@ -321,7 +389,11 @@
     "aqiLevel": 139,
     "electricityHours": 17,
     "cropYieldIndex": 52.6,
-    "soilHealthSaturation": 95.3
+    "soilHealthSaturation": 95.3,
+    "centerCoords": {
+      "lat": 26.420155,
+      "lng": 82.67087086
+    }
   },
   "Amethi": {
     "name": "Amethi",
@@ -339,7 +411,11 @@
     "aqiLevel": 121,
     "electricityHours": 19,
     "cropYieldIndex": 58.9,
-    "soilHealthSaturation": 87.0
+    "soilHealthSaturation": 87.0,
+    "centerCoords": {
+      "lat": 26.15687,
+      "lng": 81.80528
+    }
   },
   "Amravati": {
     "name": "Amravati",
@@ -357,7 +433,11 @@
     "aqiLevel": 76,
     "electricityHours": 22,
     "cropYieldIndex": 65.2,
-    "soilHealthSaturation": 82.4
+    "soilHealthSaturation": 82.4,
+    "centerCoords": {
+      "lat": 20.93333,
+      "lng": 77.75
+    }
   },
   "Amreli": {
     "name": "Amreli",
@@ -375,7 +455,11 @@
     "aqiLevel": 91,
     "electricityHours": 24,
     "cropYieldIndex": 61.7,
-    "soilHealthSaturation": 84.8
+    "soilHealthSaturation": 84.8,
+    "centerCoords": {
+      "lat": 21.60517,
+      "lng": 71.21625
+    }
   },
   "Amritsar": {
     "name": "Amritsar",
@@ -393,7 +477,11 @@
     "aqiLevel": 132,
     "electricityHours": 22,
     "cropYieldIndex": 81.9,
-    "soilHealthSaturation": 89.6
+    "soilHealthSaturation": 89.6,
+    "centerCoords": {
+      "lat": 31.63347,
+      "lng": 74.87507
+    }
   },
   "Amroha": {
     "name": "Amroha",
@@ -411,7 +499,11 @@
     "aqiLevel": 126,
     "electricityHours": 16,
     "cropYieldIndex": 51.2,
-    "soilHealthSaturation": 90.5
+    "soilHealthSaturation": 90.5,
+    "centerCoords": {
+      "lat": 28.87696,
+      "lng": 78.46851
+    }
   },
   "Anakapalli": {
     "name": "Anakapalli",
@@ -429,7 +521,11 @@
     "aqiLevel": 89,
     "electricityHours": 22,
     "cropYieldIndex": 56.6,
-    "soilHealthSaturation": 87.2
+    "soilHealthSaturation": 87.2,
+    "centerCoords": {
+      "lat": 16.5062,
+      "lng": 80.648
+    }
   },
   "Anand": {
     "name": "Anand",
@@ -447,7 +543,11 @@
     "aqiLevel": 103,
     "electricityHours": 24,
     "cropYieldIndex": 62.4,
-    "soilHealthSaturation": 87.9
+    "soilHealthSaturation": 87.9,
+    "centerCoords": {
+      "lat": 22.55251,
+      "lng": 72.9552
+    }
   },
   "Anandpur Sahib": {
     "name": "Anandpur Sahib",
@@ -465,7 +565,11 @@
     "aqiLevel": 136,
     "electricityHours": 24,
     "cropYieldIndex": 83.0,
-    "soilHealthSaturation": 89.2
+    "soilHealthSaturation": 89.2,
+    "centerCoords": {
+      "lat": 22.55251,
+      "lng": 72.9552
+    }
   },
   "Anantapur": {
     "name": "Anantapur",
@@ -483,7 +587,11 @@
     "aqiLevel": 56,
     "electricityHours": 21,
     "cropYieldIndex": 58.9,
-    "soilHealthSaturation": 97.2
+    "soilHealthSaturation": 97.2,
+    "centerCoords": {
+      "lat": 14.68352,
+      "lng": 77.58195
+    }
   },
   "Anantnag": {
     "name": "Anantnag",
@@ -501,7 +609,11 @@
     "aqiLevel": 67,
     "electricityHours": 21,
     "cropYieldIndex": 51.6,
-    "soilHealthSaturation": 75.2
+    "soilHealthSaturation": 75.2,
+    "centerCoords": {
+      "lat": 33.72988,
+      "lng": 75.15084
+    }
   },
   "Andaman & Nicobar Islands": {
     "name": "Andaman & Nicobar Islands",
@@ -519,7 +631,11 @@
     "aqiLevel": 86,
     "electricityHours": 20,
     "cropYieldIndex": 51.7,
-    "soilHealthSaturation": 83.7
+    "soilHealthSaturation": 83.7,
+    "centerCoords": {
+      "lat": 20.4252,
+      "lng": 72.85376
+    }
   },
   "Aonla": {
     "name": "Aonla",
@@ -537,7 +653,11 @@
     "aqiLevel": 113,
     "electricityHours": 16,
     "cropYieldIndex": 56.8,
-    "soilHealthSaturation": 85.0
+    "soilHealthSaturation": 85.0,
+    "centerCoords": {
+      "lat": 27.0967,
+      "lng": 81.1962
+    }
   },
   "Arakkonam": {
     "name": "Arakkonam",
@@ -555,7 +675,11 @@
     "aqiLevel": 66,
     "electricityHours": 24,
     "cropYieldIndex": 70.0,
-    "soilHealthSaturation": 97.8
+    "soilHealthSaturation": 97.8,
+    "centerCoords": {
+      "lat": 13.5327,
+      "lng": 80.72070000000001
+    }
   },
   "Arambagh": {
     "name": "Arambagh",
@@ -573,7 +697,11 @@
     "aqiLevel": 97,
     "electricityHours": 20,
     "cropYieldIndex": 55.5,
-    "soilHealthSaturation": 91.2
+    "soilHealthSaturation": 91.2,
+    "centerCoords": {
+      "lat": 22.9726,
+      "lng": 88.7639
+    }
   },
   "Arani": {
     "name": "Arani",
@@ -591,7 +719,11 @@
     "aqiLevel": 82,
     "electricityHours": 22,
     "cropYieldIndex": 60.8,
-    "soilHealthSaturation": 85.9
+    "soilHealthSaturation": 85.9,
+    "centerCoords": {
+      "lat": 13.3327,
+      "lng": 80.5207
+    }
   },
   "Araria": {
     "name": "Araria",
@@ -609,7 +741,11 @@
     "aqiLevel": 157,
     "electricityHours": 15,
     "cropYieldIndex": 45.5,
-    "soilHealthSaturation": 85.1
+    "soilHealthSaturation": 85.1,
+    "centerCoords": {
+      "lat": 26.13289,
+      "lng": 87.45705
+    }
   },
   "Arrah": {
     "name": "Arrah",
@@ -627,7 +763,11 @@
     "aqiLevel": 129,
     "electricityHours": 14,
     "cropYieldIndex": 50.8,
-    "soilHealthSaturation": 67.5
+    "soilHealthSaturation": 67.5,
+    "centerCoords": {
+      "lat": 25.8441,
+      "lng": 85.3876
+    }
   },
   "Aruku": {
     "name": "Aruku",
@@ -645,7 +785,11 @@
     "aqiLevel": 64,
     "electricityHours": 24,
     "cropYieldIndex": 57.5,
-    "soilHealthSaturation": 82.8
+    "soilHealthSaturation": 82.8,
+    "centerCoords": {
+      "lat": 16.7562,
+      "lng": 80.898
+    }
   },
   "Arunachal East": {
     "name": "Arunachal East",
@@ -663,7 +807,11 @@
     "aqiLevel": 44,
     "electricityHours": 18,
     "cropYieldIndex": 46.4,
-    "soilHealthSaturation": 80.9
+    "soilHealthSaturation": 80.9,
+    "centerCoords": {
+      "lat": 27.59608085,
+      "lng": 91.85755984
+    }
   },
   "Arunachal West": {
     "name": "Arunachal West",
@@ -681,7 +829,11 @@
     "aqiLevel": 33,
     "electricityHours": 16,
     "cropYieldIndex": 41.1,
-    "soilHealthSaturation": 67.5
+    "soilHealthSaturation": 67.5,
+    "centerCoords": {
+      "lat": 27.59608085,
+      "lng": 91.85755984
+    }
   },
   "Asansol": {
     "name": "Asansol",
@@ -699,7 +851,11 @@
     "aqiLevel": 113,
     "electricityHours": 21,
     "cropYieldIndex": 55.9,
-    "soilHealthSaturation": 80.7
+    "soilHealthSaturation": 80.7,
+    "centerCoords": {
+      "lat": 22.922600000000003,
+      "lng": 88.7139
+    }
   },
   "Aska": {
     "name": "Aska",
@@ -717,7 +873,11 @@
     "aqiLevel": 98,
     "electricityHours": 23,
     "cropYieldIndex": 47.7,
-    "soilHealthSaturation": 93.9
+    "soilHealthSaturation": 93.9,
+    "centerCoords": {
+      "lat": 20.4961,
+      "lng": 86.0245
+    }
   },
   "Attingal": {
     "name": "Attingal",
@@ -735,7 +895,11 @@
     "aqiLevel": 64,
     "electricityHours": 22,
     "cropYieldIndex": 73.5,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 8.924100000000001,
+      "lng": 77.3366
+    }
   },
   "Aurangabad": {
     "name": "Aurangabad",
@@ -753,7 +917,11 @@
     "aqiLevel": 137,
     "electricityHours": 14,
     "cropYieldIndex": 45.7,
-    "soilHealthSaturation": 81.7
+    "soilHealthSaturation": 81.7,
+    "centerCoords": {
+      "lat": 19.87016,
+      "lng": 75.346
+    }
   },
   "Autonomous District": {
     "name": "Autonomous District",
@@ -771,7 +939,11 @@
     "aqiLevel": 47,
     "electricityHours": 16,
     "cropYieldIndex": 54.4,
-    "soilHealthSaturation": 81.7
+    "soilHealthSaturation": 81.7,
+    "centerCoords": {
+      "lat": 26.5945,
+      "lng": 92.1862
+    }
   },
   "Azamgarh": {
     "name": "Azamgarh",
@@ -789,7 +961,11 @@
     "aqiLevel": 125,
     "electricityHours": 19,
     "cropYieldIndex": 52.4,
-    "soilHealthSaturation": 83.8
+    "soilHealthSaturation": 83.8,
+    "centerCoords": {
+      "lat": 26.06832,
+      "lng": 83.18358
+    }
   },
   "Badaun": {
     "name": "Badaun",
@@ -807,7 +983,11 @@
     "aqiLevel": 140,
     "electricityHours": 18,
     "cropYieldIndex": 56.9,
-    "soilHealthSaturation": 91.4
+    "soilHealthSaturation": 91.4,
+    "centerCoords": {
+      "lat": 27.1467,
+      "lng": 81.2462
+    }
   },
   "Bagalkot": {
     "name": "Bagalkot",
@@ -825,7 +1005,11 @@
     "aqiLevel": 57,
     "electricityHours": 20,
     "cropYieldIndex": 57.6,
-    "soilHealthSaturation": 90.3
+    "soilHealthSaturation": 90.3,
+    "centerCoords": {
+      "lat": 16.18673,
+      "lng": 75.69614
+    }
   },
   "Baghpat": {
     "name": "Baghpat",
@@ -843,7 +1027,11 @@
     "aqiLevel": 138,
     "electricityHours": 19,
     "cropYieldIndex": 52.2,
-    "soilHealthSaturation": 91.1
+    "soilHealthSaturation": 91.1,
+    "centerCoords": {
+      "lat": 28.94517,
+      "lng": 77.22075
+    }
   },
   "Baharampur": {
     "name": "Baharampur",
@@ -861,7 +1049,11 @@
     "aqiLevel": 104,
     "electricityHours": 20,
     "cropYieldIndex": 54.1,
-    "soilHealthSaturation": 90.6
+    "soilHealthSaturation": 90.6,
+    "centerCoords": {
+      "lat": 28.77825,
+      "lng": 79.02556
+    }
   },
   "Bahraich": {
     "name": "Bahraich",
@@ -879,7 +1071,11 @@
     "aqiLevel": 131,
     "electricityHours": 17,
     "cropYieldIndex": 52.8,
-    "soilHealthSaturation": 90.1
+    "soilHealthSaturation": 90.1,
+    "centerCoords": {
+      "lat": 27.57684,
+      "lng": 81.60251
+    }
   },
   "Balaghat": {
     "name": "Balaghat",
@@ -897,7 +1093,11 @@
     "aqiLevel": 103,
     "electricityHours": 21,
     "cropYieldIndex": 54.7,
-    "soilHealthSaturation": 79.4
+    "soilHealthSaturation": 79.4,
+    "centerCoords": {
+      "lat": 21.81664,
+      "lng": 80.18473
+    }
   },
   "Balasore": {
     "name": "Balasore",
@@ -915,7 +1115,11 @@
     "aqiLevel": 69,
     "electricityHours": 22,
     "cropYieldIndex": 51.1,
-    "soilHealthSaturation": 91.3
+    "soilHealthSaturation": 91.3,
+    "centerCoords": {
+      "lat": 20.696099999999998,
+      "lng": 86.2245
+    }
   },
   "Ballia": {
     "name": "Ballia",
@@ -933,7 +1137,11 @@
     "aqiLevel": 106,
     "electricityHours": 17,
     "cropYieldIndex": 52.0,
-    "soilHealthSaturation": 93.7
+    "soilHealthSaturation": 93.7,
+    "centerCoords": {
+      "lat": 25.75835,
+      "lng": 84.14805
+    }
   },
   "Balurghat": {
     "name": "Balurghat",
@@ -951,7 +1159,11 @@
     "aqiLevel": 98,
     "electricityHours": 19,
     "cropYieldIndex": 56.3,
-    "soilHealthSaturation": 95.3
+    "soilHealthSaturation": 95.3,
+    "centerCoords": {
+      "lat": 23.0226,
+      "lng": 88.8139
+    }
   },
   "Banaskantha": {
     "name": "Banaskantha",
@@ -969,7 +1181,11 @@
     "aqiLevel": 120,
     "electricityHours": 23,
     "cropYieldIndex": 68.8,
-    "soilHealthSaturation": 96.5
+    "soilHealthSaturation": 96.5,
+    "centerCoords": {
+      "lat": 23.2656,
+      "lng": 72.6869
+    }
   },
   "Banda": {
     "name": "Banda",
@@ -987,7 +1203,11 @@
     "aqiLevel": 119,
     "electricityHours": 19,
     "cropYieldIndex": 59.4,
-    "soilHealthSaturation": 92.5
+    "soilHealthSaturation": 92.5,
+    "centerCoords": {
+      "lat": 25.47758,
+      "lng": 80.33491
+    }
   },
   "Bangalore Central": {
     "name": "Bangalore Central",
@@ -1005,7 +1225,11 @@
     "aqiLevel": 71,
     "electricityHours": 22,
     "cropYieldIndex": 58.1,
-    "soilHealthSaturation": 91.3
+    "soilHealthSaturation": 91.3,
+    "centerCoords": {
+      "lat": 13.3216,
+      "lng": 77.9446
+    }
   },
   "Bangalore North": {
     "name": "Bangalore North",
@@ -1023,7 +1247,11 @@
     "aqiLevel": 85,
     "electricityHours": 20,
     "cropYieldIndex": 59.4,
-    "soilHealthSaturation": 80.8
+    "soilHealthSaturation": 80.8,
+    "centerCoords": {
+      "lat": 13.2216,
+      "lng": 77.8446
+    }
   },
   "Bangalore Rural": {
     "name": "Bangalore Rural",
@@ -1041,7 +1269,11 @@
     "aqiLevel": 81,
     "electricityHours": 24,
     "cropYieldIndex": 64.5,
-    "soilHealthSaturation": 97.5
+    "soilHealthSaturation": 97.5,
+    "centerCoords": {
+      "lat": 13.2216,
+      "lng": 77.8446
+    }
   },
   "Bangalore South": {
     "name": "Bangalore South",
@@ -1059,7 +1291,11 @@
     "aqiLevel": 55,
     "electricityHours": 24,
     "cropYieldIndex": 61.5,
-    "soilHealthSaturation": 97.9
+    "soilHealthSaturation": 97.9,
+    "centerCoords": {
+      "lat": 13.2216,
+      "lng": 77.8446
+    }
   },
   "Bangaon": {
     "name": "Bangaon",
@@ -1077,7 +1313,11 @@
     "aqiLevel": 113,
     "electricityHours": 20,
     "cropYieldIndex": 55.5,
-    "soilHealthSaturation": 77.3
+    "soilHealthSaturation": 77.3,
+    "centerCoords": {
+      "lat": 22.922600000000003,
+      "lng": 88.7139
+    }
   },
   "Banka": {
     "name": "Banka",
@@ -1095,7 +1335,11 @@
     "aqiLevel": 126,
     "electricityHours": 14,
     "cropYieldIndex": 45.7,
-    "soilHealthSaturation": 82.4
+    "soilHealthSaturation": 82.4,
+    "centerCoords": {
+      "lat": 24.88537,
+      "lng": 86.92398
+    }
   },
   "Bankura": {
     "name": "Bankura",
@@ -1113,7 +1357,11 @@
     "aqiLevel": 107,
     "electricityHours": 21,
     "cropYieldIndex": 54.2,
-    "soilHealthSaturation": 94.2
+    "soilHealthSaturation": 94.2,
+    "centerCoords": {
+      "lat": 23.23241,
+      "lng": 87.0716
+    }
   },
   "Bansgaon": {
     "name": "Bansgaon",
@@ -1131,7 +1379,11 @@
     "aqiLevel": 116,
     "electricityHours": 19,
     "cropYieldIndex": 56.7,
-    "soilHealthSaturation": 80.1
+    "soilHealthSaturation": 80.1,
+    "centerCoords": {
+      "lat": 27.246699999999997,
+      "lng": 81.34620000000001
+    }
   },
   "Banswara": {
     "name": "Banswara",
@@ -1149,7 +1401,11 @@
     "aqiLevel": 123,
     "electricityHours": 21,
     "cropYieldIndex": 44.7,
-    "soilHealthSaturation": 77.6
+    "soilHealthSaturation": 77.6,
+    "centerCoords": {
+      "lat": 23.55173,
+      "lng": 74.44428
+    }
   },
   "Bapatla": {
     "name": "Bapatla",
@@ -1167,7 +1423,11 @@
     "aqiLevel": 80,
     "electricityHours": 23,
     "cropYieldIndex": 55.5,
-    "soilHealthSaturation": 93.3
+    "soilHealthSaturation": 93.3,
+    "centerCoords": {
+      "lat": 16.8562,
+      "lng": 80.99799999999999
+    }
   },
   "Barabanki": {
     "name": "Barabanki",
@@ -1185,7 +1445,11 @@
     "aqiLevel": 120,
     "electricityHours": 17,
     "cropYieldIndex": 60.3,
-    "soilHealthSaturation": 93.7
+    "soilHealthSaturation": 93.7,
+    "centerCoords": {
+      "lat": 27.296699999999998,
+      "lng": 81.39620000000001
+    }
   },
   "Baramati": {
     "name": "Baramati",
@@ -1203,7 +1467,11 @@
     "aqiLevel": 114,
     "electricityHours": 24,
     "cropYieldIndex": 60.5,
-    "soilHealthSaturation": 88.4
+    "soilHealthSaturation": 88.4,
+    "centerCoords": {
+      "lat": 19.375,
+      "lng": 73.2258
+    }
   },
   "Baramulla": {
     "name": "Baramulla",
@@ -1221,7 +1489,11 @@
     "aqiLevel": 67,
     "electricityHours": 22,
     "cropYieldIndex": 53.4,
-    "soilHealthSaturation": 86.1
+    "soilHealthSaturation": 86.1,
+    "centerCoords": {
+      "lat": 34.19287,
+      "lng": 74.3692
+    }
   },
   "Barasat": {
     "name": "Barasat",
@@ -1239,7 +1511,11 @@
     "aqiLevel": 123,
     "electricityHours": 21,
     "cropYieldIndex": 55.8,
-    "soilHealthSaturation": 92.2
+    "soilHealthSaturation": 92.2,
+    "centerCoords": {
+      "lat": 22.922600000000003,
+      "lng": 88.7139
+    }
   },
   "Bardhaman Durgapur": {
     "name": "Bardhaman Durgapur",
@@ -1257,7 +1533,11 @@
     "aqiLevel": 124,
     "electricityHours": 20,
     "cropYieldIndex": 55.2,
-    "soilHealthSaturation": 76.6
+    "soilHealthSaturation": 76.6,
+    "centerCoords": {
+      "lat": 21.19918,
+      "lng": 81.28967
+    }
   },
   "Bardhaman Purba": {
     "name": "Bardhaman Purba",
@@ -1275,7 +1555,11 @@
     "aqiLevel": 100,
     "electricityHours": 23,
     "cropYieldIndex": 57.7,
-    "soilHealthSaturation": 89.9
+    "soilHealthSaturation": 89.9,
+    "centerCoords": {
+      "lat": 22.8226,
+      "lng": 88.6139
+    }
   },
   "Bardoli": {
     "name": "Bardoli",
@@ -1293,7 +1577,11 @@
     "aqiLevel": 116,
     "electricityHours": 24,
     "cropYieldIndex": 62.8,
-    "soilHealthSaturation": 96.4
+    "soilHealthSaturation": 96.4,
+    "centerCoords": {
+      "lat": 23.5656,
+      "lng": 72.98689999999999
+    }
   },
   "Bareilly": {
     "name": "Bareilly",
@@ -1311,7 +1599,11 @@
     "aqiLevel": 143,
     "electricityHours": 20,
     "cropYieldIndex": 52.1,
-    "soilHealthSaturation": 97.0
+    "soilHealthSaturation": 97.0,
+    "centerCoords": {
+      "lat": 28.35441,
+      "lng": 79.41633
+    }
   },
   "Bargarh": {
     "name": "Bargarh",
@@ -1329,7 +1621,11 @@
     "aqiLevel": 92,
     "electricityHours": 20,
     "cropYieldIndex": 54.0,
-    "soilHealthSaturation": 91.4
+    "soilHealthSaturation": 91.4,
+    "centerCoords": {
+      "lat": 21.33767,
+      "lng": 83.62123
+    }
   },
   "Barmer": {
     "name": "Barmer",
@@ -1347,7 +1643,11 @@
     "aqiLevel": 125,
     "electricityHours": 17,
     "cropYieldIndex": 45.1,
-    "soilHealthSaturation": 83.7
+    "soilHealthSaturation": 83.7,
+    "centerCoords": {
+      "lat": 25.75199,
+      "lng": 71.41381
+    }
   },
   "Barpeta": {
     "name": "Barpeta",
@@ -1365,7 +1665,11 @@
     "aqiLevel": 55,
     "electricityHours": 19,
     "cropYieldIndex": 51.9,
-    "soilHealthSaturation": 71.9
+    "soilHealthSaturation": 71.9,
+    "centerCoords": {
+      "lat": 26.31282,
+      "lng": 91.00251
+    }
   },
   "Barrackpore": {
     "name": "Barrackpore",
@@ -1383,7 +1687,11 @@
     "aqiLevel": 100,
     "electricityHours": 21,
     "cropYieldIndex": 54.0,
-    "soilHealthSaturation": 93.7
+    "soilHealthSaturation": 93.7,
+    "centerCoords": {
+      "lat": 22.622600000000002,
+      "lng": 88.4139
+    }
   },
   "Basirhat": {
     "name": "Basirhat",
@@ -1401,7 +1709,11 @@
     "aqiLevel": 128,
     "electricityHours": 21,
     "cropYieldIndex": 60.8,
-    "soilHealthSaturation": 85.0
+    "soilHealthSaturation": 85.0,
+    "centerCoords": {
+      "lat": 22.9726,
+      "lng": 88.7639
+    }
   },
   "Bastar": {
     "name": "Bastar",
@@ -1419,7 +1731,11 @@
     "aqiLevel": 90,
     "electricityHours": 21,
     "cropYieldIndex": 61.4,
-    "soilHealthSaturation": 82.5
+    "soilHealthSaturation": 82.5,
+    "centerCoords": {
+      "lat": 19.20758,
+      "lng": 81.93408
+    }
   },
   "Basti": {
     "name": "Basti",
@@ -1437,7 +1753,11 @@
     "aqiLevel": 122,
     "electricityHours": 20,
     "cropYieldIndex": 53.9,
-    "soilHealthSaturation": 85.9
+    "soilHealthSaturation": 85.9,
+    "centerCoords": {
+      "lat": 26.79684,
+      "lng": 82.73989
+    }
   },
   "Bathinda": {
     "name": "Bathinda",
@@ -1455,7 +1775,11 @@
     "aqiLevel": 151,
     "electricityHours": 21,
     "cropYieldIndex": 74.6,
-    "soilHealthSaturation": 90.7
+    "soilHealthSaturation": 90.7,
+    "centerCoords": {
+      "lat": 30.20747,
+      "lng": 74.93893
+    }
   },
   "Beed": {
     "name": "Beed",
@@ -1473,7 +1797,11 @@
     "aqiLevel": 106,
     "electricityHours": 21,
     "cropYieldIndex": 57.9,
-    "soilHealthSaturation": 91.9
+    "soilHealthSaturation": 91.9,
+    "centerCoords": {
+      "lat": 18.98957,
+      "lng": 75.75589
+    }
   },
   "Begusarai": {
     "name": "Begusarai",
@@ -1491,7 +1819,11 @@
     "aqiLevel": 134,
     "electricityHours": 15,
     "cropYieldIndex": 53.0,
-    "soilHealthSaturation": 85.2
+    "soilHealthSaturation": 85.2,
+    "centerCoords": {
+      "lat": 25.42442,
+      "lng": 86.13367
+    }
   },
   "Belgaum": {
     "name": "Belgaum",
@@ -1509,7 +1841,11 @@
     "aqiLevel": 61,
     "electricityHours": 23,
     "cropYieldIndex": 63.2,
-    "soilHealthSaturation": 93.4
+    "soilHealthSaturation": 93.4,
+    "centerCoords": {
+      "lat": 13.3216,
+      "lng": 77.9446
+    }
   },
   "Bellary": {
     "name": "Bellary",
@@ -1527,7 +1863,11 @@
     "aqiLevel": 69,
     "electricityHours": 23,
     "cropYieldIndex": 55.8,
-    "soilHealthSaturation": 81.1
+    "soilHealthSaturation": 81.1,
+    "centerCoords": {
+      "lat": 13.3216,
+      "lng": 77.9446
+    }
   },
   "Berhampur": {
     "name": "Berhampur",
@@ -1545,7 +1885,11 @@
     "aqiLevel": 95,
     "electricityHours": 22,
     "cropYieldIndex": 48.3,
-    "soilHealthSaturation": 82.4
+    "soilHealthSaturation": 82.4,
+    "centerCoords": {
+      "lat": 20.7461,
+      "lng": 86.2745
+    }
   },
   "Betul": {
     "name": "Betul",
@@ -1563,7 +1907,11 @@
     "aqiLevel": 102,
     "electricityHours": 20,
     "cropYieldIndex": 50.4,
-    "soilHealthSaturation": 87.0
+    "soilHealthSaturation": 87.0,
+    "centerCoords": {
+      "lat": 21.90316,
+      "lng": 77.90004
+    }
   },
   "Bhadohi": {
     "name": "Bhadohi",
@@ -1581,7 +1929,11 @@
     "aqiLevel": 136,
     "electricityHours": 18,
     "cropYieldIndex": 59.4,
-    "soilHealthSaturation": 89.1
+    "soilHealthSaturation": 89.1,
+    "centerCoords": {
+      "lat": 25.39452,
+      "lng": 82.56855
+    }
   },
   "Bhadrak": {
     "name": "Bhadrak",
@@ -1599,7 +1951,11 @@
     "aqiLevel": 82,
     "electricityHours": 21,
     "cropYieldIndex": 50.0,
-    "soilHealthSaturation": 94.3
+    "soilHealthSaturation": 94.3,
+    "centerCoords": {
+      "lat": 21.06327,
+      "lng": 86.49953
+    }
   },
   "Bhagalpur": {
     "name": "Bhagalpur",
@@ -1617,7 +1973,11 @@
     "aqiLevel": 145,
     "electricityHours": 16,
     "cropYieldIndex": 43.6,
-    "soilHealthSaturation": 71.2
+    "soilHealthSaturation": 71.2,
+    "centerCoords": {
+      "lat": 25.24446,
+      "lng": 86.97183
+    }
   },
   "Bhandara - Gondiya": {
     "name": "Bhandara - Gondiya",
@@ -1635,7 +1995,11 @@
     "aqiLevel": 111,
     "electricityHours": 22,
     "cropYieldIndex": 62.5,
-    "soilHealthSaturation": 93.0
+    "soilHealthSaturation": 93.0,
+    "centerCoords": {
+      "lat": 21.17119,
+      "lng": 79.65631
+    }
   },
   "Bharatpur": {
     "name": "Bharatpur",
@@ -1653,7 +2017,11 @@
     "aqiLevel": 98,
     "electricityHours": 20,
     "cropYieldIndex": 44.7,
-    "soilHealthSaturation": 87.9
+    "soilHealthSaturation": 87.9,
+    "centerCoords": {
+      "lat": 27.21087,
+      "lng": 77.48153
+    }
   },
   "Bharuch": {
     "name": "Bharuch",
@@ -1671,7 +2039,11 @@
     "aqiLevel": 125,
     "electricityHours": 23,
     "cropYieldIndex": 64.9,
-    "soilHealthSaturation": 92.9
+    "soilHealthSaturation": 92.9,
+    "centerCoords": {
+      "lat": 21.69482,
+      "lng": 72.9805
+    }
   },
   "Bhavnagar": {
     "name": "Bhavnagar",
@@ -1689,7 +2061,11 @@
     "aqiLevel": 105,
     "electricityHours": 24,
     "cropYieldIndex": 68.1,
-    "soilHealthSaturation": 84.4
+    "soilHealthSaturation": 84.4,
+    "centerCoords": {
+      "lat": 21.77524,
+      "lng": 72.14925
+    }
   },
   "Bhilwara": {
     "name": "Bhilwara",
@@ -1707,7 +2083,11 @@
     "aqiLevel": 100,
     "electricityHours": 17,
     "cropYieldIndex": 42.6,
-    "soilHealthSaturation": 90.6
+    "soilHealthSaturation": 90.6,
+    "centerCoords": {
+      "lat": 25.34707,
+      "lng": 74.64081
+    }
   },
   "Bhind": {
     "name": "Bhind",
@@ -1725,7 +2105,11 @@
     "aqiLevel": 82,
     "electricityHours": 20,
     "cropYieldIndex": 57.0,
-    "soilHealthSaturation": 76.2
+    "soilHealthSaturation": 76.2,
+    "centerCoords": {
+      "lat": 26.56707,
+      "lng": 78.78545
+    }
   },
   "Bhiwandi": {
     "name": "Bhiwandi",
@@ -1743,7 +2127,11 @@
     "aqiLevel": 113,
     "electricityHours": 22,
     "cropYieldIndex": 65.5,
-    "soilHealthSaturation": 87.9
+    "soilHealthSaturation": 87.9,
+    "centerCoords": {
+      "lat": 19.375,
+      "lng": 73.2258
+    }
   },
   "Bhiwani-Mahendragarh": {
     "name": "Bhiwani-Mahendragarh",
@@ -1761,7 +2149,11 @@
     "aqiLevel": 136,
     "electricityHours": 21,
     "cropYieldIndex": 70.5,
-    "soilHealthSaturation": 92.5
+    "soilHealthSaturation": 92.5,
+    "centerCoords": {
+      "lat": 28.79304,
+      "lng": 76.13968
+    }
   },
   "Bhongir": {
     "name": "Bhongir",
@@ -1779,7 +2171,11 @@
     "aqiLevel": 87,
     "electricityHours": 22,
     "cropYieldIndex": 64.6,
-    "soilHealthSaturation": 85.4
+    "soilHealthSaturation": 85.4,
+    "centerCoords": {
+      "lat": 17.735000000000003,
+      "lng": 78.8367
+    }
   },
   "Bhopal": {
     "name": "Bhopal",
@@ -1797,7 +2193,11 @@
     "aqiLevel": 102,
     "electricityHours": 19,
     "cropYieldIndex": 50.6,
-    "soilHealthSaturation": 80.0
+    "soilHealthSaturation": 80.0,
+    "centerCoords": {
+      "lat": 23.26466,
+      "lng": 77.40521
+    }
   },
   "Bhubaneswar": {
     "name": "Bhubaneswar",
@@ -1815,7 +2215,11 @@
     "aqiLevel": 78,
     "electricityHours": 23,
     "cropYieldIndex": 48.9,
-    "soilHealthSaturation": 76.4
+    "soilHealthSaturation": 76.4,
+    "centerCoords": {
+      "lat": 20.3461,
+      "lng": 85.8745
+    }
   },
   "Bidar": {
     "name": "Bidar",
@@ -1833,7 +2237,11 @@
     "aqiLevel": 76,
     "electricityHours": 23,
     "cropYieldIndex": 60.3,
-    "soilHealthSaturation": 95.9
+    "soilHealthSaturation": 95.9,
+    "centerCoords": {
+      "lat": 17.90802,
+      "lng": 77.51524
+    }
   },
   "Bijapur": {
     "name": "Bijapur",
@@ -1851,7 +2259,11 @@
     "aqiLevel": 72,
     "electricityHours": 20,
     "cropYieldIndex": 64.7,
-    "soilHealthSaturation": 89.7
+    "soilHealthSaturation": 89.7,
+    "centerCoords": {
+      "lat": 16.8282,
+      "lng": 75.71352
+    }
   },
   "Bijnor": {
     "name": "Bijnor",
@@ -1869,7 +2281,11 @@
     "aqiLevel": 142,
     "electricityHours": 20,
     "cropYieldIndex": 52.3,
-    "soilHealthSaturation": 85.8
+    "soilHealthSaturation": 85.8,
+    "centerCoords": {
+      "lat": 29.3732,
+      "lng": 78.13565
+    }
   },
   "Bikaner (Sc)": {
     "name": "Bikaner (Sc)",
@@ -1887,7 +2303,11 @@
     "aqiLevel": 118,
     "electricityHours": 18,
     "cropYieldIndex": 46.3,
-    "soilHealthSaturation": 86.5
+    "soilHealthSaturation": 86.5,
+    "centerCoords": {
+      "lat": 28.01649,
+      "lng": 73.31183
+    }
   },
   "Bilaspur": {
     "name": "Bilaspur",
@@ -1905,7 +2325,11 @@
     "aqiLevel": 101,
     "electricityHours": 21,
     "cropYieldIndex": 53.9,
-    "soilHealthSaturation": 84.9
+    "soilHealthSaturation": 84.9,
+    "centerCoords": {
+      "lat": 22.0785,
+      "lng": 82.14016
+    }
   },
   "Birbhum": {
     "name": "Birbhum",
@@ -1923,7 +2347,11 @@
     "aqiLevel": 92,
     "electricityHours": 19,
     "cropYieldIndex": 54.8,
-    "soilHealthSaturation": 82.3
+    "soilHealthSaturation": 82.3,
+    "centerCoords": {
+      "lat": 23.95371749,
+      "lng": 87.66553993
+    }
   },
   "Bishnupur": {
     "name": "Bishnupur",
@@ -1941,7 +2369,11 @@
     "aqiLevel": 107,
     "electricityHours": 19,
     "cropYieldIndex": 59.9,
-    "soilHealthSaturation": 90.1
+    "soilHealthSaturation": 90.1,
+    "centerCoords": {
+      "lat": 23.06428,
+      "lng": 87.31048
+    }
   },
   "Bolangir": {
     "name": "Bolangir",
@@ -1959,7 +2391,11 @@
     "aqiLevel": 82,
     "electricityHours": 23,
     "cropYieldIndex": 47.8,
-    "soilHealthSaturation": 93.0
+    "soilHealthSaturation": 93.0,
+    "centerCoords": {
+      "lat": 20.696099999999998,
+      "lng": 86.2245
+    }
   },
   "Bolpur": {
     "name": "Bolpur",
@@ -1977,7 +2413,11 @@
     "aqiLevel": 110,
     "electricityHours": 19,
     "cropYieldIndex": 62.1,
-    "soilHealthSaturation": 85.3
+    "soilHealthSaturation": 85.3,
+    "centerCoords": {
+      "lat": 22.872600000000002,
+      "lng": 88.6639
+    }
   },
   "Bulandshahr": {
     "name": "Bulandshahr",
@@ -1995,7 +2435,11 @@
     "aqiLevel": 136,
     "electricityHours": 18,
     "cropYieldIndex": 56.7,
-    "soilHealthSaturation": 94.2
+    "soilHealthSaturation": 94.2,
+    "centerCoords": {
+      "lat": 28.40974,
+      "lng": 77.85006
+    }
   },
   "Buldhana": {
     "name": "Buldhana",
@@ -2013,7 +2457,11 @@
     "aqiLevel": 101,
     "electricityHours": 24,
     "cropYieldIndex": 66.7,
-    "soilHealthSaturation": 99.1
+    "soilHealthSaturation": 99.1,
+    "centerCoords": {
+      "lat": 20.58333,
+      "lng": 76.41667
+    }
   },
   "Buxar": {
     "name": "Buxar",
@@ -2031,7 +2479,11 @@
     "aqiLevel": 124,
     "electricityHours": 17,
     "cropYieldIndex": 51.1,
-    "soilHealthSaturation": 83.4
+    "soilHealthSaturation": 83.4,
+    "centerCoords": {
+      "lat": 25.57225,
+      "lng": 83.97208
+    }
   },
   "Chalakudy": {
     "name": "Chalakudy",
@@ -2049,7 +2501,11 @@
     "aqiLevel": 54,
     "electricityHours": 22,
     "cropYieldIndex": 76.3,
-    "soilHealthSaturation": 94.9
+    "soilHealthSaturation": 94.9,
+    "centerCoords": {
+      "lat": 8.9741,
+      "lng": 77.3866
+    }
   },
   "Chamarajanagar": {
     "name": "Chamarajanagar",
@@ -2067,7 +2523,11 @@
     "aqiLevel": 70,
     "electricityHours": 24,
     "cropYieldIndex": 59.4,
-    "soilHealthSaturation": 92.2
+    "soilHealthSaturation": 92.2,
+    "centerCoords": {
+      "lat": 11.918,
+      "lng": 76.951
+    }
   },
   "Chandauli": {
     "name": "Chandauli",
@@ -2085,7 +2545,11 @@
     "aqiLevel": 144,
     "electricityHours": 18,
     "cropYieldIndex": 51.3,
-    "soilHealthSaturation": 79.8
+    "soilHealthSaturation": 79.8,
+    "centerCoords": {
+      "lat": 25.26037,
+      "lng": 83.26768
+    }
   },
   "Chandigarh": {
     "name": "Chandigarh",
@@ -2103,7 +2567,11 @@
     "aqiLevel": 96,
     "electricityHours": 22,
     "cropYieldIndex": 57.6,
-    "soilHealthSaturation": 87.1
+    "soilHealthSaturation": 87.1,
+    "centerCoords": {
+      "lat": 30.7036,
+      "lng": 76.78967
+    }
   },
   "Chandni Chowk": {
     "name": "Chandni Chowk",
@@ -2121,7 +2589,11 @@
     "aqiLevel": 231,
     "electricityHours": 23,
     "cropYieldIndex": 39.6,
-    "soilHealthSaturation": 87.7
+    "soilHealthSaturation": 87.7,
+    "centerCoords": {
+      "lat": 20.743699999999997,
+      "lng": 79.11290000000001
+    }
   },
   "Chandrapur": {
     "name": "Chandrapur",
@@ -2139,7 +2611,11 @@
     "aqiLevel": 84,
     "electricityHours": 22,
     "cropYieldIndex": 58.0,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 19.9665,
+      "lng": 79.29658
+    }
   },
   "Chatra": {
     "name": "Chatra",
@@ -2157,7 +2633,11 @@
     "aqiLevel": 81,
     "electricityHours": 17,
     "cropYieldIndex": 44.2,
-    "soilHealthSaturation": 84.6
+    "soilHealthSaturation": 84.6,
+    "centerCoords": {
+      "lat": 24.20418,
+      "lng": 84.8719
+    }
   },
   "Chennai Central": {
     "name": "Chennai Central",
@@ -2175,7 +2655,11 @@
     "aqiLevel": 64,
     "electricityHours": 22,
     "cropYieldIndex": 62.6,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 13.08376,
+      "lng": 80.28256
+    }
   },
   "Chennai North": {
     "name": "Chennai North",
@@ -2193,7 +2677,11 @@
     "aqiLevel": 51,
     "electricityHours": 24,
     "cropYieldIndex": 66.9,
-    "soilHealthSaturation": 87.7
+    "soilHealthSaturation": 87.7,
+    "centerCoords": {
+      "lat": 13.08376,
+      "lng": 80.28256
+    }
   },
   "Chennai South": {
     "name": "Chennai South",
@@ -2211,7 +2699,11 @@
     "aqiLevel": 57,
     "electricityHours": 23,
     "cropYieldIndex": 66.9,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 13.08376,
+      "lng": 80.28256
+    }
   },
   "Chevella": {
     "name": "Chevella",
@@ -2229,7 +2721,11 @@
     "aqiLevel": 63,
     "electricityHours": 24,
     "cropYieldIndex": 62.8,
-    "soilHealthSaturation": 87.7
+    "soilHealthSaturation": 87.7,
+    "centerCoords": {
+      "lat": 17.785,
+      "lng": 78.8867
+    }
   },
   "Chhindwara": {
     "name": "Chhindwara",
@@ -2247,7 +2743,11 @@
     "aqiLevel": 90,
     "electricityHours": 19,
     "cropYieldIndex": 57.4,
-    "soilHealthSaturation": 72.2
+    "soilHealthSaturation": 72.2,
+    "centerCoords": {
+      "lat": 22.05697,
+      "lng": 78.93958
+    }
   },
   "Chhota Udaipur": {
     "name": "Chhota Udaipur",
@@ -2265,7 +2765,11 @@
     "aqiLevel": 105,
     "electricityHours": 24,
     "cropYieldIndex": 68.9,
-    "soilHealthSaturation": 84.5
+    "soilHealthSaturation": 84.5,
+    "centerCoords": {
+      "lat": 24.58702,
+      "lng": 73.69845
+    }
   },
   "Chidambaram": {
     "name": "Chidambaram",
@@ -2283,7 +2787,11 @@
     "aqiLevel": 85,
     "electricityHours": 22,
     "cropYieldIndex": 67.6,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 13.132700000000002,
+      "lng": 80.3207
+    }
   },
   "Chikkballapur": {
     "name": "Chikkballapur",
@@ -2301,7 +2809,11 @@
     "aqiLevel": 91,
     "electricityHours": 21,
     "cropYieldIndex": 56.3,
-    "soilHealthSaturation": 95.2
+    "soilHealthSaturation": 95.2,
+    "centerCoords": {
+      "lat": 13.1216,
+      "lng": 77.7446
+    }
   },
   "Chikkodi": {
     "name": "Chikkodi",
@@ -2319,7 +2831,11 @@
     "aqiLevel": 67,
     "electricityHours": 24,
     "cropYieldIndex": 61.1,
-    "soilHealthSaturation": 98.0
+    "soilHealthSaturation": 98.0,
+    "centerCoords": {
+      "lat": 13.3716,
+      "lng": 77.9946
+    }
   },
   "Chitradurga": {
     "name": "Chitradurga",
@@ -2337,7 +2853,11 @@
     "aqiLevel": 75,
     "electricityHours": 22,
     "cropYieldIndex": 59.6,
-    "soilHealthSaturation": 99.0
+    "soilHealthSaturation": 99.0,
+    "centerCoords": {
+      "lat": 14.22049,
+      "lng": 76.39956
+    }
   },
   "Chittoor": {
     "name": "Chittoor",
@@ -2355,7 +2875,11 @@
     "aqiLevel": 73,
     "electricityHours": 24,
     "cropYieldIndex": 56.8,
-    "soilHealthSaturation": 94.4
+    "soilHealthSaturation": 94.4,
+    "centerCoords": {
+      "lat": 13.20604,
+      "lng": 79.08833
+    }
   },
   "Chittorgarh": {
     "name": "Chittorgarh",
@@ -2373,7 +2897,11 @@
     "aqiLevel": 98,
     "electricityHours": 17,
     "cropYieldIndex": 41.3,
-    "soilHealthSaturation": 74.6
+    "soilHealthSaturation": 74.6,
+    "centerCoords": {
+      "lat": 24.88963,
+      "lng": 74.62403
+    }
   },
   "Churu": {
     "name": "Churu",
@@ -2391,7 +2919,11 @@
     "aqiLevel": 132,
     "electricityHours": 17,
     "cropYieldIndex": 41.8,
-    "soilHealthSaturation": 75.5
+    "soilHealthSaturation": 75.5,
+    "centerCoords": {
+      "lat": 28.30415,
+      "lng": 74.96718
+    }
   },
   "Coimbatore": {
     "name": "Coimbatore",
@@ -2409,7 +2941,11 @@
     "aqiLevel": 75,
     "electricityHours": 22,
     "cropYieldIndex": 69.3,
-    "soilHealthSaturation": 87.7
+    "soilHealthSaturation": 87.7,
+    "centerCoords": {
+      "lat": 10.99415,
+      "lng": 76.96629
+    }
   },
   "Cooch Behar": {
     "name": "Cooch Behar",
@@ -2427,7 +2963,11 @@
     "aqiLevel": 119,
     "electricityHours": 20,
     "cropYieldIndex": 58.2,
-    "soilHealthSaturation": 92.8
+    "soilHealthSaturation": 92.8,
+    "centerCoords": {
+      "lat": 22.622600000000002,
+      "lng": 88.4139
+    }
   },
   "Cuddalore": {
     "name": "Cuddalore",
@@ -2445,7 +2985,11 @@
     "aqiLevel": 81,
     "electricityHours": 24,
     "cropYieldIndex": 61.2,
-    "soilHealthSaturation": 92.4
+    "soilHealthSaturation": 92.4,
+    "centerCoords": {
+      "lat": 11.74515,
+      "lng": 79.75896
+    }
   },
   "Cuttack": {
     "name": "Cuttack",
@@ -2463,7 +3007,11 @@
     "aqiLevel": 67,
     "electricityHours": 19,
     "cropYieldIndex": 54.8,
-    "soilHealthSaturation": 95.2
+    "soilHealthSaturation": 95.2,
+    "centerCoords": {
+      "lat": 20.46653,
+      "lng": 85.89615
+    }
   },
   "Dadra And Nagar Haveli": {
     "name": "Dadra And Nagar Haveli",
@@ -2481,7 +3029,11 @@
     "aqiLevel": 78,
     "electricityHours": 19,
     "cropYieldIndex": 56.7,
-    "soilHealthSaturation": 89.8
+    "soilHealthSaturation": 89.8,
+    "centerCoords": {
+      "lat": 20.6937,
+      "lng": 79.0629
+    }
   },
   "Dahod": {
     "name": "Dahod",
@@ -2499,7 +3051,11 @@
     "aqiLevel": 118,
     "electricityHours": 24,
     "cropYieldIndex": 64.0,
-    "soilHealthSaturation": 97.4
+    "soilHealthSaturation": 97.4,
+    "centerCoords": {
+      "lat": 23.4656,
+      "lng": 72.8869
+    }
   },
   "Dakshina Kannada": {
     "name": "Dakshina Kannada",
@@ -2517,7 +3073,11 @@
     "aqiLevel": 87,
     "electricityHours": 21,
     "cropYieldIndex": 60.6,
-    "soilHealthSaturation": 98.3
+    "soilHealthSaturation": 98.3,
+    "centerCoords": {
+      "lat": 12.86767344,
+      "lng": 75.25150721
+    }
   },
   "Daman & Diu": {
     "name": "Daman & Diu",
@@ -2535,7 +3095,11 @@
     "aqiLevel": 66,
     "electricityHours": 19,
     "cropYieldIndex": 55.0,
-    "soilHealthSaturation": 78.7
+    "soilHealthSaturation": 78.7,
+    "centerCoords": {
+      "lat": 20.4252,
+      "lng": 72.85376
+    }
   },
   "Damoh": {
     "name": "Damoh",
@@ -2553,7 +3117,11 @@
     "aqiLevel": 99,
     "electricityHours": 19,
     "cropYieldIndex": 53.4,
-    "soilHealthSaturation": 73.3
+    "soilHealthSaturation": 73.3,
+    "centerCoords": {
+      "lat": 23.83571,
+      "lng": 79.44359
+    }
   },
   "Darbhanga": {
     "name": "Darbhanga",
@@ -2571,7 +3139,11 @@
     "aqiLevel": 131,
     "electricityHours": 16,
     "cropYieldIndex": 52.4,
-    "soilHealthSaturation": 81.1
+    "soilHealthSaturation": 81.1,
+    "centerCoords": {
+      "lat": 26.15516,
+      "lng": 85.89044
+    }
   },
   "Darjeeling": {
     "name": "Darjeeling",
@@ -2589,7 +3161,11 @@
     "aqiLevel": 97,
     "electricityHours": 22,
     "cropYieldIndex": 59.4,
-    "soilHealthSaturation": 77.8
+    "soilHealthSaturation": 77.8,
+    "centerCoords": {
+      "lat": 22.5726,
+      "lng": 88.3639
+    }
   },
   "Dausa": {
     "name": "Dausa",
@@ -2607,7 +3183,11 @@
     "aqiLevel": 127,
     "electricityHours": 21,
     "cropYieldIndex": 45.3,
-    "soilHealthSaturation": 90.7
+    "soilHealthSaturation": 90.7,
+    "centerCoords": {
+      "lat": 26.89966,
+      "lng": 76.33038
+    }
   },
   "Davanagere": {
     "name": "Davanagere",
@@ -2625,7 +3205,11 @@
     "aqiLevel": 61,
     "electricityHours": 21,
     "cropYieldIndex": 58.2,
-    "soilHealthSaturation": 96.9
+    "soilHealthSaturation": 96.9,
+    "centerCoords": {
+      "lat": 14.4593,
+      "lng": 75.91528
+    }
   },
   "Deoria": {
     "name": "Deoria",
@@ -2643,7 +3227,11 @@
     "aqiLevel": 122,
     "electricityHours": 16,
     "cropYieldIndex": 55.9,
-    "soilHealthSaturation": 88.7
+    "soilHealthSaturation": 88.7,
+    "centerCoords": {
+      "lat": 26.50249,
+      "lng": 83.77917
+    }
   },
   "Dewas": {
     "name": "Dewas",
@@ -2661,7 +3249,11 @@
     "aqiLevel": 101,
     "electricityHours": 20,
     "cropYieldIndex": 48.9,
-    "soilHealthSaturation": 73.8
+    "soilHealthSaturation": 73.8,
+    "centerCoords": {
+      "lat": 22.96585,
+      "lng": 76.05526
+    }
   },
   "Dhanbad": {
     "name": "Dhanbad",
@@ -2679,7 +3271,11 @@
     "aqiLevel": 95,
     "electricityHours": 17,
     "cropYieldIndex": 53.6,
-    "soilHealthSaturation": 67.5
+    "soilHealthSaturation": 67.5,
+    "centerCoords": {
+      "lat": 23.79596,
+      "lng": 86.43061
+    }
   },
   "Dhar": {
     "name": "Dhar",
@@ -2697,7 +3293,11 @@
     "aqiLevel": 99,
     "electricityHours": 18,
     "cropYieldIndex": 50.1,
-    "soilHealthSaturation": 72.7
+    "soilHealthSaturation": 72.7,
+    "centerCoords": {
+      "lat": 22.59529,
+      "lng": 75.30061
+    }
   },
   "Dharmapuri": {
     "name": "Dharmapuri",
@@ -2715,7 +3315,11 @@
     "aqiLevel": 83,
     "electricityHours": 24,
     "cropYieldIndex": 64.4,
-    "soilHealthSaturation": 98.4
+    "soilHealthSaturation": 98.4,
+    "centerCoords": {
+      "lat": 18.94365,
+      "lng": 79.09492
+    }
   },
   "Dharwad": {
     "name": "Dharwad",
@@ -2733,7 +3337,11 @@
     "aqiLevel": 55,
     "electricityHours": 23,
     "cropYieldIndex": 62.3,
-    "soilHealthSaturation": 91.6
+    "soilHealthSaturation": 91.6,
+    "centerCoords": {
+      "lat": 15.45111,
+      "lng": 75.00517
+    }
   },
   "Dhaurahra": {
     "name": "Dhaurahra",
@@ -2751,7 +3359,11 @@
     "aqiLevel": 120,
     "electricityHours": 19,
     "cropYieldIndex": 56.4,
-    "soilHealthSaturation": 90.6
+    "soilHealthSaturation": 90.6,
+    "centerCoords": {
+      "lat": 27.296699999999998,
+      "lng": 81.39620000000001
+    }
   },
   "Dhenkanal": {
     "name": "Dhenkanal",
@@ -2769,7 +3381,11 @@
     "aqiLevel": 67,
     "electricityHours": 23,
     "cropYieldIndex": 52.5,
-    "soilHealthSaturation": 87.6
+    "soilHealthSaturation": 87.6,
+    "centerCoords": {
+      "lat": 20.65297,
+      "lng": 85.59907
+    }
   },
   "Dhubri": {
     "name": "Dhubri",
@@ -2787,7 +3403,11 @@
     "aqiLevel": 53,
     "electricityHours": 18,
     "cropYieldIndex": 55.2,
-    "soilHealthSaturation": 88.1
+    "soilHealthSaturation": 88.1,
+    "centerCoords": {
+      "lat": 26.02571,
+      "lng": 89.9721
+    }
   },
   "Dhule": {
     "name": "Dhule",
@@ -2805,7 +3425,11 @@
     "aqiLevel": 99,
     "electricityHours": 24,
     "cropYieldIndex": 64.1,
-    "soilHealthSaturation": 99.5
+    "soilHealthSaturation": 99.5,
+    "centerCoords": {
+      "lat": 20.90286,
+      "lng": 74.7725
+    }
   },
   "Diamond Harbour": {
     "name": "Diamond Harbour",
@@ -2823,7 +3447,11 @@
     "aqiLevel": 126,
     "electricityHours": 21,
     "cropYieldIndex": 54.6,
-    "soilHealthSaturation": 81.0
+    "soilHealthSaturation": 81.0,
+    "centerCoords": {
+      "lat": 22.8226,
+      "lng": 88.6139
+    }
   },
   "Dibrugarh": {
     "name": "Dibrugarh",
@@ -2841,7 +3469,11 @@
     "aqiLevel": 53,
     "electricityHours": 17,
     "cropYieldIndex": 55.2,
-    "soilHealthSaturation": 79.8
+    "soilHealthSaturation": 79.8,
+    "centerCoords": {
+      "lat": 27.48439,
+      "lng": 94.92311
+    }
   },
   "Dindigul": {
     "name": "Dindigul",
@@ -2859,7 +3491,11 @@
     "aqiLevel": 63,
     "electricityHours": 24,
     "cropYieldIndex": 68.5,
-    "soilHealthSaturation": 94.0
+    "soilHealthSaturation": 94.0,
+    "centerCoords": {
+      "lat": 10.3621,
+      "lng": 77.96947
+    }
   },
   "Dindori": {
     "name": "Dindori",
@@ -2877,7 +3513,11 @@
     "aqiLevel": 104,
     "electricityHours": 23,
     "cropYieldIndex": 65.1,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 22.947,
+      "lng": 81.07506
+    }
   },
   "Domariyaganj": {
     "name": "Domariyaganj",
@@ -2895,7 +3535,11 @@
     "aqiLevel": 132,
     "electricityHours": 16,
     "cropYieldIndex": 57.0,
-    "soilHealthSaturation": 96.2
+    "soilHealthSaturation": 96.2,
+    "centerCoords": {
+      "lat": 26.9467,
+      "lng": 81.0462
+    }
   },
   "Dum Dum": {
     "name": "Dum Dum",
@@ -2913,7 +3557,11 @@
     "aqiLevel": 114,
     "electricityHours": 21,
     "cropYieldIndex": 62.9,
-    "soilHealthSaturation": 89.5
+    "soilHealthSaturation": 89.5,
+    "centerCoords": {
+      "lat": 22.922600000000003,
+      "lng": 88.7139
+    }
   },
   "Dumka": {
     "name": "Dumka",
@@ -2931,7 +3579,11 @@
     "aqiLevel": 86,
     "electricityHours": 17,
     "cropYieldIndex": 48.9,
-    "soilHealthSaturation": 77.0
+    "soilHealthSaturation": 77.0,
+    "centerCoords": {
+      "lat": 24.26838,
+      "lng": 87.24887
+    }
   },
   "Durg": {
     "name": "Durg",
@@ -2949,7 +3601,11 @@
     "aqiLevel": 101,
     "electricityHours": 21,
     "cropYieldIndex": 54.9,
-    "soilHealthSaturation": 92.3
+    "soilHealthSaturation": 92.3,
+    "centerCoords": {
+      "lat": 21.19918,
+      "lng": 81.28967
+    }
   },
   "East Delhi": {
     "name": "East Delhi",
@@ -2967,7 +3623,11 @@
     "aqiLevel": 240,
     "electricityHours": 22,
     "cropYieldIndex": 43.7,
-    "soilHealthSaturation": 79.2
+    "soilHealthSaturation": 79.2,
+    "centerCoords": {
+      "lat": 28.62279335,
+      "lng": 77.29347145
+    }
   },
   "Eluru": {
     "name": "Eluru",
@@ -2985,7 +3645,11 @@
     "aqiLevel": 73,
     "electricityHours": 21,
     "cropYieldIndex": 57.2,
-    "soilHealthSaturation": 82.1
+    "soilHealthSaturation": 82.1,
+    "centerCoords": {
+      "lat": 16.7562,
+      "lng": 80.898
+    }
   },
   "Ernakulam": {
     "name": "Ernakulam",
@@ -3003,7 +3667,11 @@
     "aqiLevel": 62,
     "electricityHours": 24,
     "cropYieldIndex": 71.3,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 10.08405614,
+      "lng": 76.54629706
+    }
   },
   "Erode": {
     "name": "Erode",
@@ -3021,7 +3689,11 @@
     "aqiLevel": 56,
     "electricityHours": 22,
     "cropYieldIndex": 62.3,
-    "soilHealthSaturation": 89.5
+    "soilHealthSaturation": 89.5,
+    "centerCoords": {
+      "lat": 11.34065,
+      "lng": 77.71723
+    }
   },
   "Etah": {
     "name": "Etah",
@@ -3039,7 +3711,11 @@
     "aqiLevel": 108,
     "electricityHours": 18,
     "cropYieldIndex": 60.3,
-    "soilHealthSaturation": 97.3
+    "soilHealthSaturation": 97.3,
+    "centerCoords": {
+      "lat": 27.57365,
+      "lng": 78.65228
+    }
   },
   "Etawah": {
     "name": "Etawah",
@@ -3057,7 +3733,11 @@
     "aqiLevel": 127,
     "electricityHours": 20,
     "cropYieldIndex": 51.8,
-    "soilHealthSaturation": 90.3
+    "soilHealthSaturation": 90.3,
+    "centerCoords": {
+      "lat": 26.77615,
+      "lng": 79.02133
+    }
   },
   "Faizabad": {
     "name": "Faizabad",
@@ -3075,7 +3755,11 @@
     "aqiLevel": 117,
     "electricityHours": 20,
     "cropYieldIndex": 55.2,
-    "soilHealthSaturation": 91.7
+    "soilHealthSaturation": 91.7,
+    "centerCoords": {
+      "lat": 27.246699999999997,
+      "lng": 81.34620000000001
+    }
   },
   "Faridabad": {
     "name": "Faridabad",
@@ -3093,7 +3777,11 @@
     "aqiLevel": 160,
     "electricityHours": 23,
     "cropYieldIndex": 72.4,
-    "soilHealthSaturation": 92.1
+    "soilHealthSaturation": 92.1,
+    "centerCoords": {
+      "lat": 28.39262,
+      "lng": 77.31268
+    }
   },
   "Faridkot": {
     "name": "Faridkot",
@@ -3111,7 +3799,11 @@
     "aqiLevel": 147,
     "electricityHours": 22,
     "cropYieldIndex": 80.7,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 30.65548,
+      "lng": 74.76948
+    }
   },
   "Farrukhabad": {
     "name": "Farrukhabad",
@@ -3129,7 +3821,11 @@
     "aqiLevel": 126,
     "electricityHours": 16,
     "cropYieldIndex": 50.6,
-    "soilHealthSaturation": 88.6
+    "soilHealthSaturation": 88.6,
+    "centerCoords": {
+      "lat": 27.39134,
+      "lng": 79.5793
+    }
   },
   "Fatehgarh Sahib": {
     "name": "Fatehgarh Sahib",
@@ -3147,7 +3843,11 @@
     "aqiLevel": 131,
     "electricityHours": 24,
     "cropYieldIndex": 78.9,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 30.9833,
+      "lng": 77.0294
+    }
   },
   "Fatehpur": {
     "name": "Fatehpur",
@@ -3165,7 +3865,11 @@
     "aqiLevel": 118,
     "electricityHours": 16,
     "cropYieldIndex": 57.4,
-    "soilHealthSaturation": 95.9
+    "soilHealthSaturation": 95.9,
+    "centerCoords": {
+      "lat": 27.17326,
+      "lng": 81.21653
+    }
   },
   "Fatehpur Sikri": {
     "name": "Fatehpur Sikri",
@@ -3183,7 +3887,11 @@
     "aqiLevel": 125,
     "electricityHours": 20,
     "cropYieldIndex": 53.6,
-    "soilHealthSaturation": 94.2
+    "soilHealthSaturation": 94.2,
+    "centerCoords": {
+      "lat": 27.17326,
+      "lng": 81.21653
+    }
   },
   "Firozabad": {
     "name": "Firozabad",
@@ -3201,7 +3909,11 @@
     "aqiLevel": 137,
     "electricityHours": 20,
     "cropYieldIndex": 50.6,
-    "soilHealthSaturation": 84.9
+    "soilHealthSaturation": 84.9,
+    "centerCoords": {
+      "lat": 27.15211,
+      "lng": 78.39466
+    }
   },
   "Firozpur": {
     "name": "Firozpur",
@@ -3219,7 +3931,11 @@
     "aqiLevel": 144,
     "electricityHours": 22,
     "cropYieldIndex": 79.9,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 31.1333,
+      "lng": 77.1794
+    }
   },
   "Gadchiroli-Chimur": {
     "name": "Gadchiroli-Chimur",
@@ -3237,7 +3953,11 @@
     "aqiLevel": 83,
     "electricityHours": 22,
     "cropYieldIndex": 62.0,
-    "soilHealthSaturation": 90.5
+    "soilHealthSaturation": 90.5,
+    "centerCoords": {
+      "lat": 20.18259,
+      "lng": 80.00617
+    }
   },
   "Gandhinagar": {
     "name": "Gandhinagar",
@@ -3255,7 +3975,11 @@
     "aqiLevel": 105,
     "electricityHours": 24,
     "cropYieldIndex": 69.1,
-    "soilHealthSaturation": 95.4
+    "soilHealthSaturation": 95.4,
+    "centerCoords": {
+      "lat": 23.24081,
+      "lng": 72.63733
+    }
   },
   "Ganganagar": {
     "name": "Ganganagar",
@@ -3273,7 +3997,11 @@
     "aqiLevel": 98,
     "electricityHours": 18,
     "cropYieldIndex": 41.2,
-    "soilHealthSaturation": 91.5
+    "soilHealthSaturation": 91.5,
+    "centerCoords": {
+      "lat": 29.92009,
+      "lng": 73.87496
+    }
   },
   "Garhwal": {
     "name": "Garhwal",
@@ -3291,7 +4019,11 @@
     "aqiLevel": 52,
     "electricityHours": 22,
     "cropYieldIndex": 48.2,
-    "soilHealthSaturation": 83.0
+    "soilHealthSaturation": 83.0,
+    "centerCoords": {
+      "lat": 24.15887,
+      "lng": 83.80083
+    }
   },
   "Gauhati": {
     "name": "Gauhati",
@@ -3309,7 +4041,11 @@
     "aqiLevel": 66,
     "electricityHours": 19,
     "cropYieldIndex": 54.0,
-    "soilHealthSaturation": 72.1
+    "soilHealthSaturation": 72.1,
+    "centerCoords": {
+      "lat": 26.494500000000002,
+      "lng": 92.08619999999999
+    }
   },
   "Gautam Buddha Nagar": {
     "name": "Gautam Buddha Nagar",
@@ -3327,7 +4063,11 @@
     "aqiLevel": 118,
     "electricityHours": 18,
     "cropYieldIndex": 55.3,
-    "soilHealthSaturation": 98.5
+    "soilHealthSaturation": 98.5,
+    "centerCoords": {
+      "lat": 28.36145,
+      "lng": 77.50703
+    }
   },
   "Gaya (Sc)": {
     "name": "Gaya (Sc)",
@@ -3345,7 +4085,11 @@
     "aqiLevel": 121,
     "electricityHours": 18,
     "cropYieldIndex": 51.1,
-    "soilHealthSaturation": 65.6
+    "soilHealthSaturation": 65.6,
+    "centerCoords": {
+      "lat": 24.78497,
+      "lng": 84.99271
+    }
   },
   "Ghatal": {
     "name": "Ghatal",
@@ -3363,7 +4107,11 @@
     "aqiLevel": 107,
     "electricityHours": 21,
     "cropYieldIndex": 58.0,
-    "soilHealthSaturation": 75.9
+    "soilHealthSaturation": 75.9,
+    "centerCoords": {
+      "lat": 22.872600000000002,
+      "lng": 88.6639
+    }
   },
   "Ghaziabad": {
     "name": "Ghaziabad",
@@ -3381,7 +4129,11 @@
     "aqiLevel": 115,
     "electricityHours": 16,
     "cropYieldIndex": 53.3,
-    "soilHealthSaturation": 96.3
+    "soilHealthSaturation": 96.3,
+    "centerCoords": {
+      "lat": 28.66535,
+      "lng": 77.43915
+    }
   },
   "Ghazipur": {
     "name": "Ghazipur",
@@ -3399,7 +4151,11 @@
     "aqiLevel": 137,
     "electricityHours": 19,
     "cropYieldIndex": 50.8,
-    "soilHealthSaturation": 88.7
+    "soilHealthSaturation": 88.7,
+    "centerCoords": {
+      "lat": 25.58333,
+      "lng": 83.58526
+    }
   },
   "Ghosi": {
     "name": "Ghosi",
@@ -3417,7 +4173,11 @@
     "aqiLevel": 128,
     "electricityHours": 16,
     "cropYieldIndex": 59.3,
-    "soilHealthSaturation": 97.2
+    "soilHealthSaturation": 97.2,
+    "centerCoords": {
+      "lat": 27.0967,
+      "lng": 81.1962
+    }
   },
   "Giridih": {
     "name": "Giridih",
@@ -3435,7 +4195,11 @@
     "aqiLevel": 85,
     "electricityHours": 18,
     "cropYieldIndex": 52.1,
-    "soilHealthSaturation": 73.6
+    "soilHealthSaturation": 73.6,
+    "centerCoords": {
+      "lat": 24.18711,
+      "lng": 86.30464
+    }
   },
   "Godda": {
     "name": "Godda",
@@ -3453,7 +4217,11 @@
     "aqiLevel": 100,
     "electricityHours": 19,
     "cropYieldIndex": 46.8,
-    "soilHealthSaturation": 82.5
+    "soilHealthSaturation": 82.5,
+    "centerCoords": {
+      "lat": 24.83211,
+      "lng": 87.2073
+    }
   },
   "Gonda": {
     "name": "Gonda",
@@ -3471,7 +4239,11 @@
     "aqiLevel": 141,
     "electricityHours": 18,
     "cropYieldIndex": 58.5,
-    "soilHealthSaturation": 80.6
+    "soilHealthSaturation": 80.6,
+    "centerCoords": {
+      "lat": 27.13582,
+      "lng": 81.95977
+    }
   },
   "Gopalganj (Sc)": {
     "name": "Gopalganj (Sc)",
@@ -3489,7 +4261,11 @@
     "aqiLevel": 126,
     "electricityHours": 17,
     "cropYieldIndex": 50.6,
-    "soilHealthSaturation": 73.9
+    "soilHealthSaturation": 73.9,
+    "centerCoords": {
+      "lat": 26.46645,
+      "lng": 84.44284
+    }
   },
   "Gorakhpur": {
     "name": "Gorakhpur",
@@ -3507,7 +4283,11 @@
     "aqiLevel": 107,
     "electricityHours": 18,
     "cropYieldIndex": 57.5,
-    "soilHealthSaturation": 97.1
+    "soilHealthSaturation": 97.1,
+    "centerCoords": {
+      "lat": 26.75432,
+      "lng": 83.37554
+    }
   },
   "Gulbarga": {
     "name": "Gulbarga",
@@ -3525,7 +4305,11 @@
     "aqiLevel": 82,
     "electricityHours": 20,
     "cropYieldIndex": 56.7,
-    "soilHealthSaturation": 89.8
+    "soilHealthSaturation": 89.8,
+    "centerCoords": {
+      "lat": 13.3716,
+      "lng": 77.9946
+    }
   },
   "Guna": {
     "name": "Guna",
@@ -3543,7 +4327,11 @@
     "aqiLevel": 71,
     "electricityHours": 22,
     "cropYieldIndex": 51.9,
-    "soilHealthSaturation": 82.7
+    "soilHealthSaturation": 82.7,
+    "centerCoords": {
+      "lat": 24.64643,
+      "lng": 77.3109
+    }
   },
   "Guntur": {
     "name": "Guntur",
@@ -3561,7 +4349,11 @@
     "aqiLevel": 84,
     "electricityHours": 21,
     "cropYieldIndex": 56.1,
-    "soilHealthSaturation": 98.9
+    "soilHealthSaturation": 98.9,
+    "centerCoords": {
+      "lat": 16.29974,
+      "lng": 80.45729
+    }
   },
   "Gurdaspur": {
     "name": "Gurdaspur",
@@ -3579,7 +4371,11 @@
     "aqiLevel": 150,
     "electricityHours": 23,
     "cropYieldIndex": 81.1,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 32.04088,
+      "lng": 75.40136
+    }
   },
   "Gurgaon": {
     "name": "Gurgaon",
@@ -3597,7 +4393,11 @@
     "aqiLevel": 161,
     "electricityHours": 24,
     "cropYieldIndex": 73.9,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 31.0833,
+      "lng": 77.12939999999999
+    }
   },
   "Gwalior": {
     "name": "Gwalior",
@@ -3615,7 +4415,11 @@
     "aqiLevel": 99,
     "electricityHours": 22,
     "cropYieldIndex": 53.3,
-    "soilHealthSaturation": 72.3
+    "soilHealthSaturation": 72.3,
+    "centerCoords": {
+      "lat": 26.22011,
+      "lng": 78.1762
+    }
   },
   "Hajipur (Sc)": {
     "name": "Hajipur (Sc)",
@@ -3633,7 +4437,11 @@
     "aqiLevel": 126,
     "electricityHours": 16,
     "cropYieldIndex": 45.2,
-    "soilHealthSaturation": 76.4
+    "soilHealthSaturation": 76.4,
+    "centerCoords": {
+      "lat": 25.694100000000002,
+      "lng": 85.2376
+    }
   },
   "Hamirpur": {
     "name": "Hamirpur",
@@ -3651,7 +4459,11 @@
     "aqiLevel": 44,
     "electricityHours": 21,
     "cropYieldIndex": 52.8,
-    "soilHealthSaturation": 98.0
+    "soilHealthSaturation": 98.0,
+    "centerCoords": {
+      "lat": 25.96085,
+      "lng": 80.1453
+    }
   },
   "Hardoi": {
     "name": "Hardoi",
@@ -3669,7 +4481,11 @@
     "aqiLevel": 110,
     "electricityHours": 20,
     "cropYieldIndex": 52.8,
-    "soilHealthSaturation": 92.5
+    "soilHealthSaturation": 92.5,
+    "centerCoords": {
+      "lat": 27.39491,
+      "lng": 80.13165
+    }
   },
   "Hardwar": {
     "name": "Hardwar",
@@ -3687,7 +4503,11 @@
     "aqiLevel": 73,
     "electricityHours": 20,
     "cropYieldIndex": 53.8,
-    "soilHealthSaturation": 89.4
+    "soilHealthSaturation": 89.4,
+    "centerCoords": {
+      "lat": 30.666500000000003,
+      "lng": 78.3822
+    }
   },
   "Hassan": {
     "name": "Hassan",
@@ -3705,7 +4525,11 @@
     "aqiLevel": 81,
     "electricityHours": 22,
     "cropYieldIndex": 65.3,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 13.00344,
+      "lng": 76.10322
+    }
   },
   "Hathras": {
     "name": "Hathras",
@@ -3723,7 +4547,11 @@
     "aqiLevel": 129,
     "electricityHours": 17,
     "cropYieldIndex": 52.9,
-    "soilHealthSaturation": 81.8
+    "soilHealthSaturation": 81.8,
+    "centerCoords": {
+      "lat": 27.59551,
+      "lng": 78.05201
+    }
   },
   "Hatkanangle": {
     "name": "Hatkanangle",
@@ -3741,7 +4569,11 @@
     "aqiLevel": 104,
     "electricityHours": 22,
     "cropYieldIndex": 66.6,
-    "soilHealthSaturation": 83.1
+    "soilHealthSaturation": 83.1,
+    "centerCoords": {
+      "lat": 19.025000000000002,
+      "lng": 72.8758
+    }
   },
   "Haveri": {
     "name": "Haveri",
@@ -3759,7 +4591,11 @@
     "aqiLevel": 82,
     "electricityHours": 24,
     "cropYieldIndex": 62.1,
-    "soilHealthSaturation": 83.4
+    "soilHealthSaturation": 83.4,
+    "centerCoords": {
+      "lat": 14.79276,
+      "lng": 75.39635
+    }
   },
   "Hazaribagh": {
     "name": "Hazaribagh",
@@ -3777,7 +4613,11 @@
     "aqiLevel": 120,
     "electricityHours": 15,
     "cropYieldIndex": 51.1,
-    "soilHealthSaturation": 82.0
+    "soilHealthSaturation": 82.0,
+    "centerCoords": {
+      "lat": 23.99885,
+      "lng": 85.36735
+    }
   },
   "Hindupur": {
     "name": "Hindupur",
@@ -3795,7 +4635,11 @@
     "aqiLevel": 53,
     "electricityHours": 21,
     "cropYieldIndex": 56.3,
-    "soilHealthSaturation": 82.1
+    "soilHealthSaturation": 82.1,
+    "centerCoords": {
+      "lat": 16.9062,
+      "lng": 81.048
+    }
   },
   "Hingoli": {
     "name": "Hingoli",
@@ -3813,7 +4657,11 @@
     "aqiLevel": 92,
     "electricityHours": 22,
     "cropYieldIndex": 60.3,
-    "soilHealthSaturation": 90.4
+    "soilHealthSaturation": 90.4,
+    "centerCoords": {
+      "lat": 19.72169,
+      "lng": 77.15177
+    }
   },
   "Hisar": {
     "name": "Hisar",
@@ -3831,7 +4679,11 @@
     "aqiLevel": 167,
     "electricityHours": 24,
     "cropYieldIndex": 74.9,
-    "soilHealthSaturation": 89.3
+    "soilHealthSaturation": 89.3,
+    "centerCoords": {
+      "lat": 29.15394,
+      "lng": 75.72294
+    }
   },
   "Hooghly": {
     "name": "Hooghly",
@@ -3849,7 +4701,11 @@
     "aqiLevel": 111,
     "electricityHours": 23,
     "cropYieldIndex": 58.7,
-    "soilHealthSaturation": 88.9
+    "soilHealthSaturation": 88.9,
+    "centerCoords": {
+      "lat": 22.90877,
+      "lng": 88.39674
+    }
   },
   "Hoshangabad": {
     "name": "Hoshangabad",
@@ -3867,7 +4723,11 @@
     "aqiLevel": 93,
     "electricityHours": 21,
     "cropYieldIndex": 48.4,
-    "soilHealthSaturation": 89.8
+    "soilHealthSaturation": 89.8,
+    "centerCoords": {
+      "lat": 22.74747,
+      "lng": 77.72736
+    }
   },
   "Hoshiarpur": {
     "name": "Hoshiarpur",
@@ -3885,7 +4745,11 @@
     "aqiLevel": 128,
     "electricityHours": 24,
     "cropYieldIndex": 76.0,
-    "soilHealthSaturation": 93.0
+    "soilHealthSaturation": 93.0,
+    "centerCoords": {
+      "lat": 31.53723,
+      "lng": 75.91269
+    }
   },
   "Howrah": {
     "name": "Howrah",
@@ -3903,7 +4767,11 @@
     "aqiLevel": 100,
     "electricityHours": 20,
     "cropYieldIndex": 62.5,
-    "soilHealthSaturation": 83.6
+    "soilHealthSaturation": 83.6,
+    "centerCoords": {
+      "lat": 22.59631,
+      "lng": 88.25608
+    }
   },
   "Hyderabad": {
     "name": "Hyderabad",
@@ -3921,7 +4789,11 @@
     "aqiLevel": 97,
     "electricityHours": 24,
     "cropYieldIndex": 63.9,
-    "soilHealthSaturation": 96.1
+    "soilHealthSaturation": 96.1,
+    "centerCoords": {
+      "lat": 17.3949,
+      "lng": 78.47073
+    }
   },
   "Idukki": {
     "name": "Idukki",
@@ -3939,7 +4811,11 @@
     "aqiLevel": 46,
     "electricityHours": 24,
     "cropYieldIndex": 75.5,
-    "soilHealthSaturation": 89.1
+    "soilHealthSaturation": 89.1,
+    "centerCoords": {
+      "lat": 9.838750875,
+      "lng": 77.05881477
+    }
   },
   "Indore": {
     "name": "Indore",
@@ -3957,7 +4833,11 @@
     "aqiLevel": 91,
     "electricityHours": 18,
     "cropYieldIndex": 50.0,
-    "soilHealthSaturation": 88.5
+    "soilHealthSaturation": 88.5,
+    "centerCoords": {
+      "lat": 22.71622,
+      "lng": 75.86512
+    }
   },
   "Inner Manipur": {
     "name": "Inner Manipur",
@@ -3975,7 +4855,11 @@
     "aqiLevel": 39,
     "electricityHours": 21,
     "cropYieldIndex": 53.2,
-    "soilHealthSaturation": 79.8
+    "soilHealthSaturation": 79.8,
+    "centerCoords": {
+      "lat": 24.967,
+      "lng": 94.08680000000001
+    }
   },
   "Jabalpur": {
     "name": "Jabalpur",
@@ -3993,7 +4877,11 @@
     "aqiLevel": 79,
     "electricityHours": 18,
     "cropYieldIndex": 48.2,
-    "soilHealthSaturation": 79.1
+    "soilHealthSaturation": 79.1,
+    "centerCoords": {
+      "lat": 23.17416,
+      "lng": 79.93135
+    }
   },
   "Jadavpur": {
     "name": "Jadavpur",
@@ -4011,7 +4899,11 @@
     "aqiLevel": 102,
     "electricityHours": 20,
     "cropYieldIndex": 55.8,
-    "soilHealthSaturation": 76.1
+    "soilHealthSaturation": 76.1,
+    "centerCoords": {
+      "lat": 22.9726,
+      "lng": 88.7639
+    }
   },
   "Jagatsinghpur": {
     "name": "Jagatsinghpur",
@@ -4029,7 +4921,11 @@
     "aqiLevel": 66,
     "electricityHours": 21,
     "cropYieldIndex": 48.5,
-    "soilHealthSaturation": 92.7
+    "soilHealthSaturation": 92.7,
+    "centerCoords": {
+      "lat": 20.446099999999998,
+      "lng": 85.9745
+    }
   },
   "Jahanabad": {
     "name": "Jahanabad",
@@ -4047,7 +4943,11 @@
     "aqiLevel": 146,
     "electricityHours": 18,
     "cropYieldIndex": 44.9,
-    "soilHealthSaturation": 72.5
+    "soilHealthSaturation": 72.5,
+    "centerCoords": {
+      "lat": 26.0441,
+      "lng": 85.58760000000001
+    }
   },
   "Jaipur": {
     "name": "Jaipur",
@@ -4065,7 +4965,11 @@
     "aqiLevel": 126,
     "electricityHours": 18,
     "cropYieldIndex": 44.7,
-    "soilHealthSaturation": 82.0
+    "soilHealthSaturation": 82.0,
+    "centerCoords": {
+      "lat": 26.92591,
+      "lng": 75.80673
+    }
   },
   "Jaipur Rural": {
     "name": "Jaipur Rural",
@@ -4083,7 +4987,11 @@
     "aqiLevel": 126,
     "electricityHours": 19,
     "cropYieldIndex": 48.8,
-    "soilHealthSaturation": 75.3
+    "soilHealthSaturation": 75.3,
+    "centerCoords": {
+      "lat": 26.92591,
+      "lng": 75.80673
+    }
   },
   "Jajpur": {
     "name": "Jajpur",
@@ -4101,7 +5009,11 @@
     "aqiLevel": 71,
     "electricityHours": 21,
     "cropYieldIndex": 47.7,
-    "soilHealthSaturation": 82.0
+    "soilHealthSaturation": 82.0,
+    "centerCoords": {
+      "lat": 20.5961,
+      "lng": 86.1245
+    }
   },
   "Jalandhar": {
     "name": "Jalandhar",
@@ -4119,7 +5031,11 @@
     "aqiLevel": 123,
     "electricityHours": 21,
     "cropYieldIndex": 79.4,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 31.33081,
+      "lng": 75.59016
+    }
   },
   "Jalaun": {
     "name": "Jalaun",
@@ -4137,7 +5053,11 @@
     "aqiLevel": 112,
     "electricityHours": 20,
     "cropYieldIndex": 54.3,
-    "soilHealthSaturation": 88.1
+    "soilHealthSaturation": 88.1,
+    "centerCoords": {
+      "lat": 26.1429,
+      "lng": 79.32559
+    }
   },
   "Jalgaon": {
     "name": "Jalgaon",
@@ -4155,7 +5075,11 @@
     "aqiLevel": 105,
     "electricityHours": 22,
     "cropYieldIndex": 57.3,
-    "soilHealthSaturation": 89.9
+    "soilHealthSaturation": 89.9,
+    "centerCoords": {
+      "lat": 21.00292,
+      "lng": 75.56602
+    }
   },
   "Jalna": {
     "name": "Jalna",
@@ -4173,7 +5097,11 @@
     "aqiLevel": 78,
     "electricityHours": 24,
     "cropYieldIndex": 59.4,
-    "soilHealthSaturation": 82.9
+    "soilHealthSaturation": 82.9,
+    "centerCoords": {
+      "lat": 19.84102,
+      "lng": 75.88636
+    }
   },
   "Jalore": {
     "name": "Jalore",
@@ -4191,7 +5119,11 @@
     "aqiLevel": 126,
     "electricityHours": 19,
     "cropYieldIndex": 44.0,
-    "soilHealthSaturation": 81.5
+    "soilHealthSaturation": 81.5,
+    "centerCoords": {
+      "lat": 25.3488008,
+      "lng": 72.62502763
+    }
   },
   "Jalpaiguri": {
     "name": "Jalpaiguri",
@@ -4209,7 +5141,11 @@
     "aqiLevel": 103,
     "electricityHours": 23,
     "cropYieldIndex": 58.3,
-    "soilHealthSaturation": 89.0
+    "soilHealthSaturation": 89.0,
+    "centerCoords": {
+      "lat": 26.51667,
+      "lng": 88.73333
+    }
   },
   "Jammu": {
     "name": "Jammu",
@@ -4227,7 +5163,11 @@
     "aqiLevel": 91,
     "electricityHours": 22,
     "cropYieldIndex": 58.3,
-    "soilHealthSaturation": 78.5
+    "soilHealthSaturation": 78.5,
+    "centerCoords": {
+      "lat": 32.70267,
+      "lng": 74.87843
+    }
   },
   "Jamnagar": {
     "name": "Jamnagar",
@@ -4245,7 +5185,11 @@
     "aqiLevel": 106,
     "electricityHours": 23,
     "cropYieldIndex": 66.5,
-    "soilHealthSaturation": 94.9
+    "soilHealthSaturation": 94.9,
+    "centerCoords": {
+      "lat": 22.46961,
+      "lng": 70.07358
+    }
   },
   "Jamshedpur": {
     "name": "Jamshedpur",
@@ -4263,7 +5207,11 @@
     "aqiLevel": 99,
     "electricityHours": 15,
     "cropYieldIndex": 52.6,
-    "soilHealthSaturation": 67.1
+    "soilHealthSaturation": 67.1,
+    "centerCoords": {
+      "lat": 23.3441,
+      "lng": 85.309
+    }
   },
   "Jamui (Sc)": {
     "name": "Jamui (Sc)",
@@ -4281,7 +5229,11 @@
     "aqiLevel": 125,
     "electricityHours": 16,
     "cropYieldIndex": 44.8,
-    "soilHealthSaturation": 66.9
+    "soilHealthSaturation": 66.9,
+    "centerCoords": {
+      "lat": 24.92142,
+      "lng": 86.22538
+    }
   },
   "Jangipur": {
     "name": "Jangipur",
@@ -4299,7 +5251,11 @@
     "aqiLevel": 126,
     "electricityHours": 22,
     "cropYieldIndex": 53.7,
-    "soilHealthSaturation": 78.7
+    "soilHealthSaturation": 78.7,
+    "centerCoords": {
+      "lat": 22.9726,
+      "lng": 88.7639
+    }
   },
   "Janjgir-Champa": {
     "name": "Janjgir-Champa",
@@ -4317,7 +5273,11 @@
     "aqiLevel": 104,
     "electricityHours": 20,
     "cropYieldIndex": 61.0,
-    "soilHealthSaturation": 91.0
+    "soilHealthSaturation": 91.0,
+    "centerCoords": {
+      "lat": 21.4514,
+      "lng": 81.8296
+    }
   },
   "Jaunpur": {
     "name": "Jaunpur",
@@ -4335,7 +5295,11 @@
     "aqiLevel": 131,
     "electricityHours": 20,
     "cropYieldIndex": 57.8,
-    "soilHealthSaturation": 92.9
+    "soilHealthSaturation": 92.9,
+    "centerCoords": {
+      "lat": 25.74508,
+      "lng": 82.68237
+    }
   },
   "Jaynagar": {
     "name": "Jaynagar",
@@ -4353,7 +5317,11 @@
     "aqiLevel": 114,
     "electricityHours": 20,
     "cropYieldIndex": 57.4,
-    "soilHealthSaturation": 79.7
+    "soilHealthSaturation": 79.7,
+    "centerCoords": {
+      "lat": 22.9726,
+      "lng": 88.7639
+    }
   },
   "Jhalawar-Baran": {
     "name": "Jhalawar-Baran",
@@ -4371,7 +5339,11 @@
     "aqiLevel": 105,
     "electricityHours": 19,
     "cropYieldIndex": 45.5,
-    "soilHealthSaturation": 88.3
+    "soilHealthSaturation": 88.3,
+    "centerCoords": {
+      "lat": 25.09606,
+      "lng": 76.50895
+    }
   },
   "Jhanjharpur": {
     "name": "Jhanjharpur",
@@ -4389,7 +5361,11 @@
     "aqiLevel": 156,
     "electricityHours": 14,
     "cropYieldIndex": 45.6,
-    "soilHealthSaturation": 85.0
+    "soilHealthSaturation": 85.0,
+    "centerCoords": {
+      "lat": 25.6441,
+      "lng": 85.1876
+    }
   },
   "Jhansi": {
     "name": "Jhansi",
@@ -4407,7 +5383,11 @@
     "aqiLevel": 126,
     "electricityHours": 16,
     "cropYieldIndex": 53.2,
-    "soilHealthSaturation": 85.6
+    "soilHealthSaturation": 85.6,
+    "centerCoords": {
+      "lat": 25.4486,
+      "lng": 78.56956
+    }
   },
   "Jhargram": {
     "name": "Jhargram",
@@ -4425,7 +5405,11 @@
     "aqiLevel": 112,
     "electricityHours": 19,
     "cropYieldIndex": 58.9,
-    "soilHealthSaturation": 90.8
+    "soilHealthSaturation": 90.8,
+    "centerCoords": {
+      "lat": 22.44972,
+      "lng": 86.99701
+    }
   },
   "Jhunjhunu": {
     "name": "Jhunjhunu",
@@ -4443,7 +5427,11 @@
     "aqiLevel": 99,
     "electricityHours": 18,
     "cropYieldIndex": 42.2,
-    "soilHealthSaturation": 76.8
+    "soilHealthSaturation": 76.8,
+    "centerCoords": {
+      "lat": 28.12564,
+      "lng": 75.4004
+    }
   },
   "Jodhpur": {
     "name": "Jodhpur",
@@ -4461,7 +5449,11 @@
     "aqiLevel": 122,
     "electricityHours": 19,
     "cropYieldIndex": 48.9,
-    "soilHealthSaturation": 77.6
+    "soilHealthSaturation": 77.6,
+    "centerCoords": {
+      "lat": 26.26694,
+      "lng": 73.03049
+    }
   },
   "Jorhat": {
     "name": "Jorhat",
@@ -4479,7 +5471,11 @@
     "aqiLevel": 46,
     "electricityHours": 20,
     "cropYieldIndex": 50.2,
-    "soilHealthSaturation": 78.0
+    "soilHealthSaturation": 78.0,
+    "centerCoords": {
+      "lat": 26.76765,
+      "lng": 94.20651
+    }
   },
   "Junagadh": {
     "name": "Junagadh",
@@ -4497,7 +5493,11 @@
     "aqiLevel": 92,
     "electricityHours": 24,
     "cropYieldIndex": 60.8,
-    "soilHealthSaturation": 87.8
+    "soilHealthSaturation": 87.8,
+    "centerCoords": {
+      "lat": 21.51966,
+      "lng": 70.45981
+    }
   },
   "Kachchh": {
     "name": "Kachchh",
@@ -4515,7 +5515,11 @@
     "aqiLevel": 103,
     "electricityHours": 24,
     "cropYieldIndex": 66.0,
-    "soilHealthSaturation": 99.0
+    "soilHealthSaturation": 99.0,
+    "centerCoords": {
+      "lat": 23.62395015,
+      "lng": 69.95882478
+    }
   },
   "Kadapa": {
     "name": "Kadapa",
@@ -4533,7 +5537,11 @@
     "aqiLevel": 70,
     "electricityHours": 22,
     "cropYieldIndex": 60.1,
-    "soilHealthSaturation": 98.2
+    "soilHealthSaturation": 98.2,
+    "centerCoords": {
+      "lat": 16.8062,
+      "lng": 80.948
+    }
   },
   "Kairana": {
     "name": "Kairana",
@@ -4551,7 +5559,11 @@
     "aqiLevel": 132,
     "electricityHours": 19,
     "cropYieldIndex": 54.4,
-    "soilHealthSaturation": 93.5
+    "soilHealthSaturation": 93.5,
+    "centerCoords": {
+      "lat": 27.1967,
+      "lng": 81.2962
+    }
   },
   "Kaiserganj": {
     "name": "Kaiserganj",
@@ -4569,7 +5581,11 @@
     "aqiLevel": 124,
     "electricityHours": 16,
     "cropYieldIndex": 55.7,
-    "soilHealthSaturation": 88.3
+    "soilHealthSaturation": 88.3,
+    "centerCoords": {
+      "lat": 26.8467,
+      "lng": 80.9462
+    }
   },
   "Kakinada": {
     "name": "Kakinada",
@@ -4587,7 +5603,11 @@
     "aqiLevel": 62,
     "electricityHours": 21,
     "cropYieldIndex": 62.9,
-    "soilHealthSaturation": 86.0
+    "soilHealthSaturation": 86.0,
+    "centerCoords": {
+      "lat": 16.9062,
+      "lng": 81.048
+    }
   },
   "Kalahandi": {
     "name": "Kalahandi",
@@ -4605,7 +5625,11 @@
     "aqiLevel": 90,
     "electricityHours": 22,
     "cropYieldIndex": 50.4,
-    "soilHealthSaturation": 88.4
+    "soilHealthSaturation": 88.4,
+    "centerCoords": {
+      "lat": 19.86827798,
+      "lng": 83.10903938
+    }
   },
   "Kaliabor": {
     "name": "Kaliabor",
@@ -4623,7 +5647,11 @@
     "aqiLevel": 67,
     "electricityHours": 18,
     "cropYieldIndex": 49.9,
-    "soilHealthSaturation": 75.8
+    "soilHealthSaturation": 75.8,
+    "centerCoords": {
+      "lat": 26.5445,
+      "lng": 92.1362
+    }
   },
   "Kallakurichi": {
     "name": "Kallakurichi",
@@ -4641,7 +5669,11 @@
     "aqiLevel": 58,
     "electricityHours": 23,
     "cropYieldIndex": 68.8,
-    "soilHealthSaturation": 95.3
+    "soilHealthSaturation": 95.3,
+    "centerCoords": {
+      "lat": 13.1827,
+      "lng": 80.3707
+    }
   },
   "Kalyan": {
     "name": "Kalyan",
@@ -4659,7 +5691,11 @@
     "aqiLevel": 91,
     "electricityHours": 21,
     "cropYieldIndex": 63.6,
-    "soilHealthSaturation": 86.4
+    "soilHealthSaturation": 86.4,
+    "centerCoords": {
+      "lat": 19.275000000000002,
+      "lng": 73.1258
+    }
   },
   "Kancheepuram": {
     "name": "Kancheepuram",
@@ -4677,7 +5713,11 @@
     "aqiLevel": 81,
     "electricityHours": 24,
     "cropYieldIndex": 63.6,
-    "soilHealthSaturation": 87.8
+    "soilHealthSaturation": 87.8,
+    "centerCoords": {
+      "lat": 12.82425,
+      "lng": 79.70112
+    }
   },
   "Kandhamal": {
     "name": "Kandhamal",
@@ -4695,7 +5735,11 @@
     "aqiLevel": 70,
     "electricityHours": 22,
     "cropYieldIndex": 55.8,
-    "soilHealthSaturation": 79.9
+    "soilHealthSaturation": 79.9,
+    "centerCoords": {
+      "lat": 20.12749474,
+      "lng": 84.04784113
+    }
   },
   "Kangra": {
     "name": "Kangra",
@@ -4713,7 +5757,11 @@
     "aqiLevel": 28,
     "electricityHours": 22,
     "cropYieldIndex": 54.7,
-    "soilHealthSaturation": 84.5
+    "soilHealthSaturation": 84.5,
+    "centerCoords": {
+      "lat": 32.10136,
+      "lng": 76.27312
+    }
   },
   "Kanker": {
     "name": "Kanker",
@@ -4731,7 +5779,11 @@
     "aqiLevel": 107,
     "electricityHours": 19,
     "cropYieldIndex": 59.5,
-    "soilHealthSaturation": 80.4
+    "soilHealthSaturation": 80.4,
+    "centerCoords": {
+      "lat": 20.27343,
+      "lng": 81.49286
+    }
   },
   "Kannauj": {
     "name": "Kannauj",
@@ -4749,7 +5801,11 @@
     "aqiLevel": 135,
     "electricityHours": 20,
     "cropYieldIndex": 50.5,
-    "soilHealthSaturation": 82.6
+    "soilHealthSaturation": 82.6,
+    "centerCoords": {
+      "lat": 27.03157,
+      "lng": 79.92119
+    }
   },
   "Kanniyakumari": {
     "name": "Kanniyakumari",
@@ -4767,7 +5823,11 @@
     "aqiLevel": 77,
     "electricityHours": 22,
     "cropYieldIndex": 64.5,
-    "soilHealthSaturation": 93.6
+    "soilHealthSaturation": 93.6,
+    "centerCoords": {
+      "lat": 8.09948,
+      "lng": 77.51963
+    }
   },
   "Kannur": {
     "name": "Kannur",
@@ -4785,7 +5845,11 @@
     "aqiLevel": 50,
     "electricityHours": 23,
     "cropYieldIndex": 72.2,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 11.87482,
+      "lng": 75.37628
+    }
   },
   "Kanpur": {
     "name": "Kanpur",
@@ -4803,7 +5867,11 @@
     "aqiLevel": 113,
     "electricityHours": 20,
     "cropYieldIndex": 51.9,
-    "soilHealthSaturation": 83.4
+    "soilHealthSaturation": 83.4,
+    "centerCoords": {
+      "lat": 26.43949624,
+      "lng": 79.859545
+    }
   },
   "Kanthi": {
     "name": "Kanthi",
@@ -4821,7 +5889,11 @@
     "aqiLevel": 115,
     "electricityHours": 22,
     "cropYieldIndex": 54.1,
-    "soilHealthSaturation": 91.8
+    "soilHealthSaturation": 91.8,
+    "centerCoords": {
+      "lat": 22.872600000000002,
+      "lng": 88.6639
+    }
   },
   "Karakat": {
     "name": "Karakat",
@@ -4839,7 +5911,11 @@
     "aqiLevel": 157,
     "electricityHours": 18,
     "cropYieldIndex": 51.8,
-    "soilHealthSaturation": 82.1
+    "soilHealthSaturation": 82.1,
+    "centerCoords": {
+      "lat": 25.944100000000002,
+      "lng": 85.4876
+    }
   },
   "Karauli-Dholpur": {
     "name": "Karauli-Dholpur",
@@ -4857,7 +5933,11 @@
     "aqiLevel": 132,
     "electricityHours": 19,
     "cropYieldIndex": 44.0,
-    "soilHealthSaturation": 85.2
+    "soilHealthSaturation": 85.2,
+    "centerCoords": {
+      "lat": 26.69286,
+      "lng": 77.87968
+    }
   },
   "Karimganj": {
     "name": "Karimganj",
@@ -4875,7 +5955,11 @@
     "aqiLevel": 62,
     "electricityHours": 17,
     "cropYieldIndex": 54.6,
-    "soilHealthSaturation": 68.5
+    "soilHealthSaturation": 68.5,
+    "centerCoords": {
+      "lat": 24.86013,
+      "lng": 92.3765
+    }
   },
   "Karimnagar": {
     "name": "Karimnagar",
@@ -4893,7 +5977,11 @@
     "aqiLevel": 102,
     "electricityHours": 23,
     "cropYieldIndex": 61.4,
-    "soilHealthSaturation": 89.8
+    "soilHealthSaturation": 89.8,
+    "centerCoords": {
+      "lat": 18.43915,
+      "lng": 79.12856
+    }
   },
   "Karnal": {
     "name": "Karnal",
@@ -4911,7 +5999,11 @@
     "aqiLevel": 131,
     "electricityHours": 21,
     "cropYieldIndex": 76.6,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 29.69197,
+      "lng": 76.98448
+    }
   },
   "Karur": {
     "name": "Karur",
@@ -4929,7 +6021,11 @@
     "aqiLevel": 76,
     "electricityHours": 24,
     "cropYieldIndex": 63.4,
-    "soilHealthSaturation": 94.2
+    "soilHealthSaturation": 94.2,
+    "centerCoords": {
+      "lat": 10.95921,
+      "lng": 78.07722
+    }
   },
   "Kasaragod": {
     "name": "Kasaragod",
@@ -4947,7 +6043,11 @@
     "aqiLevel": 42,
     "electricityHours": 24,
     "cropYieldIndex": 69.7,
-    "soilHealthSaturation": 97.6
+    "soilHealthSaturation": 97.6,
+    "centerCoords": {
+      "lat": 12.51143,
+      "lng": 74.98361
+    }
   },
   "Katihar": {
     "name": "Katihar",
@@ -4965,7 +6065,11 @@
     "aqiLevel": 129,
     "electricityHours": 17,
     "cropYieldIndex": 44.9,
-    "soilHealthSaturation": 84.8
+    "soilHealthSaturation": 84.8,
+    "centerCoords": {
+      "lat": 25.53852,
+      "lng": 87.57044
+    }
   },
   "Kaushambi": {
     "name": "Kaushambi",
@@ -4983,7 +6087,11 @@
     "aqiLevel": 137,
     "electricityHours": 18,
     "cropYieldIndex": 55.2,
-    "soilHealthSaturation": 89.9
+    "soilHealthSaturation": 89.9,
+    "centerCoords": {
+      "lat": 25.4990444,
+      "lng": 81.41698342
+    }
   },
   "Kendrapara": {
     "name": "Kendrapara",
@@ -5001,7 +6109,11 @@
     "aqiLevel": 67,
     "electricityHours": 19,
     "cropYieldIndex": 51.4,
-    "soilHealthSaturation": 78.6
+    "soilHealthSaturation": 78.6,
+    "centerCoords": {
+      "lat": 20.50612,
+      "lng": 86.42107
+    }
   },
   "Keonjhar": {
     "name": "Keonjhar",
@@ -5019,7 +6131,11 @@
     "aqiLevel": 80,
     "electricityHours": 23,
     "cropYieldIndex": 46.9,
-    "soilHealthSaturation": 90.0
+    "soilHealthSaturation": 90.0,
+    "centerCoords": {
+      "lat": 20.696099999999998,
+      "lng": 86.2245
+    }
   },
   "Khadoor Sahib": {
     "name": "Khadoor Sahib",
@@ -5037,7 +6153,11 @@
     "aqiLevel": 127,
     "electricityHours": 21,
     "cropYieldIndex": 83.4,
-    "soilHealthSaturation": 91.1
+    "soilHealthSaturation": 91.1,
+    "centerCoords": {
+      "lat": 30.8833,
+      "lng": 76.9294
+    }
   },
   "Khagaria": {
     "name": "Khagaria",
@@ -5055,7 +6175,11 @@
     "aqiLevel": 126,
     "electricityHours": 17,
     "cropYieldIndex": 45.4,
-    "soilHealthSaturation": 75.4
+    "soilHealthSaturation": 75.4,
+    "centerCoords": {
+      "lat": 25.51095,
+      "lng": 86.47246
+    }
   },
   "Khajuraho": {
     "name": "Khajuraho",
@@ -5073,7 +6197,11 @@
     "aqiLevel": 88,
     "electricityHours": 20,
     "cropYieldIndex": 52.7,
-    "soilHealthSaturation": 73.8
+    "soilHealthSaturation": 73.8,
+    "centerCoords": {
+      "lat": 23.709899999999998,
+      "lng": 77.8626
+    }
   },
   "Khammam": {
     "name": "Khammam",
@@ -5091,7 +6219,11 @@
     "aqiLevel": 66,
     "electricityHours": 24,
     "cropYieldIndex": 60.4,
-    "soilHealthSaturation": 85.1
+    "soilHealthSaturation": 85.1,
+    "centerCoords": {
+      "lat": 17.25163,
+      "lng": 80.15729
+    }
   },
   "Khandwa": {
     "name": "Khandwa",
@@ -5109,7 +6241,11 @@
     "aqiLevel": 100,
     "electricityHours": 21,
     "cropYieldIndex": 49.2,
-    "soilHealthSaturation": 71.9
+    "soilHealthSaturation": 71.9,
+    "centerCoords": {
+      "lat": 23.6099,
+      "lng": 77.76259999999999
+    }
   },
   "Khargone": {
     "name": "Khargone",
@@ -5127,7 +6263,11 @@
     "aqiLevel": 97,
     "electricityHours": 22,
     "cropYieldIndex": 49.5,
-    "soilHealthSaturation": 71.6
+    "soilHealthSaturation": 71.6,
+    "centerCoords": {
+      "lat": 21.82574,
+      "lng": 75.6213
+    }
   },
   "Kheda": {
     "name": "Kheda",
@@ -5145,7 +6285,11 @@
     "aqiLevel": 118,
     "electricityHours": 22,
     "cropYieldIndex": 62.0,
-    "soilHealthSaturation": 87.2
+    "soilHealthSaturation": 87.2,
+    "centerCoords": {
+      "lat": 22.75264,
+      "lng": 72.68648
+    }
   },
   "Kheri": {
     "name": "Kheri",
@@ -5163,7 +6307,11 @@
     "aqiLevel": 116,
     "electricityHours": 16,
     "cropYieldIndex": 59.9,
-    "soilHealthSaturation": 90.3
+    "soilHealthSaturation": 90.3,
+    "centerCoords": {
+      "lat": 27.90539,
+      "lng": 80.79879
+    }
   },
   "Khunti": {
     "name": "Khunti",
@@ -5181,7 +6329,11 @@
     "aqiLevel": 80,
     "electricityHours": 15,
     "cropYieldIndex": 52.5,
-    "soilHealthSaturation": 67.2
+    "soilHealthSaturation": 67.2,
+    "centerCoords": {
+      "lat": 22.98497625,
+      "lng": 85.25348492
+    }
   },
   "Kishanganj": {
     "name": "Kishanganj",
@@ -5199,7 +6351,11 @@
     "aqiLevel": 141,
     "electricityHours": 17,
     "cropYieldIndex": 52.7,
-    "soilHealthSaturation": 83.5
+    "soilHealthSaturation": 83.5,
+    "centerCoords": {
+      "lat": 26.10262,
+      "lng": 87.94312
+    }
   },
   "Kodarma": {
     "name": "Kodarma",
@@ -5217,7 +6373,11 @@
     "aqiLevel": 107,
     "electricityHours": 19,
     "cropYieldIndex": 48.8,
-    "soilHealthSaturation": 82.5
+    "soilHealthSaturation": 82.5,
+    "centerCoords": {
+      "lat": 23.694100000000002,
+      "lng": 85.65899999999999
+    }
   },
   "Kokrajhar": {
     "name": "Kokrajhar",
@@ -5235,7 +6395,11 @@
     "aqiLevel": 52,
     "electricityHours": 18,
     "cropYieldIndex": 57.7,
-    "soilHealthSaturation": 87.1
+    "soilHealthSaturation": 87.1,
+    "centerCoords": {
+      "lat": 26.40403,
+      "lng": 90.26975
+    }
   },
   "Kolar": {
     "name": "Kolar",
@@ -5253,7 +6417,11 @@
     "aqiLevel": 89,
     "electricityHours": 21,
     "cropYieldIndex": 60.5,
-    "soilHealthSaturation": 93.7
+    "soilHealthSaturation": 93.7,
+    "centerCoords": {
+      "lat": 13.13768,
+      "lng": 78.12999
+    }
   },
   "Kolhapur": {
     "name": "Kolhapur",
@@ -5271,7 +6439,11 @@
     "aqiLevel": 98,
     "electricityHours": 21,
     "cropYieldIndex": 62.8,
-    "soilHealthSaturation": 87.2
+    "soilHealthSaturation": 87.2,
+    "centerCoords": {
+      "lat": 16.70448,
+      "lng": 74.24142
+    }
   },
   "Kolkata Dakshin": {
     "name": "Kolkata Dakshin",
@@ -5289,7 +6461,11 @@
     "aqiLevel": 113,
     "electricityHours": 21,
     "cropYieldIndex": 57.1,
-    "soilHealthSaturation": 75.9
+    "soilHealthSaturation": 75.9,
+    "centerCoords": {
+      "lat": 22.57059,
+      "lng": 88.37133
+    }
   },
   "Kolkata Uttar": {
     "name": "Kolkata Uttar",
@@ -5307,7 +6483,11 @@
     "aqiLevel": 108,
     "electricityHours": 21,
     "cropYieldIndex": 54.3,
-    "soilHealthSaturation": 82.7
+    "soilHealthSaturation": 82.7,
+    "centerCoords": {
+      "lat": 22.57059,
+      "lng": 88.37133
+    }
   },
   "Kollam": {
     "name": "Kollam",
@@ -5325,7 +6505,11 @@
     "aqiLevel": 35,
     "electricityHours": 23,
     "cropYieldIndex": 73.2,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 8.88686,
+      "lng": 76.59228
+    }
   },
   "Koppal": {
     "name": "Koppal",
@@ -5343,7 +6527,11 @@
     "aqiLevel": 81,
     "electricityHours": 24,
     "cropYieldIndex": 56.9,
-    "soilHealthSaturation": 91.6
+    "soilHealthSaturation": 91.6,
+    "centerCoords": {
+      "lat": 15.32956,
+      "lng": 76.15266
+    }
   },
   "Koraput": {
     "name": "Koraput",
@@ -5361,7 +6549,11 @@
     "aqiLevel": 79,
     "electricityHours": 19,
     "cropYieldIndex": 49.1,
-    "soilHealthSaturation": 86.1
+    "soilHealthSaturation": 86.1,
+    "centerCoords": {
+      "lat": 18.81133,
+      "lng": 82.71254
+    }
   },
   "Korba": {
     "name": "Korba",
@@ -5379,7 +6571,11 @@
     "aqiLevel": 70,
     "electricityHours": 22,
     "cropYieldIndex": 58.7,
-    "soilHealthSaturation": 75.0
+    "soilHealthSaturation": 75.0,
+    "centerCoords": {
+      "lat": 22.3458,
+      "lng": 82.69633
+    }
   },
   "Kota": {
     "name": "Kota",
@@ -5397,7 +6593,11 @@
     "aqiLevel": 113,
     "electricityHours": 19,
     "cropYieldIndex": 50.3,
-    "soilHealthSaturation": 76.6
+    "soilHealthSaturation": 76.6,
+    "centerCoords": {
+      "lat": 25.16531,
+      "lng": 75.85126
+    }
   },
   "Kottayam": {
     "name": "Kottayam",
@@ -5415,7 +6615,11 @@
     "aqiLevel": 26,
     "electricityHours": 24,
     "cropYieldIndex": 67.9,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 9.59476,
+      "lng": 76.53296
+    }
   },
   "Kozhikode": {
     "name": "Kozhikode",
@@ -5433,7 +6637,11 @@
     "aqiLevel": 45,
     "electricityHours": 24,
     "cropYieldIndex": 68.7,
-    "soilHealthSaturation": 96.3
+    "soilHealthSaturation": 96.3,
+    "centerCoords": {
+      "lat": 11.2588,
+      "lng": 75.78094
+    }
   },
   "Krishnagiri": {
     "name": "Krishnagiri",
@@ -5451,7 +6659,11 @@
     "aqiLevel": 48,
     "electricityHours": 22,
     "cropYieldIndex": 64.3,
-    "soilHealthSaturation": 87.2
+    "soilHealthSaturation": 87.2,
+    "centerCoords": {
+      "lat": 12.52646,
+      "lng": 78.21408
+    }
   },
   "Krishnanagar": {
     "name": "Krishnanagar",
@@ -5469,7 +6681,11 @@
     "aqiLevel": 90,
     "electricityHours": 20,
     "cropYieldIndex": 57.5,
-    "soilHealthSaturation": 76.6
+    "soilHealthSaturation": 76.6,
+    "centerCoords": {
+      "lat": 16.18747,
+      "lng": 81.13888
+    }
   },
   "Kurnool": {
     "name": "Kurnool",
@@ -5487,7 +6703,11 @@
     "aqiLevel": 63,
     "electricityHours": 23,
     "cropYieldIndex": 56.6,
-    "soilHealthSaturation": 86.3
+    "soilHealthSaturation": 86.3,
+    "centerCoords": {
+      "lat": 15.82551,
+      "lng": 78.03012
+    }
   },
   "Kurukshetra": {
     "name": "Kurukshetra",
@@ -5505,7 +6725,11 @@
     "aqiLevel": 133,
     "electricityHours": 24,
     "cropYieldIndex": 72.9,
-    "soilHealthSaturation": 95.1
+    "soilHealthSaturation": 95.1,
+    "centerCoords": {
+      "lat": 29.97323,
+      "lng": 76.83214
+    }
   },
   "Kushi Nagar": {
     "name": "Kushi Nagar",
@@ -5523,7 +6747,11 @@
     "aqiLevel": 125,
     "electricityHours": 16,
     "cropYieldIndex": 60.3,
-    "soilHealthSaturation": 80.4
+    "soilHealthSaturation": 80.4,
+    "centerCoords": {
+      "lat": 26.8967,
+      "lng": 80.9962
+    }
   },
   "Ladakh": {
     "name": "Ladakh",
@@ -5541,7 +6769,11 @@
     "aqiLevel": 87,
     "electricityHours": 23,
     "cropYieldIndex": 52.6,
-    "soilHealthSaturation": 85.8
+    "soilHealthSaturation": 85.8,
+    "centerCoords": {
+      "lat": 34.14473,
+      "lng": 77.55612
+    }
   },
   "Lakhimpur": {
     "name": "Lakhimpur",
@@ -5559,7 +6791,11 @@
     "aqiLevel": 40,
     "electricityHours": 20,
     "cropYieldIndex": 52.3,
-    "soilHealthSaturation": 75.7
+    "soilHealthSaturation": 75.7,
+    "centerCoords": {
+      "lat": 27.94822,
+      "lng": 80.77935
+    }
   },
   "Lakshadweep": {
     "name": "Lakshadweep",
@@ -5577,7 +6813,11 @@
     "aqiLevel": 74,
     "electricityHours": 21,
     "cropYieldIndex": 56.7,
-    "soilHealthSaturation": 88.7
+    "soilHealthSaturation": 88.7,
+    "centerCoords": {
+      "lat": 11.14411888,
+      "lng": 72.048025
+    }
   },
   "Lalganj": {
     "name": "Lalganj",
@@ -5595,7 +6835,11 @@
     "aqiLevel": 131,
     "electricityHours": 20,
     "cropYieldIndex": 52.7,
-    "soilHealthSaturation": 87.4
+    "soilHealthSaturation": 87.4,
+    "centerCoords": {
+      "lat": 27.1967,
+      "lng": 81.2962
+    }
   },
   "Latur": {
     "name": "Latur",
@@ -5613,7 +6857,11 @@
     "aqiLevel": 80,
     "electricityHours": 24,
     "cropYieldIndex": 66.4,
-    "soilHealthSaturation": 88.4
+    "soilHealthSaturation": 88.4,
+    "centerCoords": {
+      "lat": 18.39721,
+      "lng": 76.56784
+    }
   },
   "Lohardaga": {
     "name": "Lohardaga",
@@ -5631,7 +6879,11 @@
     "aqiLevel": 95,
     "electricityHours": 16,
     "cropYieldIndex": 52.7,
-    "soilHealthSaturation": 71.7
+    "soilHealthSaturation": 71.7,
+    "centerCoords": {
+      "lat": 23.46888714,
+      "lng": 84.65334205
+    }
   },
   "Lucknow": {
     "name": "Lucknow",
@@ -5649,7 +6901,11 @@
     "aqiLevel": 127,
     "electricityHours": 19,
     "cropYieldIndex": 53.4,
-    "soilHealthSaturation": 80.0
+    "soilHealthSaturation": 80.0,
+    "centerCoords": {
+      "lat": 26.85471,
+      "lng": 80.92135
+    }
   },
   "Ludhiana": {
     "name": "Ludhiana",
@@ -5667,7 +6923,11 @@
     "aqiLevel": 141,
     "electricityHours": 24,
     "cropYieldIndex": 74.6,
-    "soilHealthSaturation": 97.5
+    "soilHealthSaturation": 97.5,
+    "centerCoords": {
+      "lat": 30.90726,
+      "lng": 75.8492
+    }
   },
   "Machhlishahr": {
     "name": "Machhlishahr",
@@ -5685,7 +6945,11 @@
     "aqiLevel": 111,
     "electricityHours": 20,
     "cropYieldIndex": 56.6,
-    "soilHealthSaturation": 97.0
+    "soilHealthSaturation": 97.0,
+    "centerCoords": {
+      "lat": 26.9467,
+      "lng": 81.0462
+    }
   },
   "Machilipatnam": {
     "name": "Machilipatnam",
@@ -5703,7 +6967,11 @@
     "aqiLevel": 84,
     "electricityHours": 22,
     "cropYieldIndex": 60.5,
-    "soilHealthSaturation": 97.0
+    "soilHealthSaturation": 97.0,
+    "centerCoords": {
+      "lat": 25.60129,
+      "lng": 85.13752
+    }
   },
   "Madha": {
     "name": "Madha",
@@ -5721,7 +6989,11 @@
     "aqiLevel": 90,
     "electricityHours": 23,
     "cropYieldIndex": 58.5,
-    "soilHealthSaturation": 86.9
+    "soilHealthSaturation": 86.9,
+    "centerCoords": {
+      "lat": 19.225,
+      "lng": 73.0758
+    }
   },
   "Madhepura": {
     "name": "Madhepura",
@@ -5739,7 +7011,11 @@
     "aqiLevel": 141,
     "electricityHours": 16,
     "cropYieldIndex": 52.4,
-    "soilHealthSaturation": 80.0
+    "soilHealthSaturation": 80.0,
+    "centerCoords": {
+      "lat": 25.91635,
+      "lng": 86.79344
+    }
   },
   "Madhubani": {
     "name": "Madhubani",
@@ -5757,7 +7033,11 @@
     "aqiLevel": 128,
     "electricityHours": 17,
     "cropYieldIndex": 47.1,
-    "soilHealthSaturation": 69.6
+    "soilHealthSaturation": 69.6,
+    "centerCoords": {
+      "lat": 26.96379,
+      "lng": 84.13345
+    }
   },
   "Madurai": {
     "name": "Madurai",
@@ -5775,7 +7055,11 @@
     "aqiLevel": 48,
     "electricityHours": 23,
     "cropYieldIndex": 65.3,
-    "soilHealthSaturation": 98.1
+    "soilHealthSaturation": 98.1,
+    "centerCoords": {
+      "lat": 9.92418,
+      "lng": 78.12416
+    }
   },
   "Mahabubabad": {
     "name": "Mahabubabad",
@@ -5793,7 +7077,11 @@
     "aqiLevel": 87,
     "electricityHours": 23,
     "cropYieldIndex": 57.4,
-    "soilHealthSaturation": 85.5
+    "soilHealthSaturation": 85.5,
+    "centerCoords": {
+      "lat": 17.59606,
+      "lng": 80.0008
+    }
   },
   "Maharajganj": {
     "name": "Maharajganj",
@@ -5811,7 +7099,11 @@
     "aqiLevel": 119,
     "electricityHours": 17,
     "cropYieldIndex": 50.6,
-    "soilHealthSaturation": 91.0
+    "soilHealthSaturation": 91.0,
+    "centerCoords": {
+      "lat": 26.10972,
+      "lng": 84.50627
+    }
   },
   "Mahasamund": {
     "name": "Mahasamund",
@@ -5829,7 +7121,11 @@
     "aqiLevel": 107,
     "electricityHours": 20,
     "cropYieldIndex": 53.9,
-    "soilHealthSaturation": 83.7
+    "soilHealthSaturation": 83.7,
+    "centerCoords": {
+      "lat": 21.1111,
+      "lng": 82.09559
+    }
   },
   "Mahbubnagar": {
     "name": "Mahbubnagar",
@@ -5847,7 +7143,11 @@
     "aqiLevel": 98,
     "electricityHours": 22,
     "cropYieldIndex": 57.0,
-    "soilHealthSaturation": 92.2
+    "soilHealthSaturation": 92.2,
+    "centerCoords": {
+      "lat": 16.74385,
+      "lng": 77.98597
+    }
   },
   "Mahesana": {
     "name": "Mahesana",
@@ -5865,7 +7165,11 @@
     "aqiLevel": 109,
     "electricityHours": 22,
     "cropYieldIndex": 62.4,
-    "soilHealthSaturation": 84.7
+    "soilHealthSaturation": 84.7,
+    "centerCoords": {
+      "lat": 23.60599,
+      "lng": 72.37562
+    }
   },
   "Mainpuri": {
     "name": "Mainpuri",
@@ -5883,7 +7187,11 @@
     "aqiLevel": 145,
     "electricityHours": 19,
     "cropYieldIndex": 56.9,
-    "soilHealthSaturation": 79.3
+    "soilHealthSaturation": 79.3,
+    "centerCoords": {
+      "lat": 27.22814,
+      "lng": 79.02501
+    }
   },
   "Malappuram": {
     "name": "Malappuram",
@@ -5901,7 +7209,11 @@
     "aqiLevel": 60,
     "electricityHours": 24,
     "cropYieldIndex": 69.7,
-    "soilHealthSaturation": 91.4
+    "soilHealthSaturation": 91.4,
+    "centerCoords": {
+      "lat": 11.0429,
+      "lng": 76.08045
+    }
   },
   "Maldaha Dakshin": {
     "name": "Maldaha Dakshin",
@@ -5919,7 +7231,11 @@
     "aqiLevel": 98,
     "electricityHours": 21,
     "cropYieldIndex": 59.7,
-    "soilHealthSaturation": 86.2
+    "soilHealthSaturation": 86.2,
+    "centerCoords": {
+      "lat": 25.0202,
+      "lng": 88.1515
+    }
   },
   "Maldaha Uttar": {
     "name": "Maldaha Uttar",
@@ -5937,7 +7253,11 @@
     "aqiLevel": 124,
     "electricityHours": 21,
     "cropYieldIndex": 62.3,
-    "soilHealthSaturation": 78.7
+    "soilHealthSaturation": 78.7,
+    "centerCoords": {
+      "lat": 25.0202,
+      "lng": 88.1515
+    }
   },
   "Malkajgiri": {
     "name": "Malkajgiri",
@@ -5955,7 +7275,11 @@
     "aqiLevel": 99,
     "electricityHours": 24,
     "cropYieldIndex": 61.3,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 17.55068142,
+      "lng": 78.56167267
+    }
   },
   "Mandi": {
     "name": "Mandi",
@@ -5973,7 +7297,11 @@
     "aqiLevel": 28,
     "electricityHours": 23,
     "cropYieldIndex": 51.3,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 31.70922,
+      "lng": 76.93197
+    }
   },
   "Mandla": {
     "name": "Mandla",
@@ -5991,7 +7319,11 @@
     "aqiLevel": 96,
     "electricityHours": 20,
     "cropYieldIndex": 52.4,
-    "soilHealthSaturation": 75.1
+    "soilHealthSaturation": 75.1,
+    "centerCoords": {
+      "lat": 22.60958,
+      "lng": 80.37007
+    }
   },
   "Mandsour": {
     "name": "Mandsour",
@@ -6009,7 +7341,11 @@
     "aqiLevel": 92,
     "electricityHours": 18,
     "cropYieldIndex": 57.5,
-    "soilHealthSaturation": 90.4
+    "soilHealthSaturation": 90.4,
+    "centerCoords": {
+      "lat": 23.659899999999997,
+      "lng": 77.8126
+    }
   },
   "Mandya": {
     "name": "Mandya",
@@ -6027,7 +7363,11 @@
     "aqiLevel": 91,
     "electricityHours": 21,
     "cropYieldIndex": 65.1,
-    "soilHealthSaturation": 99.5
+    "soilHealthSaturation": 99.5,
+    "centerCoords": {
+      "lat": 12.52739,
+      "lng": 76.89468
+    }
   },
   "Mangaldoi": {
     "name": "Mangaldoi",
@@ -6045,7 +7385,11 @@
     "aqiLevel": 46,
     "electricityHours": 18,
     "cropYieldIndex": 53.6,
-    "soilHealthSaturation": 68.9
+    "soilHealthSaturation": 68.9,
+    "centerCoords": {
+      "lat": 26.5945,
+      "lng": 92.1862
+    }
   },
   "Mathura": {
     "name": "Mathura",
@@ -6063,7 +7407,11 @@
     "aqiLevel": 126,
     "electricityHours": 20,
     "cropYieldIndex": 52.6,
-    "soilHealthSaturation": 90.5
+    "soilHealthSaturation": 90.5,
+    "centerCoords": {
+      "lat": 27.49193,
+      "lng": 77.67407
+    }
   },
   "Mathurapur": {
     "name": "Mathurapur",
@@ -6081,7 +7429,11 @@
     "aqiLevel": 126,
     "electricityHours": 21,
     "cropYieldIndex": 61.6,
-    "soilHealthSaturation": 92.0
+    "soilHealthSaturation": 92.0,
+    "centerCoords": {
+      "lat": 27.49193,
+      "lng": 77.67407
+    }
   },
   "Maval": {
     "name": "Maval",
@@ -6099,7 +7451,11 @@
     "aqiLevel": 79,
     "electricityHours": 24,
     "cropYieldIndex": 57.7,
-    "soilHealthSaturation": 85.8
+    "soilHealthSaturation": 85.8,
+    "centerCoords": {
+      "lat": 19.225,
+      "lng": 73.0758
+    }
   },
   "Mavelikkara": {
     "name": "Mavelikkara",
@@ -6117,7 +7473,11 @@
     "aqiLevel": 39,
     "electricityHours": 22,
     "cropYieldIndex": 76.8,
-    "soilHealthSaturation": 97.6
+    "soilHealthSaturation": 97.6,
+    "centerCoords": {
+      "lat": 8.574100000000001,
+      "lng": 76.9866
+    }
   },
   "Mayiladuthurai": {
     "name": "Mayiladuthurai",
@@ -6135,7 +7495,11 @@
     "aqiLevel": 61,
     "electricityHours": 24,
     "cropYieldIndex": 61.6,
-    "soilHealthSaturation": 88.8
+    "soilHealthSaturation": 88.8,
+    "centerCoords": {
+      "lat": 13.2827,
+      "lng": 80.47070000000001
+    }
   },
   "Mayurbhanj": {
     "name": "Mayurbhanj",
@@ -6153,7 +7517,11 @@
     "aqiLevel": 91,
     "electricityHours": 19,
     "cropYieldIndex": 46.4,
-    "soilHealthSaturation": 96.2
+    "soilHealthSaturation": 96.2,
+    "centerCoords": {
+      "lat": 21.8948951,
+      "lng": 86.41202693
+    }
   },
   "Medak": {
     "name": "Medak",
@@ -6171,7 +7539,11 @@
     "aqiLevel": 90,
     "electricityHours": 24,
     "cropYieldIndex": 65.0,
-    "soilHealthSaturation": 94.0
+    "soilHealthSaturation": 94.0,
+    "centerCoords": {
+      "lat": 18.04768,
+      "lng": 78.26682
+    }
   },
   "Medinipur": {
     "name": "Medinipur",
@@ -6189,7 +7561,11 @@
     "aqiLevel": 104,
     "electricityHours": 22,
     "cropYieldIndex": 56.5,
-    "soilHealthSaturation": 77.5
+    "soilHealthSaturation": 77.5,
+    "centerCoords": {
+      "lat": 22.43995267,
+      "lng": 87.41690716
+    }
   },
   "Meerut": {
     "name": "Meerut",
@@ -6207,7 +7583,11 @@
     "aqiLevel": 135,
     "electricityHours": 16,
     "cropYieldIndex": 53.6,
-    "soilHealthSaturation": 80.1
+    "soilHealthSaturation": 80.1,
+    "centerCoords": {
+      "lat": 28.99862,
+      "lng": 77.70459
+    }
   },
   "Mirzapur": {
     "name": "Mirzapur",
@@ -6225,7 +7605,11 @@
     "aqiLevel": 109,
     "electricityHours": 19,
     "cropYieldIndex": 54.0,
-    "soilHealthSaturation": 81.0
+    "soilHealthSaturation": 81.0,
+    "centerCoords": {
+      "lat": 25.13432,
+      "lng": 82.56707
+    }
   },
   "Misrikh": {
     "name": "Misrikh",
@@ -6243,7 +7627,11 @@
     "aqiLevel": 143,
     "electricityHours": 18,
     "cropYieldIndex": 55.1,
-    "soilHealthSaturation": 93.7
+    "soilHealthSaturation": 93.7,
+    "centerCoords": {
+      "lat": 27.1967,
+      "lng": 81.2962
+    }
   },
   "Mizoram": {
     "name": "Mizoram",
@@ -6261,7 +7649,11 @@
     "aqiLevel": 20,
     "electricityHours": 23,
     "cropYieldIndex": 47.1,
-    "soilHealthSaturation": 88.4
+    "soilHealthSaturation": 88.4,
+    "centerCoords": {
+      "lat": 24.0771,
+      "lng": 93.0676
+    }
   },
   "Mohanlalganj": {
     "name": "Mohanlalganj",
@@ -6279,7 +7671,11 @@
     "aqiLevel": 113,
     "electricityHours": 16,
     "cropYieldIndex": 54.1,
-    "soilHealthSaturation": 88.1
+    "soilHealthSaturation": 88.1,
+    "centerCoords": {
+      "lat": 26.9467,
+      "lng": 81.0462
+    }
   },
   "Moradabad": {
     "name": "Moradabad",
@@ -6297,7 +7693,11 @@
     "aqiLevel": 130,
     "electricityHours": 20,
     "cropYieldIndex": 58.7,
-    "soilHealthSaturation": 85.5
+    "soilHealthSaturation": 85.5,
+    "centerCoords": {
+      "lat": 28.83893,
+      "lng": 78.77684
+    }
   },
   "Morena": {
     "name": "Morena",
@@ -6315,7 +7715,11 @@
     "aqiLevel": 65,
     "electricityHours": 21,
     "cropYieldIndex": 49.3,
-    "soilHealthSaturation": 83.6
+    "soilHealthSaturation": 83.6,
+    "centerCoords": {
+      "lat": 26.49052,
+      "lng": 77.98572
+    }
   },
   "Mumbai North": {
     "name": "Mumbai North",
@@ -6333,7 +7737,11 @@
     "aqiLevel": 89,
     "electricityHours": 24,
     "cropYieldIndex": 59.3,
-    "soilHealthSaturation": 84.8
+    "soilHealthSaturation": 84.8,
+    "centerCoords": {
+      "lat": 18.94018,
+      "lng": 72.83484
+    }
   },
   "Mumbai North Central": {
     "name": "Mumbai North Central",
@@ -6351,7 +7759,11 @@
     "aqiLevel": 113,
     "electricityHours": 22,
     "cropYieldIndex": 61.3,
-    "soilHealthSaturation": 83.1
+    "soilHealthSaturation": 83.1,
+    "centerCoords": {
+      "lat": 18.94018,
+      "lng": 72.83484
+    }
   },
   "Mumbai North East": {
     "name": "Mumbai North East",
@@ -6369,7 +7781,11 @@
     "aqiLevel": 82,
     "electricityHours": 22,
     "cropYieldIndex": 61.2,
-    "soilHealthSaturation": 93.7
+    "soilHealthSaturation": 93.7,
+    "centerCoords": {
+      "lat": 18.94018,
+      "lng": 72.83484
+    }
   },
   "Mumbai North West": {
     "name": "Mumbai North West",
@@ -6387,7 +7803,11 @@
     "aqiLevel": 89,
     "electricityHours": 23,
     "cropYieldIndex": 62.2,
-    "soilHealthSaturation": 99.8
+    "soilHealthSaturation": 99.8,
+    "centerCoords": {
+      "lat": 18.94018,
+      "lng": 72.83484
+    }
   },
   "Mumbai South": {
     "name": "Mumbai South",
@@ -6405,7 +7825,11 @@
     "aqiLevel": 80,
     "electricityHours": 24,
     "cropYieldIndex": 66.5,
-    "soilHealthSaturation": 87.8
+    "soilHealthSaturation": 87.8,
+    "centerCoords": {
+      "lat": 18.94018,
+      "lng": 72.83484
+    }
   },
   "Mumbai South Central": {
     "name": "Mumbai South Central",
@@ -6423,7 +7847,11 @@
     "aqiLevel": 96,
     "electricityHours": 22,
     "cropYieldIndex": 60.6,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 18.94018,
+      "lng": 72.83484
+    }
   },
   "Munger": {
     "name": "Munger",
@@ -6441,7 +7869,11 @@
     "aqiLevel": 147,
     "electricityHours": 14,
     "cropYieldIndex": 51.8,
-    "soilHealthSaturation": 81.7
+    "soilHealthSaturation": 81.7,
+    "centerCoords": {
+      "lat": 25.36556,
+      "lng": 86.48767
+    }
   },
   "Murshidabad": {
     "name": "Murshidabad",
@@ -6459,7 +7891,11 @@
     "aqiLevel": 111,
     "electricityHours": 21,
     "cropYieldIndex": 58.5,
-    "soilHealthSaturation": 94.4
+    "soilHealthSaturation": 94.4,
+    "centerCoords": {
+      "lat": 24.17609,
+      "lng": 88.27296
+    }
   },
   "Muzaffarnagar": {
     "name": "Muzaffarnagar",
@@ -6477,7 +7913,11 @@
     "aqiLevel": 124,
     "electricityHours": 16,
     "cropYieldIndex": 54.5,
-    "soilHealthSaturation": 84.8
+    "soilHealthSaturation": 84.8,
+    "centerCoords": {
+      "lat": 29.47046,
+      "lng": 77.70766
+    }
   },
   "Muzaffarpur": {
     "name": "Muzaffarpur",
@@ -6495,7 +7935,11 @@
     "aqiLevel": 149,
     "electricityHours": 15,
     "cropYieldIndex": 45.0,
-    "soilHealthSaturation": 79.8
+    "soilHealthSaturation": 79.8,
+    "centerCoords": {
+      "lat": 26.15752488,
+      "lng": 85.31878079
+    }
   },
   "Mysore": {
     "name": "Mysore",
@@ -6513,7 +7957,11 @@
     "aqiLevel": 77,
     "electricityHours": 24,
     "cropYieldIndex": 63.6,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 13.271600000000001,
+      "lng": 77.8946
+    }
   },
   "Nabarangpur": {
     "name": "Nabarangpur",
@@ -6531,7 +7979,11 @@
     "aqiLevel": 67,
     "electricityHours": 21,
     "cropYieldIndex": 52.0,
-    "soilHealthSaturation": 88.3
+    "soilHealthSaturation": 88.3,
+    "centerCoords": {
+      "lat": 19.23114,
+      "lng": 82.54826
+    }
   },
   "Nagaland": {
     "name": "Nagaland",
@@ -6549,7 +8001,11 @@
     "aqiLevel": 20,
     "electricityHours": 20,
     "cropYieldIndex": 43.5,
-    "soilHealthSaturation": 82.9
+    "soilHealthSaturation": 82.9,
+    "centerCoords": {
+      "lat": 26.72189,
+      "lng": 95.03025
+    }
   },
   "Nagapattinam": {
     "name": "Nagapattinam",
@@ -6567,7 +8023,11 @@
     "aqiLevel": 79,
     "electricityHours": 24,
     "cropYieldIndex": 63.2,
-    "soilHealthSaturation": 97.5
+    "soilHealthSaturation": 97.5,
+    "centerCoords": {
+      "lat": 10.7769,
+      "lng": 79.84062
+    }
   },
   "Nagarkurnool": {
     "name": "Nagarkurnool",
@@ -6585,7 +8045,11 @@
     "aqiLevel": 77,
     "electricityHours": 24,
     "cropYieldIndex": 58.4,
-    "soilHealthSaturation": 91.6
+    "soilHealthSaturation": 91.6,
+    "centerCoords": {
+      "lat": 16.48687,
+      "lng": 78.31276
+    }
   },
   "Nagaur": {
     "name": "Nagaur",
@@ -6603,7 +8067,11 @@
     "aqiLevel": 97,
     "electricityHours": 21,
     "cropYieldIndex": 41.7,
-    "soilHealthSaturation": 75.3
+    "soilHealthSaturation": 75.3,
+    "centerCoords": {
+      "lat": 27.20166,
+      "lng": 73.73202
+    }
   },
   "Nagina": {
     "name": "Nagina",
@@ -6621,7 +8089,11 @@
     "aqiLevel": 126,
     "electricityHours": 20,
     "cropYieldIndex": 56.2,
-    "soilHealthSaturation": 92.7
+    "soilHealthSaturation": 92.7,
+    "centerCoords": {
+      "lat": 27.1467,
+      "lng": 81.2462
+    }
   },
   "Nagpur": {
     "name": "Nagpur",
@@ -6639,7 +8111,11 @@
     "aqiLevel": 79,
     "electricityHours": 21,
     "cropYieldIndex": 60.8,
-    "soilHealthSaturation": 96.5
+    "soilHealthSaturation": 96.5,
+    "centerCoords": {
+      "lat": 21.15707,
+      "lng": 79.08209
+    }
   },
   "Nainital-Udhamsingh Nagar": {
     "name": "Nainital-Udhamsingh Nagar",
@@ -6657,7 +8133,11 @@
     "aqiLevel": 70,
     "electricityHours": 21,
     "cropYieldIndex": 57.4,
-    "soilHealthSaturation": 87.9
+    "soilHealthSaturation": 87.9,
+    "centerCoords": {
+      "lat": 29.39368,
+      "lng": 79.45178
+    }
   },
   "Nalanda": {
     "name": "Nalanda",
@@ -6675,7 +8155,11 @@
     "aqiLevel": 147,
     "electricityHours": 18,
     "cropYieldIndex": 44.4,
-    "soilHealthSaturation": 70.5
+    "soilHealthSaturation": 70.5,
+    "centerCoords": {
+      "lat": 25.12591,
+      "lng": 85.45373
+    }
   },
   "Nalgonda": {
     "name": "Nalgonda",
@@ -6693,7 +8177,11 @@
     "aqiLevel": 95,
     "electricityHours": 22,
     "cropYieldIndex": 64.5,
-    "soilHealthSaturation": 86.5
+    "soilHealthSaturation": 86.5,
+    "centerCoords": {
+      "lat": 17.0571,
+      "lng": 79.26849
+    }
   },
   "Namakkal": {
     "name": "Namakkal",
@@ -6711,7 +8199,11 @@
     "aqiLevel": 66,
     "electricityHours": 24,
     "cropYieldIndex": 67.3,
-    "soilHealthSaturation": 85.6
+    "soilHealthSaturation": 85.6,
+    "centerCoords": {
+      "lat": 11.21941,
+      "lng": 78.16773
+    }
   },
   "Nanded": {
     "name": "Nanded",
@@ -6729,7 +8221,11 @@
     "aqiLevel": 80,
     "electricityHours": 22,
     "cropYieldIndex": 66.3,
-    "soilHealthSaturation": 95.3
+    "soilHealthSaturation": 95.3,
+    "centerCoords": {
+      "lat": 19.15571,
+      "lng": 77.31096
+    }
   },
   "Nandurbar": {
     "name": "Nandurbar",
@@ -6747,7 +8243,11 @@
     "aqiLevel": 76,
     "electricityHours": 21,
     "cropYieldIndex": 63.8,
-    "soilHealthSaturation": 96.7
+    "soilHealthSaturation": 96.7,
+    "centerCoords": {
+      "lat": 21.36671,
+      "lng": 74.24051
+    }
   },
   "Nandyal": {
     "name": "Nandyal",
@@ -6765,7 +8265,11 @@
     "aqiLevel": 51,
     "electricityHours": 24,
     "cropYieldIndex": 61.2,
-    "soilHealthSaturation": 95.1
+    "soilHealthSaturation": 95.1,
+    "centerCoords": {
+      "lat": 16.8562,
+      "lng": 80.99799999999999
+    }
   },
   "Narasaraopet": {
     "name": "Narasaraopet",
@@ -6783,7 +8287,11 @@
     "aqiLevel": 64,
     "electricityHours": 22,
     "cropYieldIndex": 62.4,
-    "soilHealthSaturation": 80.3
+    "soilHealthSaturation": 80.3,
+    "centerCoords": {
+      "lat": 16.6062,
+      "lng": 80.74799999999999
+    }
   },
   "Narsapuram": {
     "name": "Narsapuram",
@@ -6801,7 +8309,11 @@
     "aqiLevel": 65,
     "electricityHours": 21,
     "cropYieldIndex": 57.9,
-    "soilHealthSaturation": 94.0
+    "soilHealthSaturation": 94.0,
+    "centerCoords": {
+      "lat": 16.5062,
+      "lng": 80.648
+    }
   },
   "Nashik": {
     "name": "Nashik",
@@ -6819,7 +8331,11 @@
     "aqiLevel": 76,
     "electricityHours": 24,
     "cropYieldIndex": 62.5,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 19.99727,
+      "lng": 73.79096
+    }
   },
   "Navsari": {
     "name": "Navsari",
@@ -6837,7 +8353,11 @@
     "aqiLevel": 96,
     "electricityHours": 23,
     "cropYieldIndex": 67.3,
-    "soilHealthSaturation": 93.2
+    "soilHealthSaturation": 93.2,
+    "centerCoords": {
+      "lat": 20.94019,
+      "lng": 72.93886
+    }
   },
   "Nawada": {
     "name": "Nawada",
@@ -6855,7 +8375,11 @@
     "aqiLevel": 151,
     "electricityHours": 18,
     "cropYieldIndex": 49.3,
-    "soilHealthSaturation": 76.4
+    "soilHealthSaturation": 76.4,
+    "centerCoords": {
+      "lat": 24.8867,
+      "lng": 85.54393
+    }
   },
   "Nellore": {
     "name": "Nellore",
@@ -6873,7 +8397,11 @@
     "aqiLevel": 90,
     "electricityHours": 22,
     "cropYieldIndex": 55.5,
-    "soilHealthSaturation": 96.0
+    "soilHealthSaturation": 96.0,
+    "centerCoords": {
+      "lat": 14.08333,
+      "lng": 79.58333
+    }
   },
   "New Delhi": {
     "name": "New Delhi",
@@ -6891,7 +8419,11 @@
     "aqiLevel": 202,
     "electricityHours": 23,
     "cropYieldIndex": 38.3,
-    "soilHealthSaturation": 72.3
+    "soilHealthSaturation": 72.3,
+    "centerCoords": {
+      "lat": 28.63097,
+      "lng": 77.2172
+    }
   },
   "Nilgiris": {
     "name": "Nilgiris",
@@ -6909,7 +8441,11 @@
     "aqiLevel": 75,
     "electricityHours": 24,
     "cropYieldIndex": 62.9,
-    "soilHealthSaturation": 95.5
+    "soilHealthSaturation": 95.5,
+    "centerCoords": {
+      "lat": 11.45711776,
+      "lng": 76.64147526
+    }
   },
   "Nizamabad": {
     "name": "Nizamabad",
@@ -6927,7 +8463,11 @@
     "aqiLevel": 73,
     "electricityHours": 24,
     "cropYieldIndex": 58.1,
-    "soilHealthSaturation": 95.4
+    "soilHealthSaturation": 95.4,
+    "centerCoords": {
+      "lat": 18.67154,
+      "lng": 78.0988
+    }
   },
   "North East Delhi": {
     "name": "North East Delhi",
@@ -6945,7 +8485,11 @@
     "aqiLevel": 222,
     "electricityHours": 23,
     "cropYieldIndex": 43.7,
-    "soilHealthSaturation": 71.7
+    "soilHealthSaturation": 71.7,
+    "centerCoords": {
+      "lat": 28.71789793,
+      "lng": 77.25367264
+    }
   },
   "North Goa": {
     "name": "North Goa",
@@ -6963,7 +8507,11 @@
     "aqiLevel": 66,
     "electricityHours": 23,
     "cropYieldIndex": 61.2,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 15.55011847,
+      "lng": 73.98214611
+    }
   },
   "North West Delhi": {
     "name": "North West Delhi",
@@ -6981,7 +8529,11 @@
     "aqiLevel": 218,
     "electricityHours": 24,
     "cropYieldIndex": 37.2,
-    "soilHealthSaturation": 74.3
+    "soilHealthSaturation": 74.3,
+    "centerCoords": {
+      "lat": 28.76866605,
+      "lng": 77.08456027
+    }
   },
   "Nowgong": {
     "name": "Nowgong",
@@ -6999,7 +8551,11 @@
     "aqiLevel": 45,
     "electricityHours": 19,
     "cropYieldIndex": 52.5,
-    "soilHealthSaturation": 70.2
+    "soilHealthSaturation": 70.2,
+    "centerCoords": {
+      "lat": 26.494500000000002,
+      "lng": 92.08619999999999
+    }
   },
   "Ongole": {
     "name": "Ongole",
@@ -7017,7 +8573,11 @@
     "aqiLevel": 57,
     "electricityHours": 21,
     "cropYieldIndex": 63.8,
-    "soilHealthSaturation": 90.7
+    "soilHealthSaturation": 90.7,
+    "centerCoords": {
+      "lat": 16.8062,
+      "lng": 80.948
+    }
   },
   "Osmanabad": {
     "name": "Osmanabad",
@@ -7035,7 +8595,11 @@
     "aqiLevel": 84,
     "electricityHours": 24,
     "cropYieldIndex": 58.3,
-    "soilHealthSaturation": 97.1
+    "soilHealthSaturation": 97.1,
+    "centerCoords": {
+      "lat": 18.1853,
+      "lng": 76.04073
+    }
   },
   "Outer Manipur": {
     "name": "Outer Manipur",
@@ -7053,7 +8617,11 @@
     "aqiLevel": 57,
     "electricityHours": 21,
     "cropYieldIndex": 52.3,
-    "soilHealthSaturation": 74.5
+    "soilHealthSaturation": 74.5,
+    "centerCoords": {
+      "lat": 24.967,
+      "lng": 94.08680000000001
+    }
   },
   "Palakkad": {
     "name": "Palakkad",
@@ -7071,7 +8639,11 @@
     "aqiLevel": 56,
     "electricityHours": 22,
     "cropYieldIndex": 73.3,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 10.77581,
+      "lng": 76.65813
+    }
   },
   "Palamau": {
     "name": "Palamau",
@@ -7089,7 +8661,11 @@
     "aqiLevel": 89,
     "electricityHours": 18,
     "cropYieldIndex": 47.1,
-    "soilHealthSaturation": 70.7
+    "soilHealthSaturation": 70.7,
+    "centerCoords": {
+      "lat": 23.694100000000002,
+      "lng": 85.65899999999999
+    }
   },
   "Palghar": {
     "name": "Palghar",
@@ -7107,7 +8683,11 @@
     "aqiLevel": 77,
     "electricityHours": 24,
     "cropYieldIndex": 62.9,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 19.70023,
+      "lng": 72.77104
+    }
   },
   "Pali": {
     "name": "Pali",
@@ -7125,7 +8705,11 @@
     "aqiLevel": 109,
     "electricityHours": 21,
     "cropYieldIndex": 47.8,
-    "soilHealthSaturation": 87.8
+    "soilHealthSaturation": 87.8,
+    "centerCoords": {
+      "lat": 25.77276,
+      "lng": 73.32335
+    }
   },
   "Panchmahal": {
     "name": "Panchmahal",
@@ -7143,7 +8727,11 @@
     "aqiLevel": 105,
     "electricityHours": 23,
     "cropYieldIndex": 60.1,
-    "soilHealthSaturation": 91.5
+    "soilHealthSaturation": 91.5,
+    "centerCoords": {
+      "lat": 23.2156,
+      "lng": 72.6369
+    }
   },
   "Parbhani": {
     "name": "Parbhani",
@@ -7161,7 +8749,11 @@
     "aqiLevel": 108,
     "electricityHours": 21,
     "cropYieldIndex": 65.4,
-    "soilHealthSaturation": 91.5
+    "soilHealthSaturation": 91.5,
+    "centerCoords": {
+      "lat": 19.26078,
+      "lng": 76.77693
+    }
   },
   "Paschim Champaran": {
     "name": "Paschim Champaran",
@@ -7179,7 +8771,11 @@
     "aqiLevel": 131,
     "electricityHours": 17,
     "cropYieldIndex": 45.4,
-    "soilHealthSaturation": 74.5
+    "soilHealthSaturation": 74.5,
+    "centerCoords": {
+      "lat": 25.944100000000002,
+      "lng": 85.4876
+    }
   },
   "Pataliputra": {
     "name": "Pataliputra",
@@ -7197,7 +8793,11 @@
     "aqiLevel": 133,
     "electricityHours": 18,
     "cropYieldIndex": 51.7,
-    "soilHealthSaturation": 84.2
+    "soilHealthSaturation": 84.2,
+    "centerCoords": {
+      "lat": 25.6441,
+      "lng": 85.1876
+    }
   },
   "Patan": {
     "name": "Patan",
@@ -7215,7 +8815,11 @@
     "aqiLevel": 93,
     "electricityHours": 24,
     "cropYieldIndex": 67.7,
-    "soilHealthSaturation": 87.4
+    "soilHealthSaturation": 87.4,
+    "centerCoords": {
+      "lat": 23.8507,
+      "lng": 72.12963
+    }
   },
   "Pathanamthitta": {
     "name": "Pathanamthitta",
@@ -7233,7 +8837,11 @@
     "aqiLevel": 39,
     "electricityHours": 24,
     "cropYieldIndex": 75.7,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 9.26457,
+      "lng": 76.78669
+    }
   },
   "Patiala": {
     "name": "Patiala",
@@ -7251,7 +8859,11 @@
     "aqiLevel": 153,
     "electricityHours": 21,
     "cropYieldIndex": 78.4,
-    "soilHealthSaturation": 97.2
+    "soilHealthSaturation": 97.2,
+    "centerCoords": {
+      "lat": 30.33625,
+      "lng": 76.3922
+    }
   },
   "Patna Sahib": {
     "name": "Patna Sahib",
@@ -7269,7 +8881,11 @@
     "aqiLevel": 128,
     "electricityHours": 16,
     "cropYieldIndex": 45.2,
-    "soilHealthSaturation": 70.8
+    "soilHealthSaturation": 70.8,
+    "centerCoords": {
+      "lat": 25.60129,
+      "lng": 85.13752
+    }
   },
   "Peddapalle": {
     "name": "Peddapalle",
@@ -7287,7 +8903,11 @@
     "aqiLevel": 74,
     "electricityHours": 24,
     "cropYieldIndex": 60.8,
-    "soilHealthSaturation": 90.2
+    "soilHealthSaturation": 90.2,
+    "centerCoords": {
+      "lat": 18.60945,
+      "lng": 79.38166
+    }
   },
   "Perambalur": {
     "name": "Perambalur",
@@ -7305,7 +8925,11 @@
     "aqiLevel": 84,
     "electricityHours": 24,
     "cropYieldIndex": 61.3,
-    "soilHealthSaturation": 86.2
+    "soilHealthSaturation": 86.2,
+    "centerCoords": {
+      "lat": 11.2341,
+      "lng": 78.88024
+    }
   },
   "Phulpur": {
     "name": "Phulpur",
@@ -7323,7 +8947,11 @@
     "aqiLevel": 126,
     "electricityHours": 18,
     "cropYieldIndex": 52.7,
-    "soilHealthSaturation": 98.4
+    "soilHealthSaturation": 98.4,
+    "centerCoords": {
+      "lat": 27.1967,
+      "lng": 81.2962
+    }
   },
   "Pilibhit": {
     "name": "Pilibhit",
@@ -7341,7 +8969,11 @@
     "aqiLevel": 112,
     "electricityHours": 20,
     "cropYieldIndex": 51.1,
-    "soilHealthSaturation": 79.7
+    "soilHealthSaturation": 79.7,
+    "centerCoords": {
+      "lat": 28.63124,
+      "lng": 79.80436
+    }
   },
   "Pollachi": {
     "name": "Pollachi",
@@ -7359,7 +8991,11 @@
     "aqiLevel": 54,
     "electricityHours": 24,
     "cropYieldIndex": 60.4,
-    "soilHealthSaturation": 89.8
+    "soilHealthSaturation": 89.8,
+    "centerCoords": {
+      "lat": 13.482700000000001,
+      "lng": 80.67070000000001
+    }
   },
   "Ponnani": {
     "name": "Ponnani",
@@ -7377,7 +9013,11 @@
     "aqiLevel": 52,
     "electricityHours": 22,
     "cropYieldIndex": 70.4,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 8.8741,
+      "lng": 77.28659999999999
+    }
   },
   "Porbandar": {
     "name": "Porbandar",
@@ -7395,7 +9035,11 @@
     "aqiLevel": 101,
     "electricityHours": 24,
     "cropYieldIndex": 64.2,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 21.64481,
+      "lng": 69.62102
+    }
   },
   "Pratapgarh": {
     "name": "Pratapgarh",
@@ -7413,7 +9057,11 @@
     "aqiLevel": 123,
     "electricityHours": 19,
     "cropYieldIndex": 51.9,
-    "soilHealthSaturation": 96.6
+    "soilHealthSaturation": 96.6,
+    "centerCoords": {
+      "lat": 24.03943,
+      "lng": 74.77771
+    }
   },
   "Puducherry": {
     "name": "Puducherry",
@@ -7431,7 +9079,11 @@
     "aqiLevel": 84,
     "electricityHours": 22,
     "cropYieldIndex": 55.2,
-    "soilHealthSaturation": 79.2
+    "soilHealthSaturation": 79.2,
+    "centerCoords": {
+      "lat": 11.92993,
+      "lng": 79.8247
+    }
   },
   "Pune": {
     "name": "Pune",
@@ -7449,7 +9101,11 @@
     "aqiLevel": 114,
     "electricityHours": 24,
     "cropYieldIndex": 60.3,
-    "soilHealthSaturation": 83.5
+    "soilHealthSaturation": 83.5,
+    "centerCoords": {
+      "lat": 18.50419,
+      "lng": 73.85286
+    }
   },
   "Puri": {
     "name": "Puri",
@@ -7467,7 +9123,11 @@
     "aqiLevel": 68,
     "electricityHours": 19,
     "cropYieldIndex": 47.1,
-    "soilHealthSaturation": 82.0
+    "soilHealthSaturation": 82.0,
+    "centerCoords": {
+      "lat": 19.79825,
+      "lng": 85.82494
+    }
   },
   "Purnia": {
     "name": "Purnia",
@@ -7485,7 +9145,11 @@
     "aqiLevel": 154,
     "electricityHours": 15,
     "cropYieldIndex": 45.4,
-    "soilHealthSaturation": 66.8
+    "soilHealthSaturation": 66.8,
+    "centerCoords": {
+      "lat": 25.77687,
+      "lng": 87.47435
+    }
   },
   "Purulia": {
     "name": "Purulia",
@@ -7503,7 +9167,11 @@
     "aqiLevel": 127,
     "electricityHours": 19,
     "cropYieldIndex": 60.4,
-    "soilHealthSaturation": 85.9
+    "soilHealthSaturation": 85.9,
+    "centerCoords": {
+      "lat": 23.33298,
+      "lng": 86.36696
+    }
   },
   "Purvi Champaran": {
     "name": "Purvi Champaran",
@@ -7521,7 +9189,11 @@
     "aqiLevel": 145,
     "electricityHours": 14,
     "cropYieldIndex": 46.1,
-    "soilHealthSaturation": 66.5
+    "soilHealthSaturation": 66.5,
+    "centerCoords": {
+      "lat": 25.8441,
+      "lng": 85.3876
+    }
   },
   "Rae Bareli": {
     "name": "Rae Bareli",
@@ -7539,7 +9211,11 @@
     "aqiLevel": 126,
     "electricityHours": 16,
     "cropYieldIndex": 59.8,
-    "soilHealthSaturation": 96.7
+    "soilHealthSaturation": 96.7,
+    "centerCoords": {
+      "lat": 26.22099,
+      "lng": 81.25568
+    }
   },
   "Raichur": {
     "name": "Raichur",
@@ -7557,7 +9233,11 @@
     "aqiLevel": 74,
     "electricityHours": 21,
     "cropYieldIndex": 56.6,
-    "soilHealthSaturation": 85.3
+    "soilHealthSaturation": 85.3,
+    "centerCoords": {
+      "lat": 16.20546,
+      "lng": 77.35567
+    }
   },
   "Raigad": {
     "name": "Raigad",
@@ -7575,7 +9255,11 @@
     "aqiLevel": 79,
     "electricityHours": 23,
     "cropYieldIndex": 63.4,
-    "soilHealthSaturation": 99.7
+    "soilHealthSaturation": 99.7,
+    "centerCoords": {
+      "lat": 18.51217,
+      "lng": 73.2234056
+    }
   },
   "Raiganj": {
     "name": "Raiganj",
@@ -7593,7 +9277,11 @@
     "aqiLevel": 95,
     "electricityHours": 20,
     "cropYieldIndex": 55.9,
-    "soilHealthSaturation": 80.2
+    "soilHealthSaturation": 80.2,
+    "centerCoords": {
+      "lat": 22.922600000000003,
+      "lng": 88.7139
+    }
   },
   "Raigarh": {
     "name": "Raigarh",
@@ -7611,7 +9299,11 @@
     "aqiLevel": 91,
     "electricityHours": 22,
     "cropYieldIndex": 60.5,
-    "soilHealthSaturation": 77.6
+    "soilHealthSaturation": 77.6,
+    "centerCoords": {
+      "lat": 21.89623,
+      "lng": 83.39413
+    }
   },
   "Raipur": {
     "name": "Raipur",
@@ -7629,7 +9321,11 @@
     "aqiLevel": 107,
     "electricityHours": 19,
     "cropYieldIndex": 59.5,
-    "soilHealthSaturation": 77.2
+    "soilHealthSaturation": 77.2,
+    "centerCoords": {
+      "lat": 21.24402,
+      "lng": 81.6348
+    }
   },
   "Rajahmundry": {
     "name": "Rajahmundry",
@@ -7647,7 +9343,11 @@
     "aqiLevel": 79,
     "electricityHours": 21,
     "cropYieldIndex": 63.5,
-    "soilHealthSaturation": 82.7
+    "soilHealthSaturation": 82.7,
+    "centerCoords": {
+      "lat": 16.5562,
+      "lng": 80.698
+    }
   },
   "Rajampet": {
     "name": "Rajampet",
@@ -7665,7 +9365,11 @@
     "aqiLevel": 81,
     "electricityHours": 24,
     "cropYieldIndex": 60.5,
-    "soilHealthSaturation": 97.5
+    "soilHealthSaturation": 97.5,
+    "centerCoords": {
+      "lat": 16.9062,
+      "lng": 81.048
+    }
   },
   "Rajgarh": {
     "name": "Rajgarh",
@@ -7683,7 +9387,11 @@
     "aqiLevel": 83,
     "electricityHours": 18,
     "cropYieldIndex": 51.4,
-    "soilHealthSaturation": 82.4
+    "soilHealthSaturation": 82.4,
+    "centerCoords": {
+      "lat": 24.00574,
+      "lng": 76.72716
+    }
   },
   "Rajkot": {
     "name": "Rajkot",
@@ -7701,7 +9409,11 @@
     "aqiLevel": 108,
     "electricityHours": 24,
     "cropYieldIndex": 64.2,
-    "soilHealthSaturation": 86.2
+    "soilHealthSaturation": 86.2,
+    "centerCoords": {
+      "lat": 22.29161,
+      "lng": 70.79322
+    }
   },
   "Rajmahal": {
     "name": "Rajmahal",
@@ -7719,7 +9431,11 @@
     "aqiLevel": 86,
     "electricityHours": 16,
     "cropYieldIndex": 45.5,
-    "soilHealthSaturation": 73.7
+    "soilHealthSaturation": 73.7,
+    "centerCoords": {
+      "lat": 23.7441,
+      "lng": 85.709
+    }
   },
   "Rajnandgaon": {
     "name": "Rajnandgaon",
@@ -7737,7 +9453,11 @@
     "aqiLevel": 89,
     "electricityHours": 23,
     "cropYieldIndex": 60.3,
-    "soilHealthSaturation": 75.7
+    "soilHealthSaturation": 75.7,
+    "centerCoords": {
+      "lat": 21.09755,
+      "lng": 81.03435
+    }
   },
   "Rajsamand": {
     "name": "Rajsamand",
@@ -7755,7 +9475,11 @@
     "aqiLevel": 133,
     "electricityHours": 17,
     "cropYieldIndex": 41.0,
-    "soilHealthSaturation": 82.2
+    "soilHealthSaturation": 82.2,
+    "centerCoords": {
+      "lat": 25.05946,
+      "lng": 73.88316
+    }
   },
   "Ramanathapuram": {
     "name": "Ramanathapuram",
@@ -7773,7 +9497,11 @@
     "aqiLevel": 49,
     "electricityHours": 23,
     "cropYieldIndex": 65.9,
-    "soilHealthSaturation": 85.9
+    "soilHealthSaturation": 85.9,
+    "centerCoords": {
+      "lat": 9.36025,
+      "lng": 78.83724
+    }
   },
   "Rampur": {
     "name": "Rampur",
@@ -7791,7 +9519,11 @@
     "aqiLevel": 145,
     "electricityHours": 22,
     "cropYieldIndex": 44.5,
-    "soilHealthSaturation": 95.0
+    "soilHealthSaturation": 95.0,
+    "centerCoords": {
+      "lat": 28.77825,
+      "lng": 79.02556
+    }
   },
   "Ramtek": {
     "name": "Ramtek",
@@ -7809,7 +9541,11 @@
     "aqiLevel": 115,
     "electricityHours": 21,
     "cropYieldIndex": 62.5,
-    "soilHealthSaturation": 98.0
+    "soilHealthSaturation": 98.0,
+    "centerCoords": {
+      "lat": 19.275000000000002,
+      "lng": 73.1258
+    }
   },
   "Ranaghat": {
     "name": "Ranaghat",
@@ -7827,7 +9563,11 @@
     "aqiLevel": 129,
     "electricityHours": 22,
     "cropYieldIndex": 62.7,
-    "soilHealthSaturation": 90.7
+    "soilHealthSaturation": 90.7,
+    "centerCoords": {
+      "lat": 22.9726,
+      "lng": 88.7639
+    }
   },
   "Ranchi": {
     "name": "Ranchi",
@@ -7845,7 +9585,11 @@
     "aqiLevel": 83,
     "electricityHours": 18,
     "cropYieldIndex": 52.9,
-    "soilHealthSaturation": 77.4
+    "soilHealthSaturation": 77.4,
+    "centerCoords": {
+      "lat": 23.3507,
+      "lng": 85.31377
+    }
   },
   "Ratlam": {
     "name": "Ratlam",
@@ -7863,7 +9607,11 @@
     "aqiLevel": 105,
     "electricityHours": 20,
     "cropYieldIndex": 55.5,
-    "soilHealthSaturation": 90.9
+    "soilHealthSaturation": 90.9,
+    "centerCoords": {
+      "lat": 23.33033,
+      "lng": 75.04032
+    }
   },
   "Ratnagiri - Sindhudurg": {
     "name": "Ratnagiri - Sindhudurg",
@@ -7881,7 +9629,11 @@
     "aqiLevel": 89,
     "electricityHours": 24,
     "cropYieldIndex": 63.9,
-    "soilHealthSaturation": 92.4
+    "soilHealthSaturation": 92.4,
+    "centerCoords": {
+      "lat": 21.19918,
+      "lng": 81.28967
+    }
   },
   "Raver": {
     "name": "Raver",
@@ -7899,7 +9651,11 @@
     "aqiLevel": 80,
     "electricityHours": 21,
     "cropYieldIndex": 64.6,
-    "soilHealthSaturation": 92.2
+    "soilHealthSaturation": 92.2,
+    "centerCoords": {
+      "lat": 19.225,
+      "lng": 73.0758
+    }
   },
   "Rewa": {
     "name": "Rewa",
@@ -7917,7 +9673,11 @@
     "aqiLevel": 87,
     "electricityHours": 18,
     "cropYieldIndex": 53.8,
-    "soilHealthSaturation": 77.5
+    "soilHealthSaturation": 77.5,
+    "centerCoords": {
+      "lat": 24.52611,
+      "lng": 81.30245
+    }
   },
   "Robertsganj": {
     "name": "Robertsganj",
@@ -7935,7 +9695,11 @@
     "aqiLevel": 112,
     "electricityHours": 20,
     "cropYieldIndex": 55.9,
-    "soilHealthSaturation": 81.9
+    "soilHealthSaturation": 81.9,
+    "centerCoords": {
+      "lat": 26.8967,
+      "lng": 80.9962
+    }
   },
   "Rohtak": {
     "name": "Rohtak",
@@ -7953,7 +9717,11 @@
     "aqiLevel": 142,
     "electricityHours": 21,
     "cropYieldIndex": 71.1,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 28.89764,
+      "lng": 76.57446
+    }
   },
   "Sabarkantha": {
     "name": "Sabarkantha",
@@ -7971,7 +9739,11 @@
     "aqiLevel": 108,
     "electricityHours": 24,
     "cropYieldIndex": 63.5,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 23.2656,
+      "lng": 72.6869
+    }
   },
   "Sagar": {
     "name": "Sagar",
@@ -7989,7 +9761,11 @@
     "aqiLevel": 105,
     "electricityHours": 20,
     "cropYieldIndex": 54.4,
-    "soilHealthSaturation": 72.2
+    "soilHealthSaturation": 72.2,
+    "centerCoords": {
+      "lat": 23.84315,
+      "lng": 78.74272
+    }
   },
   "Saharanpur": {
     "name": "Saharanpur",
@@ -8007,7 +9783,11 @@
     "aqiLevel": 109,
     "electricityHours": 16,
     "cropYieldIndex": 54.3,
-    "soilHealthSaturation": 92.6
+    "soilHealthSaturation": 92.6,
+    "centerCoords": {
+      "lat": 29.96569,
+      "lng": 77.54607
+    }
   },
   "Salem": {
     "name": "Salem",
@@ -8025,7 +9805,11 @@
     "aqiLevel": 63,
     "electricityHours": 24,
     "cropYieldIndex": 62.6,
-    "soilHealthSaturation": 96.7
+    "soilHealthSaturation": 96.7,
+    "centerCoords": {
+      "lat": 11.66553,
+      "lng": 78.15164
+    }
   },
   "Salempur": {
     "name": "Salempur",
@@ -8043,7 +9827,11 @@
     "aqiLevel": 122,
     "electricityHours": 16,
     "cropYieldIndex": 56.9,
-    "soilHealthSaturation": 88.8
+    "soilHealthSaturation": 88.8,
+    "centerCoords": {
+      "lat": 11.66553,
+      "lng": 78.15164
+    }
   },
   "Samastipur (Sc)": {
     "name": "Samastipur (Sc)",
@@ -8061,7 +9849,11 @@
     "aqiLevel": 152,
     "electricityHours": 18,
     "cropYieldIndex": 45.4,
-    "soilHealthSaturation": 75.1
+    "soilHealthSaturation": 75.1,
+    "centerCoords": {
+      "lat": 25.86357,
+      "lng": 85.77874
+    }
   },
   "Sambalpur": {
     "name": "Sambalpur",
@@ -8079,7 +9871,11 @@
     "aqiLevel": 77,
     "electricityHours": 21,
     "cropYieldIndex": 53.4,
-    "soilHealthSaturation": 82.7
+    "soilHealthSaturation": 82.7,
+    "centerCoords": {
+      "lat": 21.46527,
+      "lng": 83.97573
+    }
   },
   "Sambhal": {
     "name": "Sambhal",
@@ -8097,7 +9893,11 @@
     "aqiLevel": 116,
     "electricityHours": 17,
     "cropYieldIndex": 50.9,
-    "soilHealthSaturation": 97.7
+    "soilHealthSaturation": 97.7,
+    "centerCoords": {
+      "lat": 28.58438,
+      "lng": 78.57182
+    }
   },
   "Sangli": {
     "name": "Sangli",
@@ -8115,7 +9915,11 @@
     "aqiLevel": 89,
     "electricityHours": 24,
     "cropYieldIndex": 64.0,
-    "soilHealthSaturation": 85.3
+    "soilHealthSaturation": 85.3,
+    "centerCoords": {
+      "lat": 16.85438,
+      "lng": 74.56417
+    }
   },
   "Sangrur": {
     "name": "Sangrur",
@@ -8133,7 +9937,11 @@
     "aqiLevel": 128,
     "electricityHours": 21,
     "cropYieldIndex": 75.2,
-    "soilHealthSaturation": 89.1
+    "soilHealthSaturation": 89.1,
+    "centerCoords": {
+      "lat": 30.25108,
+      "lng": 75.83437
+    }
   },
   "Sant Kabir Nagar": {
     "name": "Sant Kabir Nagar",
@@ -8151,7 +9959,11 @@
     "aqiLevel": 111,
     "electricityHours": 20,
     "cropYieldIndex": 53.5,
-    "soilHealthSaturation": 82.0
+    "soilHealthSaturation": 82.0,
+    "centerCoords": {
+      "lat": 27.1467,
+      "lng": 81.2462
+    }
   },
   "Saran": {
     "name": "Saran",
@@ -8169,7 +9981,11 @@
     "aqiLevel": 140,
     "electricityHours": 16,
     "cropYieldIndex": 50.6,
-    "soilHealthSaturation": 79.9
+    "soilHealthSaturation": 79.9,
+    "centerCoords": {
+      "lat": 25.92041915,
+      "lng": 84.81095533
+    }
   },
   "Sarguja": {
     "name": "Sarguja",
@@ -8187,7 +10003,11 @@
     "aqiLevel": 97,
     "electricityHours": 21,
     "cropYieldIndex": 59.0,
-    "soilHealthSaturation": 94.3
+    "soilHealthSaturation": 94.3,
+    "centerCoords": {
+      "lat": 21.6014,
+      "lng": 81.97959999999999
+    }
   },
   "Sasaram (Sc)": {
     "name": "Sasaram (Sc)",
@@ -8205,7 +10025,11 @@
     "aqiLevel": 133,
     "electricityHours": 17,
     "cropYieldIndex": 49.3,
-    "soilHealthSaturation": 66.0
+    "soilHealthSaturation": 66.0,
+    "centerCoords": {
+      "lat": 25.694100000000002,
+      "lng": 85.2376
+    }
   },
   "Satara": {
     "name": "Satara",
@@ -8223,7 +10047,11 @@
     "aqiLevel": 102,
     "electricityHours": 24,
     "cropYieldIndex": 58.6,
-    "soilHealthSaturation": 91.6
+    "soilHealthSaturation": 91.6,
+    "centerCoords": {
+      "lat": 17.68589,
+      "lng": 73.99333
+    }
   },
   "Satna": {
     "name": "Satna",
@@ -8241,7 +10069,11 @@
     "aqiLevel": 92,
     "electricityHours": 21,
     "cropYieldIndex": 49.4,
-    "soilHealthSaturation": 82.1
+    "soilHealthSaturation": 82.1,
+    "centerCoords": {
+      "lat": 24.5761,
+      "lng": 80.80066
+    }
   },
   "Secundrabad": {
     "name": "Secundrabad",
@@ -8259,7 +10091,11 @@
     "aqiLevel": 76,
     "electricityHours": 24,
     "cropYieldIndex": 63.1,
-    "soilHealthSaturation": 89.5
+    "soilHealthSaturation": 89.5,
+    "centerCoords": {
+      "lat": 17.435000000000002,
+      "lng": 78.5367
+    }
   },
   "Shahdol": {
     "name": "Shahdol",
@@ -8277,7 +10113,11 @@
     "aqiLevel": 98,
     "electricityHours": 19,
     "cropYieldIndex": 56.4,
-    "soilHealthSaturation": 79.1
+    "soilHealthSaturation": 79.1,
+    "centerCoords": {
+      "lat": 23.29266,
+      "lng": 81.35864
+    }
   },
   "Shahjahanpur": {
     "name": "Shahjahanpur",
@@ -8295,7 +10135,11 @@
     "aqiLevel": 107,
     "electricityHours": 16,
     "cropYieldIndex": 51.9,
-    "soilHealthSaturation": 81.6
+    "soilHealthSaturation": 81.6,
+    "centerCoords": {
+      "lat": 27.85574,
+      "lng": 79.91809
+    }
   },
   "Sheohar": {
     "name": "Sheohar",
@@ -8313,7 +10157,11 @@
     "aqiLevel": 127,
     "electricityHours": 18,
     "cropYieldIndex": 46.1,
-    "soilHealthSaturation": 66.0
+    "soilHealthSaturation": 66.0,
+    "centerCoords": {
+      "lat": 26.51373,
+      "lng": 85.29451
+    }
   },
   "Shillong": {
     "name": "Shillong",
@@ -8331,7 +10179,11 @@
     "aqiLevel": 29,
     "electricityHours": 20,
     "cropYieldIndex": 51.9,
-    "soilHealthSaturation": 89.5
+    "soilHealthSaturation": 89.5,
+    "centerCoords": {
+      "lat": 25.9788,
+      "lng": 92.2831
+    }
   },
   "Shimla": {
     "name": "Shimla",
@@ -8349,7 +10201,11 @@
     "aqiLevel": 55,
     "electricityHours": 21,
     "cropYieldIndex": 49.6,
-    "soilHealthSaturation": 83.9
+    "soilHealthSaturation": 83.9,
+    "centerCoords": {
+      "lat": 31.10326,
+      "lng": 77.15844
+    }
   },
   "Shimoga": {
     "name": "Shimoga",
@@ -8367,7 +10223,11 @@
     "aqiLevel": 92,
     "electricityHours": 24,
     "cropYieldIndex": 61.8,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 30.81892,
+      "lng": 75.1777
+    }
   },
   "Shirdi": {
     "name": "Shirdi",
@@ -8385,7 +10245,11 @@
     "aqiLevel": 105,
     "electricityHours": 24,
     "cropYieldIndex": 62.6,
-    "soilHealthSaturation": 99.9
+    "soilHealthSaturation": 99.9,
+    "centerCoords": {
+      "lat": 19.275000000000002,
+      "lng": 73.1258
+    }
   },
   "Shirur": {
     "name": "Shirur",
@@ -8403,7 +10267,11 @@
     "aqiLevel": 89,
     "electricityHours": 24,
     "cropYieldIndex": 61.6,
-    "soilHealthSaturation": 87.4
+    "soilHealthSaturation": 87.4,
+    "centerCoords": {
+      "lat": 19.275000000000002,
+      "lng": 73.1258
+    }
   },
   "Shrawasti": {
     "name": "Shrawasti",
@@ -8421,7 +10289,11 @@
     "aqiLevel": 138,
     "electricityHours": 19,
     "cropYieldIndex": 55.8,
-    "soilHealthSaturation": 95.4
+    "soilHealthSaturation": 95.4,
+    "centerCoords": {
+      "lat": 27.296699999999998,
+      "lng": 81.39620000000001
+    }
   },
   "Sidhi": {
     "name": "Sidhi",
@@ -8439,7 +10311,11 @@
     "aqiLevel": 65,
     "electricityHours": 19,
     "cropYieldIndex": 55.3,
-    "soilHealthSaturation": 87.3
+    "soilHealthSaturation": 87.3,
+    "centerCoords": {
+      "lat": 24.40736,
+      "lng": 81.88261
+    }
   },
   "Sikar": {
     "name": "Sikar",
@@ -8457,7 +10333,11 @@
     "aqiLevel": 115,
     "electricityHours": 18,
     "cropYieldIndex": 47.4,
-    "soilHealthSaturation": 74.7
+    "soilHealthSaturation": 74.7,
+    "centerCoords": {
+      "lat": 27.61206,
+      "lng": 75.13996
+    }
   },
   "Sikkim": {
     "name": "Sikkim",
@@ -8475,7 +10355,11 @@
     "aqiLevel": 22,
     "electricityHours": 23,
     "cropYieldIndex": 46.7,
-    "soilHealthSaturation": 87.6
+    "soilHealthSaturation": 87.6,
+    "centerCoords": {
+      "lat": 27.33333,
+      "lng": 88.66667
+    }
   },
   "Silchar": {
     "name": "Silchar",
@@ -8493,7 +10377,11 @@
     "aqiLevel": 79,
     "electricityHours": 17,
     "cropYieldIndex": 58.0,
-    "soilHealthSaturation": 75.2
+    "soilHealthSaturation": 75.2,
+    "centerCoords": {
+      "lat": 26.494500000000002,
+      "lng": 92.08619999999999
+    }
   },
   "Singhbhum": {
     "name": "Singhbhum",
@@ -8511,7 +10399,11 @@
     "aqiLevel": 107,
     "electricityHours": 18,
     "cropYieldIndex": 45.7,
-    "soilHealthSaturation": 70.5
+    "soilHealthSaturation": 70.5,
+    "centerCoords": {
+      "lat": 22.59238,
+      "lng": 86.48341
+    }
   },
   "Sirsa": {
     "name": "Sirsa",
@@ -8529,7 +10421,11 @@
     "aqiLevel": 131,
     "electricityHours": 23,
     "cropYieldIndex": 73.2,
-    "soilHealthSaturation": 89.9
+    "soilHealthSaturation": 89.9,
+    "centerCoords": {
+      "lat": 29.53957,
+      "lng": 75.03103
+    }
   },
   "Sitamarhi": {
     "name": "Sitamarhi",
@@ -8547,7 +10443,11 @@
     "aqiLevel": 128,
     "electricityHours": 18,
     "cropYieldIndex": 47.9,
-    "soilHealthSaturation": 73.3
+    "soilHealthSaturation": 73.3,
+    "centerCoords": {
+      "lat": 26.5797,
+      "lng": 85.50934
+    }
   },
   "Sitapur": {
     "name": "Sitapur",
@@ -8565,7 +10465,11 @@
     "aqiLevel": 121,
     "electricityHours": 19,
     "cropYieldIndex": 58.1,
-    "soilHealthSaturation": 92.0
+    "soilHealthSaturation": 92.0,
+    "centerCoords": {
+      "lat": 27.56192,
+      "lng": 80.68265
+    }
   },
   "Sivaganga": {
     "name": "Sivaganga",
@@ -8583,7 +10487,11 @@
     "aqiLevel": 71,
     "electricityHours": 23,
     "cropYieldIndex": 69.6,
-    "soilHealthSaturation": 90.3
+    "soilHealthSaturation": 90.3,
+    "centerCoords": {
+      "lat": 9.85021,
+      "lng": 78.4856
+    }
   },
   "Siwan": {
     "name": "Siwan",
@@ -8601,7 +10509,11 @@
     "aqiLevel": 156,
     "electricityHours": 14,
     "cropYieldIndex": 44.9,
-    "soilHealthSaturation": 76.7
+    "soilHealthSaturation": 76.7,
+    "centerCoords": {
+      "lat": 26.22096,
+      "lng": 84.35609
+    }
   },
   "Solapur": {
     "name": "Solapur",
@@ -8619,7 +10531,11 @@
     "aqiLevel": 114,
     "electricityHours": 24,
     "cropYieldIndex": 66.9,
-    "soilHealthSaturation": 91.8
+    "soilHealthSaturation": 91.8,
+    "centerCoords": {
+      "lat": 17.65809,
+      "lng": 75.90678
+    }
   },
   "Sonipat": {
     "name": "Sonipat",
@@ -8637,7 +10553,11 @@
     "aqiLevel": 167,
     "electricityHours": 21,
     "cropYieldIndex": 80.0,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 28.9953,
+      "lng": 77.02214
+    }
   },
   "South Delhi": {
     "name": "South Delhi",
@@ -8655,7 +10575,11 @@
     "aqiLevel": 229,
     "electricityHours": 24,
     "cropYieldIndex": 44.2,
-    "soilHealthSaturation": 70.8
+    "soilHealthSaturation": 70.8,
+    "centerCoords": {
+      "lat": 28.48368246,
+      "lng": 77.19762521
+    }
   },
   "South Goa": {
     "name": "South Goa",
@@ -8673,7 +10597,11 @@
     "aqiLevel": 63,
     "electricityHours": 24,
     "cropYieldIndex": 59.2,
-    "soilHealthSaturation": 99.5
+    "soilHealthSaturation": 99.5,
+    "centerCoords": {
+      "lat": 15.1950588,
+      "lng": 74.11859102
+    }
   },
   "Srerampur": {
     "name": "Srerampur",
@@ -8691,7 +10619,11 @@
     "aqiLevel": 123,
     "electricityHours": 20,
     "cropYieldIndex": 62.5,
-    "soilHealthSaturation": 83.7
+    "soilHealthSaturation": 83.7,
+    "centerCoords": {
+      "lat": 28.77825,
+      "lng": 79.02556
+    }
   },
   "Srikakulam": {
     "name": "Srikakulam",
@@ -8709,7 +10641,11 @@
     "aqiLevel": 56,
     "electricityHours": 21,
     "cropYieldIndex": 62.1,
-    "soilHealthSaturation": 92.9
+    "soilHealthSaturation": 92.9,
+    "centerCoords": {
+      "lat": 18.2989,
+      "lng": 83.89751
+    }
   },
   "Srinagar": {
     "name": "Srinagar",
@@ -8727,7 +10663,11 @@
     "aqiLevel": 88,
     "electricityHours": 22,
     "cropYieldIndex": 57.1,
-    "soilHealthSaturation": 94.2
+    "soilHealthSaturation": 94.2,
+    "centerCoords": {
+      "lat": 34.08442,
+      "lng": 74.7991
+    }
   },
   "Sriperumbudur": {
     "name": "Sriperumbudur",
@@ -8745,7 +10685,11 @@
     "aqiLevel": 59,
     "electricityHours": 23,
     "cropYieldIndex": 61.3,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 13.232700000000001,
+      "lng": 80.42070000000001
+    }
   },
   "Sultanpur": {
     "name": "Sultanpur",
@@ -8763,7 +10707,11 @@
     "aqiLevel": 142,
     "electricityHours": 20,
     "cropYieldIndex": 51.6,
-    "soilHealthSaturation": 87.4
+    "soilHealthSaturation": 87.4,
+    "centerCoords": {
+      "lat": 26.25824,
+      "lng": 82.0681
+    }
   },
   "Sundargarh": {
     "name": "Sundargarh",
@@ -8781,7 +10729,11 @@
     "aqiLevel": 77,
     "electricityHours": 21,
     "cropYieldIndex": 53.5,
-    "soilHealthSaturation": 93.6
+    "soilHealthSaturation": 93.6,
+    "centerCoords": {
+      "lat": 22.11958,
+      "lng": 84.04161
+    }
   },
   "Supaul": {
     "name": "Supaul",
@@ -8799,7 +10751,11 @@
     "aqiLevel": 149,
     "electricityHours": 15,
     "cropYieldIndex": 45.1,
-    "soilHealthSaturation": 77.6
+    "soilHealthSaturation": 77.6,
+    "centerCoords": {
+      "lat": 26.1153,
+      "lng": 86.59543
+    }
   },
   "Surat": {
     "name": "Surat",
@@ -8817,7 +10773,11 @@
     "aqiLevel": 100,
     "electricityHours": 24,
     "cropYieldIndex": 61.5,
-    "soilHealthSaturation": 99.9
+    "soilHealthSaturation": 99.9,
+    "centerCoords": {
+      "lat": 21.18584,
+      "lng": 72.83667
+    }
   },
   "Surendranagar": {
     "name": "Surendranagar",
@@ -8835,7 +10795,11 @@
     "aqiLevel": 124,
     "electricityHours": 24,
     "cropYieldIndex": 60.6,
-    "soilHealthSaturation": 85.8
+    "soilHealthSaturation": 85.8,
+    "centerCoords": {
+      "lat": 22.72706,
+      "lng": 71.64856
+    }
   },
   "Tamluk": {
     "name": "Tamluk",
@@ -8853,7 +10817,11 @@
     "aqiLevel": 90,
     "electricityHours": 22,
     "cropYieldIndex": 62.7,
-    "soilHealthSaturation": 76.4
+    "soilHealthSaturation": 76.4,
+    "centerCoords": {
+      "lat": 22.872600000000002,
+      "lng": 88.6639
+    }
   },
   "Tehri Garhwal": {
     "name": "Tehri Garhwal",
@@ -8871,7 +10839,11 @@
     "aqiLevel": 56,
     "electricityHours": 22,
     "cropYieldIndex": 52.2,
-    "soilHealthSaturation": 88.0
+    "soilHealthSaturation": 88.0,
+    "centerCoords": {
+      "lat": 30.43443606,
+      "lng": 78.53746063
+    }
   },
   "Tenkasi": {
     "name": "Tenkasi",
@@ -8889,7 +10861,11 @@
     "aqiLevel": 58,
     "electricityHours": 24,
     "cropYieldIndex": 67.8,
-    "soilHealthSaturation": 93.4
+    "soilHealthSaturation": 93.4,
+    "centerCoords": {
+      "lat": 8.9635,
+      "lng": 77.30821
+    }
   },
   "Tezpur": {
     "name": "Tezpur",
@@ -8907,7 +10883,11 @@
     "aqiLevel": 46,
     "electricityHours": 19,
     "cropYieldIndex": 58.8,
-    "soilHealthSaturation": 77.8
+    "soilHealthSaturation": 77.8,
+    "centerCoords": {
+      "lat": 26.4445,
+      "lng": 92.0362
+    }
   },
   "Thane": {
     "name": "Thane",
@@ -8925,7 +10905,11 @@
     "aqiLevel": 76,
     "electricityHours": 23,
     "cropYieldIndex": 64.5,
-    "soilHealthSaturation": 93.8
+    "soilHealthSaturation": 93.8,
+    "centerCoords": {
+      "lat": 19.19704,
+      "lng": 72.96355
+    }
   },
   "Thanjavur": {
     "name": "Thanjavur",
@@ -8943,7 +10927,11 @@
     "aqiLevel": 75,
     "electricityHours": 24,
     "cropYieldIndex": 68.3,
-    "soilHealthSaturation": 92.9
+    "soilHealthSaturation": 92.9,
+    "centerCoords": {
+      "lat": 10.76864,
+      "lng": 79.12901
+    }
   },
   "Theni": {
     "name": "Theni",
@@ -8961,7 +10949,11 @@
     "aqiLevel": 48,
     "electricityHours": 22,
     "cropYieldIndex": 69.9,
-    "soilHealthSaturation": 93.3
+    "soilHealthSaturation": 93.3,
+    "centerCoords": {
+      "lat": 10.01019,
+      "lng": 77.47708
+    }
   },
   "Thiruvallur": {
     "name": "Thiruvallur",
@@ -8979,7 +10971,11 @@
     "aqiLevel": 51,
     "electricityHours": 24,
     "cropYieldIndex": 60.3,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 13.12466,
+      "lng": 79.91844
+    }
   },
   "Thiruvananthapuram": {
     "name": "Thiruvananthapuram",
@@ -8997,7 +10993,11 @@
     "aqiLevel": 59,
     "electricityHours": 22,
     "cropYieldIndex": 77.0,
-    "soilHealthSaturation": 94.0
+    "soilHealthSaturation": 94.0,
+    "centerCoords": {
+      "lat": 8.50525,
+      "lng": 76.95144
+    }
   },
   "Thoothukkudi": {
     "name": "Thoothukkudi",
@@ -9015,7 +11015,11 @@
     "aqiLevel": 73,
     "electricityHours": 23,
     "cropYieldIndex": 67.0,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 8.80627,
+      "lng": 78.14325
+    }
   },
   "Thrissur": {
     "name": "Thrissur",
@@ -9033,7 +11037,11 @@
     "aqiLevel": 32,
     "electricityHours": 24,
     "cropYieldIndex": 71.3,
-    "soilHealthSaturation": 98.9
+    "soilHealthSaturation": 98.9,
+    "centerCoords": {
+      "lat": 10.51082,
+      "lng": 76.21121
+    }
   },
   "Tikamgarh": {
     "name": "Tikamgarh",
@@ -9051,7 +11059,11 @@
     "aqiLevel": 79,
     "electricityHours": 22,
     "cropYieldIndex": 47.9,
-    "soilHealthSaturation": 79.2
+    "soilHealthSaturation": 79.2,
+    "centerCoords": {
+      "lat": 24.74429,
+      "lng": 78.83302
+    }
   },
   "Tiruchirappalli": {
     "name": "Tiruchirappalli",
@@ -9069,7 +11081,11 @@
     "aqiLevel": 70,
     "electricityHours": 22,
     "cropYieldIndex": 69.1,
-    "soilHealthSaturation": 90.8
+    "soilHealthSaturation": 90.8,
+    "centerCoords": {
+      "lat": 10.80605,
+      "lng": 78.69476
+    }
   },
   "Tirunelveli": {
     "name": "Tirunelveli",
@@ -9087,7 +11103,11 @@
     "aqiLevel": 73,
     "electricityHours": 24,
     "cropYieldIndex": 63.6,
-    "soilHealthSaturation": 97.7
+    "soilHealthSaturation": 97.7,
+    "centerCoords": {
+      "lat": 8.72641,
+      "lng": 77.7335
+    }
   },
   "Tirupati": {
     "name": "Tirupati",
@@ -9105,7 +11125,11 @@
     "aqiLevel": 90,
     "electricityHours": 21,
     "cropYieldIndex": 58.0,
-    "soilHealthSaturation": 87.8
+    "soilHealthSaturation": 87.8,
+    "centerCoords": {
+      "lat": 16.9062,
+      "lng": 81.048
+    }
   },
   "Tiruppur": {
     "name": "Tiruppur",
@@ -9123,7 +11147,11 @@
     "aqiLevel": 62,
     "electricityHours": 24,
     "cropYieldIndex": 65.0,
-    "soilHealthSaturation": 99.4
+    "soilHealthSaturation": 99.4,
+    "centerCoords": {
+      "lat": 11.08942,
+      "lng": 77.36261
+    }
   },
   "Tiruvannamalai": {
     "name": "Tiruvannamalai",
@@ -9141,7 +11169,11 @@
     "aqiLevel": 57,
     "electricityHours": 22,
     "cropYieldIndex": 70.1,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 12.23526,
+      "lng": 79.07481
+    }
   },
   "Tonk-Sawai Madhopur": {
     "name": "Tonk-Sawai Madhopur",
@@ -9159,7 +11191,11 @@
     "aqiLevel": 134,
     "electricityHours": 18,
     "cropYieldIndex": 40.8,
-    "soilHealthSaturation": 74.0
+    "soilHealthSaturation": 74.0,
+    "centerCoords": {
+      "lat": 26.02301,
+      "lng": 76.34408
+    }
   },
   "Tripura East": {
     "name": "Tripura East",
@@ -9177,7 +11213,11 @@
     "aqiLevel": 53,
     "electricityHours": 20,
     "cropYieldIndex": 55.2,
-    "soilHealthSaturation": 80.2
+    "soilHealthSaturation": 80.2,
+    "centerCoords": {
+      "lat": 24.10385526,
+      "lng": 92.20798421
+    }
   },
   "Tripura West": {
     "name": "Tripura West",
@@ -9195,7 +11235,11 @@
     "aqiLevel": 32,
     "electricityHours": 20,
     "cropYieldIndex": 57.0,
-    "soilHealthSaturation": 89.2
+    "soilHealthSaturation": 89.2,
+    "centerCoords": {
+      "lat": 24.10385526,
+      "lng": 92.20798421
+    }
   },
   "Tumkur": {
     "name": "Tumkur",
@@ -9213,7 +11257,11 @@
     "aqiLevel": 73,
     "electricityHours": 23,
     "cropYieldIndex": 58.3,
-    "soilHealthSaturation": 98.5
+    "soilHealthSaturation": 98.5,
+    "centerCoords": {
+      "lat": 13.271600000000001,
+      "lng": 77.8946
+    }
   },
   "Tura": {
     "name": "Tura",
@@ -9231,7 +11279,11 @@
     "aqiLevel": 25,
     "electricityHours": 18,
     "cropYieldIndex": 49.4,
-    "soilHealthSaturation": 78.3
+    "soilHealthSaturation": 78.3,
+    "centerCoords": {
+      "lat": 25.7788,
+      "lng": 92.0831
+    }
   },
   "Udaipur": {
     "name": "Udaipur",
@@ -9249,7 +11301,11 @@
     "aqiLevel": 101,
     "electricityHours": 19,
     "cropYieldIndex": 49.1,
-    "soilHealthSaturation": 88.9
+    "soilHealthSaturation": 88.9,
+    "centerCoords": {
+      "lat": 24.58702,
+      "lng": 73.69845
+    }
   },
   "Udhampur": {
     "name": "Udhampur",
@@ -9267,7 +11323,11 @@
     "aqiLevel": 85,
     "electricityHours": 23,
     "cropYieldIndex": 53.2,
-    "soilHealthSaturation": 84.5
+    "soilHealthSaturation": 84.5,
+    "centerCoords": {
+      "lat": 32.91978,
+      "lng": 75.12841
+    }
   },
   "Udupi Chikmagalur": {
     "name": "Udupi Chikmagalur",
@@ -9285,7 +11345,11 @@
     "aqiLevel": 94,
     "electricityHours": 21,
     "cropYieldIndex": 62.8,
-    "soilHealthSaturation": 87.5
+    "soilHealthSaturation": 87.5,
+    "centerCoords": {
+      "lat": 13.33694,
+      "lng": 74.74469
+    }
   },
   "Ujiarpur": {
     "name": "Ujiarpur",
@@ -9303,7 +11367,11 @@
     "aqiLevel": 124,
     "electricityHours": 16,
     "cropYieldIndex": 45.5,
-    "soilHealthSaturation": 72.3
+    "soilHealthSaturation": 72.3,
+    "centerCoords": {
+      "lat": 25.9941,
+      "lng": 85.53760000000001
+    }
   },
   "Ujjain": {
     "name": "Ujjain",
@@ -9321,7 +11389,11 @@
     "aqiLevel": 76,
     "electricityHours": 20,
     "cropYieldIndex": 54.4,
-    "soilHealthSaturation": 81.6
+    "soilHealthSaturation": 81.6,
+    "centerCoords": {
+      "lat": 23.18088,
+      "lng": 75.78813
+    }
   },
   "Uluberia": {
     "name": "Uluberia",
@@ -9339,7 +11411,11 @@
     "aqiLevel": 123,
     "electricityHours": 20,
     "cropYieldIndex": 55.6,
-    "soilHealthSaturation": 86.6
+    "soilHealthSaturation": 86.6,
+    "centerCoords": {
+      "lat": 22.9726,
+      "lng": 88.7639
+    }
   },
   "Unnao": {
     "name": "Unnao",
@@ -9357,7 +11433,11 @@
     "aqiLevel": 124,
     "electricityHours": 19,
     "cropYieldIndex": 51.6,
-    "soilHealthSaturation": 85.1
+    "soilHealthSaturation": 85.1,
+    "centerCoords": {
+      "lat": 26.54706,
+      "lng": 80.48781
+    }
   },
   "Uttara Kannada": {
     "name": "Uttara Kannada",
@@ -9375,7 +11455,11 @@
     "aqiLevel": 71,
     "electricityHours": 22,
     "cropYieldIndex": 56.1,
-    "soilHealthSaturation": 89.0
+    "soilHealthSaturation": 89.0,
+    "centerCoords": {
+      "lat": 14.78855323,
+      "lng": 74.62379899
+    }
   },
   "Vadakara": {
     "name": "Vadakara",
@@ -9393,7 +11477,11 @@
     "aqiLevel": 39,
     "electricityHours": 23,
     "cropYieldIndex": 71.9,
-    "soilHealthSaturation": 100.0
+    "soilHealthSaturation": 100.0,
+    "centerCoords": {
+      "lat": 8.924100000000001,
+      "lng": 77.3366
+    }
   },
   "Vadodara": {
     "name": "Vadodara",
@@ -9411,7 +11499,11 @@
     "aqiLevel": 95,
     "electricityHours": 24,
     "cropYieldIndex": 61.2,
-    "soilHealthSaturation": 98.7
+    "soilHealthSaturation": 98.7,
+    "centerCoords": {
+      "lat": 22.30948,
+      "lng": 73.1799
+    }
   },
   "Vaishali": {
     "name": "Vaishali",
@@ -9429,7 +11521,11 @@
     "aqiLevel": 122,
     "electricityHours": 15,
     "cropYieldIndex": 46.9,
-    "soilHealthSaturation": 71.3
+    "soilHealthSaturation": 71.3,
+    "centerCoords": {
+      "lat": 26.00457,
+      "lng": 85.07907
+    }
   },
   "Valmiki Nagar": {
     "name": "Valmiki Nagar",
@@ -9447,7 +11543,11 @@
     "aqiLevel": 122,
     "electricityHours": 18,
     "cropYieldIndex": 49.5,
-    "soilHealthSaturation": 76.0
+    "soilHealthSaturation": 76.0,
+    "centerCoords": {
+      "lat": 25.7441,
+      "lng": 85.28760000000001
+    }
   },
   "Valsad": {
     "name": "Valsad",
@@ -9465,7 +11565,11 @@
     "aqiLevel": 89,
     "electricityHours": 23,
     "cropYieldIndex": 66.5,
-    "soilHealthSaturation": 89.9
+    "soilHealthSaturation": 89.9,
+    "centerCoords": {
+      "lat": 20.60651,
+      "lng": 72.93136
+    }
   },
   "Varanasi": {
     "name": "Varanasi",
@@ -9483,7 +11587,11 @@
     "aqiLevel": 127,
     "electricityHours": 17,
     "cropYieldIndex": 53.5,
-    "soilHealthSaturation": 92.6
+    "soilHealthSaturation": 92.6,
+    "centerCoords": {
+      "lat": 25.33285,
+      "lng": 82.99658
+    }
   },
   "Vidisha": {
     "name": "Vidisha",
@@ -9501,7 +11609,11 @@
     "aqiLevel": 72,
     "electricityHours": 19,
     "cropYieldIndex": 50.1,
-    "soilHealthSaturation": 79.2
+    "soilHealthSaturation": 79.2,
+    "centerCoords": {
+      "lat": 23.52142,
+      "lng": 77.80641
+    }
   },
   "Vijayawada": {
     "name": "Vijayawada",
@@ -9519,7 +11631,11 @@
     "aqiLevel": 88,
     "electricityHours": 21,
     "cropYieldIndex": 64.2,
-    "soilHealthSaturation": 85.3
+    "soilHealthSaturation": 85.3,
+    "centerCoords": {
+      "lat": 16.5062,
+      "lng": 80.648
+    }
   },
   "Viluppuram": {
     "name": "Viluppuram",
@@ -9537,7 +11653,11 @@
     "aqiLevel": 84,
     "electricityHours": 24,
     "cropYieldIndex": 62.6,
-    "soilHealthSaturation": 91.6
+    "soilHealthSaturation": 91.6,
+    "centerCoords": {
+      "lat": 11.9379,
+      "lng": 79.5019
+    }
   },
   "Virudhunagar": {
     "name": "Virudhunagar",
@@ -9555,7 +11675,11 @@
     "aqiLevel": 84,
     "electricityHours": 24,
     "cropYieldIndex": 69.4,
-    "soilHealthSaturation": 94.3
+    "soilHealthSaturation": 94.3,
+    "centerCoords": {
+      "lat": 9.58919,
+      "lng": 77.95368
+    }
   },
   "Visakhapatnam": {
     "name": "Visakhapatnam",
@@ -9573,7 +11697,11 @@
     "aqiLevel": 65,
     "electricityHours": 22,
     "cropYieldIndex": 57.3,
-    "soilHealthSaturation": 95.9
+    "soilHealthSaturation": 95.9,
+    "centerCoords": {
+      "lat": 17.71984,
+      "lng": 83.26284
+    }
   },
   "Vizianagaram": {
     "name": "Vizianagaram",
@@ -9591,7 +11719,11 @@
     "aqiLevel": 79,
     "electricityHours": 24,
     "cropYieldIndex": 58.0,
-    "soilHealthSaturation": 94.6
+    "soilHealthSaturation": 94.6,
+    "centerCoords": {
+      "lat": 18.11825,
+      "lng": 83.41798
+    }
   },
   "Warangal": {
     "name": "Warangal",
@@ -9609,7 +11741,11 @@
     "aqiLevel": 81,
     "electricityHours": 23,
     "cropYieldIndex": 58.2,
-    "soilHealthSaturation": 97.9
+    "soilHealthSaturation": 97.9,
+    "centerCoords": {
+      "lat": 17.92133751,
+      "lng": 79.74942728
+    }
   },
   "Wardha": {
     "name": "Wardha",
@@ -9627,7 +11763,11 @@
     "aqiLevel": 81,
     "electricityHours": 24,
     "cropYieldIndex": 59.3,
-    "soilHealthSaturation": 85.6
+    "soilHealthSaturation": 85.6,
+    "centerCoords": {
+      "lat": 20.73542,
+      "lng": 78.59488
+    }
   },
   "Wayanad": {
     "name": "Wayanad",
@@ -9645,7 +11785,11 @@
     "aqiLevel": 64,
     "electricityHours": 24,
     "cropYieldIndex": 67.9,
-    "soilHealthSaturation": 97.1
+    "soilHealthSaturation": 97.1,
+    "centerCoords": {
+      "lat": 11.71092904,
+      "lng": 76.08736764
+    }
   },
   "West Delhi": {
     "name": "West Delhi",
@@ -9663,7 +11807,11 @@
     "aqiLevel": 217,
     "electricityHours": 24,
     "cropYieldIndex": 42.6,
-    "soilHealthSaturation": 81.4
+    "soilHealthSaturation": 81.4,
+    "centerCoords": {
+      "lat": 28.65346411,
+      "lng": 77.0634152
+    }
   },
   "Yavatmal-Washim": {
     "name": "Yavatmal-Washim",
@@ -9681,7 +11829,11 @@
     "aqiLevel": 115,
     "electricityHours": 22,
     "cropYieldIndex": 58.5,
-    "soilHealthSaturation": 89.0
+    "soilHealthSaturation": 89.0,
+    "centerCoords": {
+      "lat": 20.10821,
+      "lng": 77.14092
+    }
   },
   "Zahirabad": {
     "name": "Zahirabad",
@@ -9699,6 +11851,10 @@
     "aqiLevel": 92,
     "electricityHours": 24,
     "cropYieldIndex": 59.6,
-    "soilHealthSaturation": 89.2
+    "soilHealthSaturation": 89.2,
+    "centerCoords": {
+      "lat": 17.835,
+      "lng": 78.9367
+    }
   }
 }

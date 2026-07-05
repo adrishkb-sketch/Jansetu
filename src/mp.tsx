@@ -1,407 +1,355 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { 
   ArrowLeft, 
   Award, 
   Sparkles, 
-  TrendingUp, 
   CheckCircle, 
-  FileText,
-  DollarSign,
-  Info,
-  Loader2,
-  X,
-  Brain,
-  Volume2,
-  PieChart,
-  Activity,
-  Lightbulb,
-  MapPin
+  Info, 
+  Loader2, 
+  Volume2, 
+  Layers, 
+  Play, 
+  Clock, 
+  Plus
 } from 'lucide-react';
-import { getAllDemands, updateDemandStatus, getActionPlan } from './services/db';
-import { LanguageSelector, getInitialLanguage, useGoogleMapsLoader } from './App';
+import { 
+  getAllDemands, 
+  updateDemandStatus, 
+  getActionPlanByConstituency, 
+  saveActionPlanByConstituency,
+  getMPFunds,
+  saveMPFunds 
+} from './services/db';
+import { LanguageSelector, getInitialLanguage } from './App';
 import { AuthModal } from './AuthModal';
-import { RAMPUR_SEGMENTS_DATA } from './services/constituency_datasets';
+import { ALL_CONSTITUENCIES_DATA } from './services/constituency_datasets';
 import './index.css';
-
-// Priority Score Ranker
-// Formula: Priority = (Upvotes * 0.4) + (Estimated Impact * 0.3) + (Infrastructure Gap Factor * 0.3)
-function computePriorityScore(d: any) {
-  const votesWeight = Math.min((d.upvotes || 1) / 100, 1) * 4; // Max 4 points for upvotes
-  
-  const impactWeight = 
-    d.scope === 'household' ? 1 :
-    d.scope === 'street' ? 2 :
-    d.scope === 'ward' ? 3.5 : 5; // Max 5 points for impact scope
-  
-  // Gap calculation: if school/hospital distance is >3km, get higher gap rating
-  const baseGap = d.category === 'health' ? 4 : d.category === 'education' ? 3 : 2;
-  const priority = votesWeight + impactWeight + baseGap;
-  return Math.min(Math.round(priority * 10) / 10, 10); // Scale to 10 max
-}
 
 function MPApp() {
   const [selectedLang, setSelectedLang] = useState(getInitialLanguage);
-  const [demands, setDemands] = useState<any[]>([]);
-  const [selectedDemand, setSelectedDemand] = useState<any | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('mp_auth') === 'true');
   
-  // Budget Allocator
-  const [mpladsBudget, setMpladsBudget] = useState(() => {
-    const saved = localStorage.getItem('jansetu_mplads_budget');
-    return saved ? parseFloat(saved) : 50000000; // ₹5.00 Crores
+  // Constituency Selection
+  const [selectedConstituency, setSelectedConstituency] = useState<string>('Rampur');
+  
+  // Funds Configuration State
+  const [mpladsFunds, setMpladsFunds] = useState<number>(0);
+  const [resetFrequency, setResetFrequency] = useState<string>('yearly');
+  const [extraFunds, setExtraFunds] = useState<string>('');
+
+  // Search States
+  const [searchMode, setSearchMode] = useState<'constituency' | 'issue'>('constituency');
+  const [searchConstituencyName, setSearchConstituencyName] = useState<string>('Rampur');
+  const [searchIssueQuery, setSearchIssueQuery] = useState<string>('water');
+
+  // Matching Demands
+  const [demands, setDemands] = useState<any[]>([]);
+  const [matchingDemands, setMatchingDemands] = useState<any[]>([]);
+  
+  // Gemini AI Summary States
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [problemSummary, setProblemSummary] = useState<string>('');
+
+  // Speech script generation
+  const [generatingSpeech, setGeneratingSpeech] = useState(false);
+  const [speechMinutes, setSpeechMinutes] = useState<number>(2);
+  const [speechDraft, setSpeechDraft] = useState<string>('');
+  const [speechSlides, setSpeechSlides] = useState<string[]>([]);
+  const [activeSpeechSlide, setActiveSpeechSlide] = useState<number>(0);
+
+  // Action Plan from Manager
+  const [approvedPlan, setApprovedPlan] = useState<any | null>(null);
+  const [includedSteps, setIncludedSteps] = useState<Record<number, boolean>>({
+    0: true, 1: true, 2: true, 3: true
   });
 
-  // Google Maps
-  const [apiKey] = useState(() => localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg');
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const circleRef = useRef<any>(null);
-  const { isLoaded } = useGoogleMapsLoader(apiKey);
-
-  // Gemini Brief Generator
-  const [briefText, setBriefText] = useState('');
-  const [generatingBrief, setGeneratingBrief] = useState(false);
-  const [showBriefModal, setShowBriefModal] = useState(false);
-  const [selectedSpeechIds, setSelectedSpeechIds] = useState<string[]>([]);
-
-  // Approved Plan states
-  const [approvedPlan, setApprovedPlan] = useState<any | null>(null);
-  const [showPlanModal, setShowPlanModal] = useState(false);
-
-  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('mp_auth') === 'true');
-
-  useEffect(() => {
-    const loadApprovedPlan = async () => {
-      const plan = await getActionPlan();
-      if (plan && plan.isApproved) {
-        setApprovedPlan(plan);
-      } else {
-        setApprovedPlan(null);
-      }
-    };
-    loadApprovedPlan();
-    
-    // Check for plan updates every 5 seconds (allows real-time syncing across devices)
-    const interval = setInterval(loadApprovedPlan, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Load demands
+  // Load MP Funds & Demands
   useEffect(() => {
     if (isAuthenticated) {
+      loadFundsConfig();
       loadData();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, selectedConstituency]);
+
+  // Load Action Plan whenever selection changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadActionPlan();
+    }
+  }, [isAuthenticated, selectedConstituency]);
+
+  const loadFundsConfig = async () => {
+    const fundsData = await getMPFunds(selectedConstituency);
+    if (fundsData) {
+      setMpladsFunds(fundsData.totalFunds || 0);
+      setResetFrequency(fundsData.resetFrequency || 'yearly');
+    } else {
+      setMpladsFunds(0);
+      setResetFrequency('yearly');
+    }
+  };
+
+  const loadActionPlan = async () => {
+    const plan = await getActionPlanByConstituency(selectedConstituency);
+    if (plan && plan.isApproved) {
+      setApprovedPlan(plan);
+    } else {
+      setApprovedPlan(null);
+    }
+  };
 
   const loadData = async () => {
     const data = await getAllDemands();
-    // Only process approved (hotspotted) demands for the MP's dashboard
-    const approvedNeeds = data.filter(d => d.status === 'approved' || d.status === 'tendering');
-    
-    // Add computed priority score
-    const scored = approvedNeeds.map(d => ({
-      ...d,
-      score: computePriorityScore(d)
-    }));
+    setDemands(data);
+  };
 
-    // Sort by AI Priority Score descending
-    scored.sort((a, b) => b.score - a.score);
-    setDemands(scored);
-    if (scored.length > 0) {
-      setSelectedDemand(scored[0]);
+  // Filter demands based on search criteria
+  useEffect(() => {
+    let filtered = [...demands];
+    if (searchMode === 'constituency') {
+      filtered = demands.filter(d => (d.constituency || 'Rampur').toLowerCase() === searchConstituencyName.toLowerCase());
+    } else {
+      filtered = demands.filter(d => 
+        d.category.toLowerCase().includes(searchIssueQuery.toLowerCase()) || 
+        d.address.toLowerCase().includes(searchIssueQuery.toLowerCase()) ||
+        (d.items && d.items.some((item: any) => 
+          (item.content && item.content.toLowerCase().includes(searchIssueQuery.toLowerCase())) ||
+          (item.speechTranscript && item.speechTranscript.toLowerCase().includes(searchIssueQuery.toLowerCase()))
+        ))
+      );
+    }
+    setMatchingDemands(filtered);
+  }, [demands, searchMode, searchConstituencyName, searchIssueQuery]);
+
+  // Save Funds Configuration
+  const handleSaveFunds = async () => {
+    await saveMPFunds(selectedConstituency, {
+      totalFunds: mpladsFunds,
+      resetFrequency
+    });
+    alert(`Funds Configuration updated successfully for ${selectedConstituency}!`);
+  };
+
+  // Add Extra Funds
+  const handleAddExtraFunds = async () => {
+    const val = parseFloat(extraFunds);
+    if (isNaN(val) || val <= 0) {
+      alert("Please enter a valid positive number for extra funds.");
+      return;
+    }
+    const nextFunds = mpladsFunds + val;
+    setMpladsFunds(nextFunds);
+    await saveMPFunds(selectedConstituency, {
+      totalFunds: nextFunds,
+      resetFrequency
+    });
+    setExtraFunds('');
+    alert(`Extra funds of ₹${val.toLocaleString()} successfully credited to ${selectedConstituency} ledger!`);
+  };
+
+  // Generate Gemini-powered Clubbed Summary
+  const handleGenerateSummary = async () => {
+    if (matchingDemands.length === 0) {
+      alert("No matching citizen complaints found to summarize.");
+      return;
+    }
+    setGeneratingSummary(true);
+    setProblemSummary('AI is summarizing constituent grievances, aggregating upvotes, and evaluating priority indices...');
+    
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    const complaintsText = matchingDemands.map((d, index) => 
+      `Complaint #${index+1}: Category: ${d.category}, Location: ${d.address}, Support Signatures: ${d.upvotes || 1}, Description: ${d.items?.[0]?.content || d.items?.[0]?.speechTranscript || 'No details'}`
+    ).join('\n');
+
+    const prompt = `
+      You are an expert parliamentary advisor to a Member of Parliament in India.
+      The following is a list of citizen grievances for search query "${searchMode === 'constituency' ? searchConstituencyName : searchIssueQuery}":
+      
+      ${complaintsText}
+      
+      Please compile these complaints and provide a concise, high-level summary suitable for a political leader:
+      1. What are the core themes and main problems?
+      2. What is the total aggregated citizen upvotes / support count across these issues?
+      3. Recommend what priority level this should receive.
+      Provide a clean, bulleted response without markdown fences or headers.
+    `;
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+
+      if (!response.ok) throw new Error("API error");
+      const resData = await response.json();
+      const text = resData.candidates?.[0]?.content?.parts?.[0]?.text || 'Failed to synthesize summary.';
+      setProblemSummary(text.trim());
+    } catch (err) {
+      setProblemSummary('Failed to communicate with Gemini. Please verify your internet connection.');
+    } finally {
+      setGeneratingSummary(false);
     }
   };
 
-  // Render Google Maps Pins for Hotspots
-  useEffect(() => {
-    if (!isLoaded || !mapRef.current || demands.length === 0) return;
-
-    const google = (window as any).google;
-    if (!google || !google.maps) return;
-
-    const center = selectedDemand?.location || demands[0]?.location || { lat: 28.803, lng: 79.025 };
-
-    if (!mapInstanceRef.current) {
-      const map = new google.maps.Map(mapRef.current, {
-        center: center,
-        zoom: 13,
-        styles: [
-          { elementType: 'geometry', stylers: [{ color: '#09081a' }] },
-          { elementType: 'labels.text.stroke', stylers: [{ color: '#09081a' }] },
-          { elementType: 'labels.text.fill', stylers: [{ color: '#8e90b3' }] },
-          { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#fbbf24' }, { weight: 1.2 }] },
-          { featureType: 'administrative.province', elementType: 'geometry.stroke', stylers: [{ color: '#fbbf24' }, { weight: 0.8 }] },
-          { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1e1c38' }] },
-          { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#04030d' }] }
-        ]
-      });
-      mapInstanceRef.current = map;
-    } else {
-      mapInstanceRef.current.setCenter(center);
+  // Generate Parliamentary Speech
+  const handleGenerateSpeech = async () => {
+    if (matchingDemands.length === 0) {
+      alert("No citizen issues found to structure a speech.");
+      return;
     }
+    setGeneratingSpeech(true);
+    setSpeechDraft('AI is writing a Lok Sabha speech draft and splitting it into slide outlines...');
 
-    // Clear old markers
-    markersRef.current.forEach(m => m.setMap(null));
-    markersRef.current = [];
-    if (circleRef.current) {
-      circleRef.current.setMap(null);
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    const complaintsText = matchingDemands.slice(0, 5).map((d, index) => 
+      `Issue #${index+1} (${d.category}): Located at ${d.address} with ${d.upvotes || 1} signatures.`
+    ).join('\n');
+
+    const prompt = `
+      Write a formal, persuasive parliamentary speech (Lok Sabha Question / Matter under Rule 377) for a Member of Parliament representing the constituency.
+      The speech length must match a target reading time of ${speechMinutes} minutes.
+      Incorporate these citizen grievances:
+      ${complaintsText}
+      
+      Format the output in two sections:
+      Section 1: The full speech starting with "Hon'ble Speaker Sir..."
+      Section 2: A slide-by-slide split of the speech for a visual deck (exactly 3 slides).
+      Format Slide splits like:
+      SLIDE 1: Title & Core Problem
+      SLIDE 2: Citizen support stats and evidence
+      SLIDE 3: Formal demands to the Minister
+      
+      Separate the two sections with the text "---SLIDE_SPLIT---". Do not include markdown code fence formatting.
+    `;
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+
+      if (!response.ok) throw new Error("API error");
+      const resData = await response.json();
+      const text = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      const parts = text.split('---SLIDE_SPLIT---');
+      setSpeechDraft(parts[0]?.trim() || '');
+      
+      if (parts[1]) {
+        const slides = parts[1].split(/SLIDE \d+:/i).map((s: string) => s.trim()).filter(Boolean);
+        setSpeechSlides(slides);
+      } else {
+        setSpeechSlides([
+          "Slide 1: Core constituency concerns",
+          "Slide 2: Statistical citizen backing",
+          "Slide 3: Proposed ministerial action steps"
+        ]);
+      }
+      setActiveSpeechSlide(0);
+    } catch (err) {
+      setSpeechDraft('Speech generation failed. Please review internet connectivity and API keys.');
+    } finally {
+      setGeneratingSpeech(false);
     }
+  };
 
-    // Render hotspot markers
-    demands.forEach(d => {
-      const marker = new google.maps.Marker({
-        position: d.location,
-        map: mapInstanceRef.current,
-        title: `${d.category.toUpperCase()} Needs`,
-        icon: {
-          url: d.id === selectedDemand?.id 
-            ? 'https://maps.google.com/mapfiles/ms/icons/red-dot.png' // highlighted active selection
-            : 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png'
-        }
-      });
-
-      marker.addListener('click', () => {
-        setSelectedDemand(d);
-      });
-
-      markersRef.current.push(marker);
+  // Fund Approved Plan Steps
+  const handleFundSelectedSteps = async () => {
+    if (!approvedPlan) return;
+    
+    let totalCostToFund = 0;
+    const stepsToFund: number[] = [];
+    
+    approvedPlan.detailedSteps.forEach((step: any, idx: number) => {
+      if (includedSteps[idx] && step.status !== 'funded' && step.status !== 'completed') {
+        totalCostToFund += step.cost || 0;
+        stepsToFund.push(idx);
+      }
     });
 
-    if (selectedDemand) {
-      const radius = selectedDemand.scope === 'household' ? 50 :
-                     selectedDemand.scope === 'street' ? 300 :
-                     selectedDemand.scope === 'ward' ? 1000 : 2500;
-                     
-      circleRef.current = new google.maps.Circle({
-        strokeColor: "#ef4444",
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        fillColor: "#ef4444",
-        fillOpacity: 0.2,
-        map: mapInstanceRef.current,
-        center: selectedDemand.location,
-        radius: radius,
-      });
-    }
-
-  }, [isLoaded, demands, selectedDemand]);
-
-  // Google Translate widget
-  useEffect(() => {
-    (window as any).googleTranslateElementInit = () => {
-      new (window as any).google.translate.TranslateElement({
-        pageLanguage: 'en',
-        includedLanguages: 'en,hi,bn,te,mr,ta,gu,kn,ml,or,pa,as,ur,sa,ne,sd,kok',
-        layout: (window as any).google.translate.TranslateElement.InlineLayout.SIMPLE,
-        autoDisplay: false
-      }, 'google_translate_element');
-    };
-
-    if (!document.getElementById('google-translate-script')) {
-      const script = document.createElement('script');
-      script.id = 'google-translate-script';
-      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
-
-  const handleAllocateBudget = async (id: string, costEstimate: number) => {
-    if (mpladsBudget < costEstimate) {
-      alert("Insufficient MPLADS Funds to allocate this project.");
+    if (stepsToFund.length === 0) {
+      alert("No unfunded steps selected to allocate budget.");
       return;
     }
 
-    const nextBudget = mpladsBudget - costEstimate;
-    setMpladsBudget(nextBudget);
-    localStorage.setItem('jansetu_mplads_budget', nextBudget.toString());
-
-    // Update status in Firestore/LocalStorage to 'tendering' (Work Sanctioned)
-    await updateDemandStatus(id, 'tendering');
-    
-    // Update local React state
-    setDemands((prev: any[]) => prev.map(item => item.id === id ? { ...item, status: 'tendering' } : item));
-    setSelectedDemand((prev: any) => prev && prev.id === id ? { ...prev, status: 'tendering' } : prev);
-    alert(`Work order approved! Allocated ₹${(costEstimate / 1000000).toFixed(2)} Lakhs from MPLADS fund.`);
-  };
-
-  const handleGenerateSpeechBatch = async () => {
-    if (selectedSpeechIds.length === 0) return;
-    
-    setGeneratingBrief(true);
-    setShowBriefModal(true);
-    setBriefText('AI is compiling records and writing Lok Sabha presentation draft for selected issues...');
-
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
-
-    const selectedDetails = demands
-      .filter(d => selectedSpeechIds.includes(d.id))
-      .map((d, index) => `
-Issue ${index + 1}:
-- Grievance Category: ${d.category.toUpperCase()}
-- Location/Ward: ${d.address}
-- Supporting Citizens: ${d.upvotes || 1} verified votes
-- Estimated Impact: ${d.estimatedImpact || 150} people
-      `).join('\n');
-
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are an expert parliamentary speech writer for a Member of Parliament (MP) in India. 
-Write a highly formal, concise, and persuasive Lok Sabha representation speech (parliamentary question/matter under rule 377) addressing the Speaker of the House (150-300 words).
-Use these exact details from the citizen grievance files to raise multiple critical infrastructure gaps:
-
-Constituency: Rampur (Uttar Pradesh)
-
-${selectedDetails}
-
-Structure of Speech:
-1. "Hon'ble Speaker Sir..."
-2. Raise attention to the pressing infrastructure gaps in Rampur.
-3. State the exact citizen demand data and verified votes for the mentioned issues to weigh demand.
-4. Request the central/state ministry to sanction the necessary construction/reconstruction.
-5. End with thanks. Do NOT write placeholders. Write actual names and speech blocks.`
-            }]
-          }]
-        })
-      });
-
-      const json = await response.json();
-      const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        setBriefText(text.trim());
-      } else {
-        setBriefText("Speech generation failed. Please check your Gemini API credentials.");
-      }
-    } catch (e) {
-      console.error("Gemini brief error: ", e);
-      setBriefText("Speech generation error. Please check internet connections.");
-    } finally {
-      setGeneratingBrief(false);
+    if (mpladsFunds < totalCostToFund) {
+      alert(`Insufficient funds! Selected steps require ₹${totalCostToFund.toLocaleString()} but only ₹${mpladsFunds.toLocaleString()} is available.`);
+      return;
     }
-  };
 
-  const handleGenerateBrief = async () => {
-    if (!selectedDemand) return;
+    // Subtract from available funds
+    const remainingFunds = mpladsFunds - totalCostToFund;
+    setMpladsFunds(remainingFunds);
     
-    setGeneratingBrief(true);
-    setShowBriefModal(true);
-    setBriefText('AI is compiling records and writing Lok Sabha presentation draft...');
+    // Save updated funds in DB
+    await saveMPFunds(selectedConstituency, {
+      totalFunds: remainingFunds,
+      resetFrequency
+    });
 
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    // Update Action Plan steps to 'funded'
+    const updatedPlan = { ...approvedPlan };
+    stepsToFund.forEach(idx => {
+      updatedPlan.detailedSteps[idx].status = 'funded';
+    });
+    
+    await saveActionPlanByConstituency(selectedConstituency, updatedPlan);
+    setApprovedPlan(updatedPlan);
 
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are an expert parliamentary speech writer for a Member of Parliament (MP) in India. 
-Write a highly formal, concise, and persuasive Lok Sabha representation speech (parliamentary question/matter under rule 377) addressing the Speaker of the House (150-200 words).
-Use these exact details from the citizen grievance files:
-- Constituency: Rampur (Uttar Pradesh)
-- Grievance Category: ${selectedDemand.category.toUpperCase()}
-- Location/Ward: ${selectedDemand.address}
-- Supporting Citizens: ${selectedDemand.upvotes} verified votes
-- Real Gap Analysis: Traveling distance to nearest public school/healthcare is critically high.
-
-Structure of Speech:
-1. "Hon'ble Speaker Sir..."
-2. Raise attention to the infrastructure gap in Rampur.
-3. State the exact citizen demand data and verified votes to weigh demand.
-4. Request the central/state ministry to sanction the necessary construction/reconstruction.
-5. End with thanks. Do NOT write placeholders. Write actual names and speech blocks.`
-            }]
-          }]
-        })
-      });
-
-      const json = await response.json();
-      const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        setBriefText(text.trim());
-      } else {
-        setBriefText("Speech generation failed. Please check your Gemini API credentials.");
-      }
-    } catch (e) {
-      console.error("Gemini brief error: ", e);
-      setBriefText("Speech generation error. Please check internet connections.");
-    } finally {
-      setGeneratingBrief(false);
+    // Update associated citizen complaints in Firestore to 'funded'
+    for (const complaintId of approvedPlan.associatedComplaintIds || []) {
+      await updateDemandStatus(complaintId, 'funded');
     }
+
+    alert(`Successfully allocated ₹${totalCostToFund.toLocaleString()}! Funded ${stepsToFund.length} steps. Associated citizen complaints updated to "funded".`);
+    loadData();
   };
 
-  const handlePlayAudioBriefing = () => {
+  // Play audio morning briefing
+  const handlePlayBriefing = () => {
     if (!('speechSynthesis' in window)) {
       alert("Text-to-Speech is not supported in this browser.");
       return;
     }
-    
     window.speechSynthesis.cancel();
-    
-    const count = demands.length;
-    if (count === 0) {
-      const msg = new SpeechSynthesisUtterance("Good morning. You currently have no pending issues in your constituency.");
-      window.speechSynthesis.speak(msg);
-      return;
-    }
-    
-    const topIssue = demands[0];
-    const budgetCr = (mpladsBudget / 10000000).toFixed(2);
-    
-    let text = `Good morning. You currently have ${count} critical issues pending in Rampur. `;
-    text += `Your top priority is a ${topIssue.category} related grievance located at ${topIssue.address}. `;
-    text += `This issue has gathered ${topIssue.upvotes || 1} verified citizen votes. `;
-    text += `Your remaining M P L A D S fund is ${budgetCr} Crores. Please review the dashboard to allocate funds.`;
-    
+    const count = matchingDemands.length;
+    const text = `Honorable Member of Parliament, you have ${count} critical issues logged in ${selectedConstituency}. Your remaining available fund is ${ (mpladsFunds/100000).toFixed(1) } Lakhs. Please review the recommended AI Action plans to authorize work orders.`;
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
+    utterance.rate = 0.95;
     window.speechSynthesis.speak(utterance);
   };
 
   return (
     <>
       {!isAuthenticated && <AuthModal role="mp" onSuccess={() => setIsAuthenticated(true)} onClose={() => window.location.href = '/'} />}
-      <div id="google_translate_element" style={{ display: 'none' }}></div>
-
-      <header className="header">
+      
+      <header className="header no-print">
         <div className="container header-container">
           <div className="logo-wrapper" onClick={() => window.location.href = '/'} style={{ cursor: 'pointer' }}>
             <div className="logo-icon" style={{ background: 'var(--mp-grad)' }}>
               <Award size={20} strokeWidth={2.5} />
             </div>
             <span>Jansetu</span>
-            <span style={{ fontSize: '12px', background: 'rgba(217, 119, 6, 0.2)', color: '#fbbf24', padding: '2px 8px', borderRadius: '10px', marginLeft: '8px', fontWeight: 'bold' }}>MP Decision Workspace</span>
+            <span style={{ fontSize: '12px', background: 'rgba(217, 119, 6, 0.2)', color: '#fbbf24', padding: '2px 8px', borderRadius: '10px', marginLeft: '8px', fontWeight: 'bold' }}>
+              MP Parliamentary Workspace
+            </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <button 
-              onClick={handlePlayAudioBriefing}
+              onClick={handlePlayBriefing}
               style={{
                 background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.4)', color: '#a5b4fc',
                 padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px'
               }}
-              title="Play AI Morning Briefing"
             >
               <Volume2 size={14} />
-              <span>Audio Brief</span>
+              <span>Audio Briefing</span>
             </button>
             <LanguageSelector selectedLang={selectedLang} setSelectedLang={setSelectedLang} />
-            <div className="status-badge" style={{ border: '1px solid rgba(251, 191, 36, 0.3)' }}>
-              <span className="pulse-dot" style={{ backgroundColor: '#fbbf24' }}></span>
-              <span style={{ color: '#fbbf24' }}>MPLADS Ledger Verified</span>
-            </div>
             {isAuthenticated && (
               <button 
                 onClick={() => {
@@ -420,720 +368,358 @@ Structure of Speech:
         </div>
       </header>
 
-      <main style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }} className="complainant-portal container">
-        {/* Back navigation */}
-        <div className="portal-header">
+      <main style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }} className="complainant-portal container no-print">
+        <div className="portal-header" style={{ textAlign: 'left', marginBottom: '24px' }}>
           <button type="button" className="btn-back" onClick={() => window.location.href = '/'}>
             <ArrowLeft size={18} />
             <span>Back to Roles</span>
           </button>
-          <h2>AI-Priority Constituency Planner</h2>
-          <p className="portal-subtitle">Weigh competing infrastructure requests objectively using citizen demand metrics and demographic gap ratings</p>
+          <h2>Parliamentary Leadership Workspace</h2>
+          <p className="portal-subtitle">Configure regional constituency funds, review clubbed citizen grievances, draft speech scripts, and authorize project budgets</p>
         </div>
 
-        {approvedPlan && (
-          <div className="form-card" style={{
-            background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.15) 0%, rgba(13, 12, 29, 0.4) 100%)',
-            border: '1px solid rgba(20, 184, 166, 0.4)',
-            padding: '20px 24px',
-            marginBottom: '24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderRadius: '12px',
-            gap: '20px',
-            textAlign: 'left'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ background: 'rgba(20, 184, 166, 0.2)', padding: '12px', borderRadius: '12px', color: '#2dd4bf' }}>
-                <FileText size={24} />
-              </div>
-              <div>
-                <span style={{ fontSize: '10px', background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                  ✓ Approved Plan Active
-                </span>
-                <h4 style={{ color: 'white', margin: '4px 0', fontSize: '1.1rem' }}>{approvedPlan.planName}</h4>
-                <p style={{ color: 'var(--text-desc)', fontSize: '0.8rem', margin: 0 }}>
-                  {approvedPlan.summary.slice(0, 120)}...
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowPlanModal(true)}
-              style={{
-                background: 'var(--manager-grad)', border: 'none', color: 'white', fontWeight: 'bold',
-                padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0
-              }}
-            >
-              <Sparkles size={16} />
-              <span>View Step-by-Step Action Plan</span>
-            </button>
-          </div>
-        )}
-
-        {/* MPLADS fund tracker row */}
-        <div className="form-card" style={{ padding: '20px 24px', marginBottom: '24px', display: 'flex', flexWrap: 'wrap', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
-          <div>
-            <h4 style={{ color: '#fbbf24', margin: '0 0 4px 0', fontSize: '0.9rem', textTransform: 'uppercase', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <DollarSign size={16} />
-              <span>MP Local Area Development Fund (MPLADS) Ledger</span>
-            </h4>
-            <span style={{ fontSize: '1.8rem', color: 'white', fontWeight: '800' }}>
-              ₹{(mpladsBudget / 10000000).toFixed(2)} Crores remaining
-            </span>
-          </div>
-          <div style={{ flexGrow: 0.5, minWidth: '240px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-              <span>Allocated: ₹{((50000000 - mpladsBudget) / 10000000).toFixed(2)} Cr</span>
-              <span>Total Limit: ₹5.00 Cr / Yr</span>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.08)', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{ background: 'var(--mp-grad)', width: `${(mpladsBudget / 50000000) * 100}%`, height: '100%' }}></div>
-            </div>
-          </div>
-          <button 
-            type="button" 
-            onClick={() => {
-              setMpladsBudget(50000000);
-              localStorage.setItem('jansetu_mplads_budget', '50000000');
-              alert('Ledger re-seeded to ₹5.00 Cr.');
-            }}
-            style={{ background: 'transparent', border: '1px solid var(--border-light)', color: 'var(--text-muted)', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
-          >
-            Reset Funds
-          </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div className="form-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(0,0,0,0.2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'white' }}>
-                <PieChart size={18} color="#2dd4bf" />
-                <h4 style={{ margin: 0, fontSize: '0.9rem' }}>Constituency Equity Tracker</h4>
-              </div>
-              <div style={{ display: 'flex', justifyItems: 'space-between', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                <span>Rural Allocation (60%)</span>
-                <span>Urban Allocation (40%)</span>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.08)', height: '10px', borderRadius: '5px', display: 'flex', overflow: 'hidden' }}>
-                <div style={{ background: '#2dd4bf', width: '60%', height: '100%' }}></div>
-                <div style={{ background: '#818cf8', width: '40%', height: '100%' }}></div>
-              </div>
-              <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>
-                <Info size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-                Spending is optimally distributed according to demographic needs.
-              </p>
-            </div>
-
-            <div className="form-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'rgba(0,0,0,0.2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'white' }}>
-                <Activity size={18} color="#fbbf24" />
-                <h4 style={{ margin: 0, fontSize: '0.9rem' }}>Live Public Sentiment</h4>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
-                <span style={{ fontSize: '2rem', color: '#fbbf24', fontWeight: 'bold', lineHeight: '1' }}>78%</span>
-                <span style={{ color: '#4ade80', fontSize: '0.8rem', display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-                  <TrendingUp size={14} style={{ marginRight: '4px' }} /> +4.2% this week
-                </span>
-              </div>
-              <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>
-                <Info size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-                Positive sentiment increased following recent Jal Jeevan Mission approvals.
-              </p>
-            </div>
-          </div>
-  
-          {/* Dashboard Grid Layout */}
-          <div className="portal-grid" style={{ gridTemplateColumns: '440px 1fr' }}>
-          
-          {/* Left Column: Ranked Leaderboard */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <h3 style={{ fontSize: '1.1rem', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 6px 0' }}>
-              <TrendingUp size={18} style={{ color: '#fbbf24' }} />
-              <span>AI Ranked Development Leaderboard</span>
-            </h3>
-            
-            {selectedSpeechIds.length > 0 && (
-              <button 
-                type="button" 
-                onClick={handleGenerateSpeechBatch}
-                style={{ background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.5)', color: '#a5b4fc', fontWeight: 'bold', padding: '10px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', marginBottom: '8px' }}
+        {/* SECTION 1: CONSTITUENCY SETUP & LEDGER SETTINGS */}
+        <div className="form-card" style={{ padding: '24px 30px', marginBottom: '24px', textAlign: 'left' }}>
+          <h3 style={{ color: 'white', fontSize: '1.2rem', margin: '0 0 16px 0', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
+            ⚙️ Constituency Ledger & MPLADS Configuration
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12.5px', color: '#c7d2fe', fontWeight: 'bold' }}>Select Constituency</label>
+              <select
+                value={selectedConstituency}
+                onChange={e => setSelectedConstituency(e.target.value)}
+                style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '10px 14px', borderRadius: '8px', fontWeight: '600' }}
               >
-                <Brain size={16} />
-                <span>Generate Lok Sabha Speech ({selectedSpeechIds.length} selected)</span>
+                {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
+                  <option key={cName} value={cName}>{cName}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12.5px', color: '#c7d2fe', fontWeight: 'bold' }}>Available Funds (MPLADS Ledger)</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#8e90b3', fontWeight: 'bold' }}>₹</span>
+                <input
+                  type="number"
+                  placeholder="Ledger limit"
+                  value={mpladsFunds}
+                  onChange={e => setMpladsFunds(parseFloat(e.target.value) || 0)}
+                  style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '10px 14px 10px 24px', borderRadius: '8px', width: '100%', fontWeight: 'bold' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12.5px', color: '#c7d2fe', fontWeight: 'bold' }}>Reset Frequency</label>
+              <select
+                value={resetFrequency}
+                onChange={e => setResetFrequency(e.target.value)}
+                style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '10px 14px', borderRadius: '8px', fontWeight: '600' }}
+              >
+                <option value="monthly">Monthly Reset</option>
+                <option value="quarterly">Quarterly Reset</option>
+                <option value="yearly">Yearly Reset</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', borderTop: '1px dashed rgba(255,255,255,0.06)', paddingTop: '16px' }}>
+            <button
+              onClick={handleSaveFunds}
+              style={{ background: 'var(--mp-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}
+            >
+              Save Funds Setup
+            </button>
+
+            <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto', alignItems: 'center' }}>
+              <input
+                type="number"
+                placeholder="Extra funds amount"
+                value={extraFunds}
+                onChange={e => setExtraFunds(e.target.value)}
+                style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', width: '180px', fontSize: '13px' }}
+              />
+              <button
+                onClick={handleAddExtraFunds}
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-light)', color: 'white', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}
+              >
+                <Plus size={14} />
+                <span>Add Extra Funds</span>
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: SEARCH CONSTITUENCY VS SEARCH BY ISSUE */}
+        <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '24px', marginBottom: '24px' }}>
+          
+          {/* Left Block: Search Panel */}
+          <div className="form-card" style={{ padding: '24px 20px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h4 style={{ color: 'white', margin: 0, fontSize: '14px', fontWeight: 'bold' }}>🔎 Search & Filter Workspace</h4>
+            
+            <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '8px', overflow: 'hidden' }}>
+              <button
+                onClick={() => setSearchMode('constituency')}
+                style={{ flex: 1, padding: '8px', background: searchMode === 'constituency' ? 'rgba(217, 119, 6, 0.15)' : 'transparent', color: searchMode === 'constituency' ? '#fbbf24' : '#8e90b3', border: 'none', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
+              >
+                By Constituency
+              </button>
+              <button
+                onClick={() => setSearchMode('issue')}
+                style={{ flex: 1, padding: '8px', background: searchMode === 'issue' ? 'rgba(217, 119, 6, 0.15)' : 'transparent', color: searchMode === 'issue' ? '#fbbf24' : '#8e90b3', border: 'none', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
+              >
+                By Issue/Query
+              </button>
+            </div>
+
+            {searchMode === 'constituency' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', color: '#8e90b3' }}>Constituency Name</label>
+                <select
+                  value={searchConstituencyName}
+                  onChange={e => setSearchConstituencyName(e.target.value)}
+                  style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '6px', fontSize: '13px' }}
+                >
+                  {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
+                    <option key={cName} value={cName}>{cName}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', color: '#8e90b3' }}>Issue Keyword / Category</label>
+                <input
+                  type="text"
+                  placeholder="e.g. water, road, school"
+                  value={searchIssueQuery}
+                  onChange={e => setSearchIssueQuery(e.target.value)}
+                  style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '6px', fontSize: '13px' }}
+                />
+              </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '680px', paddingRight: '4px' }}>
-              {demands.length === 0 ? (
-                <div className="empty-attachments" style={{ padding: '60px' }}>
-                  <Info size={24} />
-                  <span>No approved needs awaiting planning decisions yet. Use the Manager console to verify entries.</span>
-                </div>
-              ) : (
-                demands.map((d, index) => (
-                  <div 
-                    key={d.id} 
-                    onClick={() => setSelectedDemand(d)}
-                    style={{
-                      background: selectedDemand?.id === d.id ? 'rgba(217, 119, 6, 0.08)' : 'rgba(13, 12, 29, 0.4)',
-                      border: selectedDemand?.id === d.id ? '1px solid rgba(217, 119, 6, 0.5)' : '1px solid var(--border-light)',
-                      borderRadius: '12px',
-                      padding: '16px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      position: 'relative'
-                    }}
-                  >
-                    <div style={{ position: 'absolute', left: '-1px', top: '16px', width: '28px', height: '24px', background: index === 0 ? '#fbbf24' : 'rgba(255,255,255,0.08)', color: index === 0 ? '#000' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '0 6px 6px 0', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                      #{index + 1}
-                    </div>
-
-                    <div style={{ paddingLeft: '22px' }}>
-                      <div style={{ position: 'absolute', top: '16px', right: '16px' }} onClick={(e) => e.stopPropagation()}>
-                        <input 
-                          type="checkbox" 
-                          checked={selectedSpeechIds.includes(d.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedSpeechIds(prev => [...prev, d.id]);
-                            } else {
-                              setSelectedSpeechIds(prev => prev.filter(id => id !== d.id));
-                            }
-                          }}
-                          style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#a5b4fc' }}
-                          title="Select to generate a unified parliamentary speech"
-                        />
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+              <span style={{ fontSize: '11px', color: '#8e90b3' }}>Matching Citizen Reports</span>
+              <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                {matchingDemands.length === 0 ? (
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No reports match this criteria.</span>
+                ) : (
+                  matchingDemands.map(d => (
+                    <div key={d.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', padding: '8px 12px', borderRadius: '6px', fontSize: '11.5px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8e90b3' }}>
+                        <span>📍 {d.address.slice(0, 20)}...</span>
+                        <span>👍 {d.upvotes || 1}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingRight: '24px' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#fbbf24', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>Score: {d.score}/10</span>
-                          <Sparkles size={12} />
-                        </span>
-                        <span style={{ 
-                          fontSize: '0.7rem', 
-                          background: d.status === 'tendering' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                          color: d.status === 'tendering' ? '#34d399' : 'white',
-                          padding: '2px 8px', 
-                          borderRadius: '8px', 
-                          fontWeight: 'bold',
-                          textTransform: 'uppercase'
-                        }}>
-                          {d.status === 'tendering' ? 'Sanctioned' : 'Awaiting Plan'}
-                        </span>
-                      </div>
-                      <strong style={{ display: 'block', fontSize: '0.9rem', color: 'white', marginBottom: '4px', textTransform: 'capitalize' }}>
-                        {d.category === 'water' && '🚰'}
-                        {d.category === 'roads' && '🛣️'}
-                        {d.category === 'education' && '🏫'}
-                        {d.category === 'health' && '🏥'}
-                        {d.category === 'power' && '⚡'}
-                        {d.category === 'agriculture' && '🌾'}
-                        {d.category === 'others' && '📁'}
-                        {d.category} Need
-                      </strong>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-desc)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        📍 {d.address}
+                      <p style={{ margin: '2px 0 0 0', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {d.items?.[0]?.content || d.items?.[0]?.speechTranscript}
                       </p>
-                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        <span>👍 {d.upvotes || 1} support votes</span>
-                        <span>👥 Impact: {d.estimatedImpact || 150}</span>
-                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Block: Gemini Synthesizer & Speech Generator */}
+          <div className="form-card" style={{ padding: '24px 30px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
+              <h3 style={{ color: 'white', fontSize: '1.2rem', margin: 0 }}>
+                💡 Parliamentary Speech & AI Synthesizer
+              </h3>
+              <button
+                onClick={handleGenerateSummary}
+                disabled={generatingSummary}
+                style={{ background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.4)', color: '#fbbf24', fontWeight: 'bold', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                {generatingSummary ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                <span>Synthesize Complaints Summary</span>
+              </button>
+            </div>
+
+            {problemSummary && (
+              <div style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-light)', padding: '16px', borderRadius: '8px', fontSize: '12.5px', color: 'white', lineHeight: '1.5' }}>
+                <strong style={{ color: '#fbbf24', display: 'block', marginBottom: '6px' }}>📋 AI Synthesized Grievances Ledger:</strong>
+                <p style={{ margin: 0, fontStyle: 'italic', whiteSpace: 'pre-line' }}>{problemSummary}</p>
+              </div>
+            )}
+
+            <div style={{ borderTop: '1px dashed rgba(255,255,255,0.06)', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Clock size={16} style={{ color: '#818cf8' }} />
+                  <label style={{ fontSize: '12.5px', color: '#c7d2fe', fontWeight: 'bold' }}>Target Minutes:</label>
+                  <select
+                    value={speechMinutes}
+                    onChange={e => setSpeechMinutes(parseInt(e.target.value) || 2)}
+                    style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px' }}
+                  >
+                    {[1, 2, 3, 4, 5].map(m => <option key={m} value={m}>{m} Mins</option>)}
+                  </select>
+                </div>
+                
+                <button
+                  onClick={handleGenerateSpeech}
+                  disabled={generatingSpeech}
+                  style={{ background: 'var(--mp-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {generatingSpeech ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                  <span>Generate Lok Sabha Speech & Slides</span>
+                </button>
+              </div>
+
+              {speechDraft && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '16px' }}>
+                  <div style={{ background: '#0e0d24', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)', fontSize: '13px', lineHeight: '1.6', color: 'white', maxHeight: '240px', overflowY: 'auto' }}>
+                    <strong style={{ display: 'block', marginBottom: '6px', color: '#818cf8' }}>🎤 Speech Script Draft:</strong>
+                    <p style={{ margin: 0, fontStyle: 'serif', whiteSpace: 'pre-line' }}>{speechDraft}</p>
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <strong style={{ color: '#60a5fa', fontSize: '12px' }}>📊 Parliamentary Deck Slides:</strong>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {speechSlides.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setActiveSpeechSlide(idx)}
+                          style={{ flex: 1, padding: '4px', background: activeSpeechSlide === idx ? '#60a5fa' : 'rgba(255,255,255,0.05)', color: activeSpeechSlide === idx ? 'black' : 'white', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                          S{idx+1}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '12px', borderRadius: '6px', fontSize: '11px', flexGrow: 1, minHeight: '100px' }}>
+                      {speechSlides[activeSpeechSlide] || "No slide content generated."}
                     </div>
                   </div>
-                ))
+                </div>
               )}
             </div>
           </div>
-
-          {/* Right Column: Interactive map and action drawer */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* Hotspots Map canvas */}
-            <div className="form-card" style={{ padding: '0', overflow: 'hidden' }}>
-              <div ref={mapRef} style={{ width: '100%', height: '300px' }} />
-              <div style={{ padding: '10px 16px', background: '#0e0d24', borderTop: '1px solid var(--border-light)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                📍 Red Marker represents selected priority. Orange Markers represent other verified local hotspots.
-              </div>
-            </div>
-
-            {/* Decision Drawer card */}
-            {selectedDemand ? (
-              <div className="form-card" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
-                  <div>
-                    <h3 style={{ color: 'white', fontSize: '1.25rem', textTransform: 'capitalize', margin: 0 }}>
-                      Selected Priority Analysis
-                    </h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '4px 0 0 0' }}>
-                      📍 {selectedDemand.address}
-                    </p>
-                  </div>
-                  
-                  {/* MP Actions */}
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button 
-                      type="button" 
-                      onClick={handleGenerateBrief}
-                      style={{ background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', color: '#a5b4fc', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-                    >
-                      <FileText size={16} />
-                      <span>AI Policy Brief</span>
-                    </button>
-                    {selectedDemand.status !== 'approved' ? (
-                      <>
-                        <button 
-                          type="button" 
-                          onClick={() => {
-                            const scheme = selectedDemand.category === 'water' ? 'Jal Jeevan Mission' :
-                                           selectedDemand.category === 'roads' ? 'PMGSY' :
-                                           selectedDemand.category === 'health' ? 'Ayushman Bharat' :
-                                           selectedDemand.category === 'education' ? 'Samagra Shiksha' :
-                                           'State Development Fund';
-                            alert(`AI Recommendation: Forwarded to ${scheme} state department for funding approval. (Saved ₹${(selectedDemand.category === 'roads' ? 1.2 : 0.45).toFixed(2)} Cr of MPLADS)`);
-                            handleAllocateBudget(selectedDemand.id, 0); // 0 budget impact
-                          }}
-                          style={{ background: 'rgba(52, 211, 153, 0.15)', border: '1px solid rgba(52, 211, 153, 0.4)', color: '#34d399', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-                          title="Match with State/National Scheme"
-                        >
-                          <Lightbulb size={16} />
-                          <span>AI Scheme Matcher</span>
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => handleAllocateBudget(selectedDemand.id, selectedDemand.category === 'roads' ? 12000000 : 4500000)}
-                          style={{ background: 'var(--mp-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-                        >
-                          <CheckCircle size={16} />
-                          <span>Allocate MPLADS (₹{(selectedDemand.category === 'roads' ? 1.2 : 0.45).toFixed(2)} Cr)</span>
-                        </button>
-                      </>
-                ) : (
-                      <span style={{ color: '#34d399', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '8px 14px' }}>
-                        <CheckCircle size={16} />
-                        <span>Work Order Sanctioned</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Demand Weighing Metrics */}
-                <div className="role-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                  <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-light)', padding: '14px', borderRadius: '10px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <MapPin size={16} color="#ef4444" style={{ marginBottom: '4px' }} />
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Digital Twin Impact Radius</span>
-                    <strong style={{ fontSize: '1.2rem', color: '#ef4444' }}>{selectedDemand.scope === 'household' ? '50m' : selectedDemand.scope === 'street' ? '300m' : selectedDemand.scope === 'ward' ? '1km' : '2.5km'}</strong>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-desc)', margin: '4px 0 0 0' }}>Simulated on Map</p>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-light)', padding: '14px', borderRadius: '10px', textAlign: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Citizen Upvotes</span>
-                    <strong style={{ fontSize: '1.4rem', color: 'white' }}>👍 {selectedDemand.upvotes}</strong>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-desc)', margin: '4px 0 0 0' }}>Verified local registry</p>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-light)', padding: '14px', borderRadius: '10px', textAlign: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Population Impact</span>
-                    <strong style={{ fontSize: '1.4rem', color: 'white' }}>👥 {selectedDemand.estimatedImpact}</strong>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-desc)', margin: '4px 0 0 0' }}>Estimated affected range</p>
-                  </div>
-                </div>
-
-                {/* Description details */}
-                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', padding: '16px', borderRadius: '10px' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold', display: 'block', marginBottom: '6px', textTransform: 'uppercase' }}>
-                    Citizen Submission Summary (AI STT Translation)
-                  </span>
-                  <p style={{ color: 'white', margin: 0, fontSize: '0.85rem', lineHeight: '1.5' }}>
-                    "{selectedDemand.items?.[0]?.content || selectedDemand.items?.[0]?.speechTranscript || 'No description provided.'}"
-                  </p>
-                </div>
-
-              </div>
-            ) : (
-              <div className="form-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexGrow: 1, color: 'var(--text-muted)' }}>
-                <p>Select a priority card from the leaderboard to review details.</p>
-              </div>
-            )}
-
-          </div>
-
         </div>
 
-        {/* Sub-District Deficits Table */}
-        <div className="form-card" style={{ padding: '20px 24px', marginTop: '24px', textAlign: 'left' }}>
-          <h4 style={{ color: '#2dd4bf', margin: '0 0 12px 0' }}>📂 Sub-District Infrastructure & Agriculture Deficit Auditor Matrix</h4>
-          <p style={{ fontSize: '12px', color: 'var(--text-desc)', margin: '0 0 16px 0' }}>
-            Cross-referencing active assembly segments against Union Ministry standards (NFHS-5, CPCB NCAP, JJM, Census 2011) to highlight critical regional gaps.
-          </p>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#2dd4bf', fontWeight: 'bold' }}>
-                  <th style={{ padding: '10px', textAlign: 'left' }}>Assembly Segment</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Total Population</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Literacy %</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>JJM Water Coverage</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>PMGSY Unconnected Roads</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>NHM Healthcare Proximity</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>RTE School Compliance</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>SBM Toilet Saturation</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>DDUGJY Power Grid</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>NCAP PM10 AQI</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Agri Yield Index</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Soil Health Saturation</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(RAMPUR_SEGMENTS_DATA).map(key => {
-                  const seg = RAMPUR_SEGMENTS_DATA[key];
-                  return (
-                    <tr key={key} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold', textAlign: 'left' }}>📍 {seg.name.replace(" Assembly Segment", "")}</td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>{seg.population.toLocaleString()}</td>
-                      <td style={{ padding: '10px', textAlign: 'center', color: seg.literacyRate < 50 ? '#f87171' : 'white' }}>{seg.literacyRate}%</td>
-                      <td style={{ padding: '10px', textAlign: 'center', color: seg.waterCoverage < 60 ? '#f87171' : '#34d399', fontWeight: 'bold' }}>
-                        {seg.waterCoverage}% {seg.waterCoverage < 60 && '⚠️'}
-                      </td>
-                      <td style={{ padding: '10px', textAlign: 'center', color: seg.unconnectedHabitations > 5 ? '#f87171' : 'white' }}>
-                        {seg.unconnectedHabitations} villages {seg.unconnectedHabitations > 5 && '⚠️'}
-                      </td>
-                      <td style={{ padding: '10px', textAlign: 'center', color: seg.avgDistanceToPHC > 8 ? '#f87171' : 'white' }}>
-                        {seg.avgDistanceToPHC} km {seg.avgDistanceToPHC > 8 && '⚠️'}
-                      </td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>{seg.rteCompliance}%</td>
-                      <td style={{ padding: '10px', textAlign: 'center', color: seg.toiletAccess < 80 ? '#f87171' : 'white' }}>{seg.toiletAccess}%</td>
-                      <td style={{ padding: '10px', textAlign: 'center', color: seg.electricityHours < 15 ? '#f87171' : 'white' }}>
-                        {seg.electricityHours} hrs/day {seg.electricityHours < 15 && '⚠️'}
-                      </td>
-                      <td style={{ padding: '10px', textAlign: 'center', color: seg.aqiLevel > 100 ? '#f87171' : '#34d399', fontWeight: 'bold' }}>
-                        {seg.aqiLevel} µg/m³ {seg.aqiLevel > 100 && '⚠️'}
-                      </td>
-                      <td style={{ padding: '10px', textAlign: 'center' }}>{seg.cropYieldIndex} q/ha</td>
-                      <td style={{ padding: '10px', textAlign: 'center', color: seg.soilHealthSaturation < 75 ? '#f87171' : 'white' }}>
-                        {seg.soilHealthSaturation}% {seg.soilHealthSaturation < 75 && '⚠️'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </main>
+        {/* SECTION 3: MANAGER APPROVED ACTION PLAN & BUDGET ALLOCATION */}
+        <div className="form-card" style={{ padding: '24px 30px', textAlign: 'left', marginBottom: '32px' }}>
+          <h3 style={{ color: 'white', fontSize: '1.25rem', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Layers size={22} style={{ color: '#2dd4bf' }} />
+            <span>Approved Constituency Development Action Plan & Funding Allocations</span>
+          </h3>
 
-      {/* Parliamentary Brief Modal */}
-      {showBriefModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '600px', textAlign: 'left' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={20} style={{ color: '#fbbf24' }} />
-                <span>AI Parliament Representation Draft</span>
-              </h3>
-              <button 
-                type="button" 
-                onClick={() => setShowBriefModal(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={20} />
-              </button>
+          {!approvedPlan ? (
+            <div style={{ textAlign: 'center', padding: '30px 0', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '12px', background: 'rgba(0,0,0,0.1)' }}>
+              <Info size={28} style={{ color: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
+              <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', margin: 0 }}>
+                No active Approved Development Plan found for constituency <strong>{selectedConstituency}</strong>.
+              </p>
+              <p style={{ color: 'var(--text-desc)', fontSize: '11px', marginTop: '4px' }}>
+                Please have the aggregation manager generate and approve a plan in the Manager portal first.
+              </p>
             </div>
-
-            {generatingBrief ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '40px 0' }}>
-                <Loader2 className="spinner" size={32} style={{ color: '#fbbf24' }} />
-                <p style={{ color: 'var(--text-desc)', margin: 0 }}>Gemini is drafting a formal parliamentary speech...</p>
-              </div>
-            ) : (
-              <div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '12px' }}>
-                  This brief is dynamically formulated by Google Gemini, auditing live citizen demand upvotes and geocoded public gap data:
-                </p>
-                
-                <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', padding: '20px', borderRadius: '10px', fontFamily: 'serif', fontSize: '1rem', color: 'white', lineHeight: '1.6', maxHeight: '350px', overflowY: 'auto', whiteSpace: 'pre-line' }} className="notranslate">
-                  {briefText}
-                </div>
-
-                <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      navigator.clipboard.writeText(briefText);
-                      alert('Brief copied to clipboard!');
-                    }}
-                    style={{ background: 'var(--mp-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', flexGrow: 1, textAlign: 'center' }}
-                  >
-                    Copy Speech Draft
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setShowBriefModal(false)}
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-light)', color: 'white', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {showPlanModal && approvedPlan && (
-        <div className="modal-overlay no-print" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(5, 5, 16, 0.85)', backdropFilter: 'blur(8px)',
-          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px'
-        }}>
-          <div className="modal-content" style={{ maxWidth: '850px', width: '100%', textAlign: 'left', maxHeight: '90vh', overflowY: 'auto', background: '#0d0c1d', border: '1px solid var(--border-light)', borderRadius: '16px', padding: '28px 36px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '14px', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem' }}>
-                <Brain size={22} style={{ color: '#2dd4bf' }} />
-                <span>Approved Step-by-Step Constituency Development Plan</span>
-              </h3>
-              <button 
-                type="button" 
-                onClick={() => setShowPlanModal(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
+          ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div>
-                <h4 style={{ color: 'white', fontSize: '1.2rem', margin: '0 0 6px 0' }}>{approvedPlan.planName}</h4>
-                <p style={{ color: 'var(--text-desc)', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>{approvedPlan.summary}</p>
+              <div style={{ background: 'rgba(20, 184, 166, 0.04)', border: '1px solid rgba(20, 184, 166, 0.2)', padding: '16px', borderRadius: '8px' }}>
+                <span style={{ fontSize: '0.75rem', background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                  ACTIVE MANAGER SYNCED PLAN
+                </span>
+                <h4 style={{ color: 'white', margin: '6px 0 2px 0', fontSize: '1rem' }}>{approvedPlan.planName}</h4>
+                <p style={{ color: 'var(--text-desc)', fontSize: '12.5px', margin: 0 }}>{approvedPlan.summary}</p>
               </div>
 
-              {/* CSS Interactive Flowchart */}
+              {/* Progress Tracker Visual Timeline */}
               <div>
-                <span style={{ fontSize: '11px', color: '#2dd4bf', fontWeight: 'bold', display: 'block', textTransform: 'uppercase', marginBottom: '8px' }}>
-                  ⌛ Pipeline Implementation Flowchart
+                <span style={{ fontSize: '12px', color: '#c7d2fe', fontWeight: 'bold', display: 'block', marginBottom: '10px' }}>
+                  ⏳ Visual Implementation Timeline & Progress Status
                 </span>
-                <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '12px 0', borderBottom: '1px solid var(--border-light)', marginBottom: '10px' }}>
-                  {approvedPlan.flowchart.map((step: any, idx: number) => (
-                    <React.Fragment key={idx}>
-                      <div style={{
-                        background: 'rgba(20, 184, 166, 0.08)', border: '1px solid rgba(20, 184, 166, 0.3)',
-                        borderRadius: '12px', padding: '16px', minWidth: '200px', flex: '1', textAlign: 'left',
-                        position: 'relative'
-                      }}>
-                        <span style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: 'bold', display: 'block', textTransform: 'uppercase' }}>
-                          ⌛ {step.duration}
+                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '8px 0' }}>
+                  {(approvedPlan.detailedSteps || []).map((step: any, idx: number) => {
+                    const status = step.status || 'proposed';
+                    const color = status === 'completed' ? '#34d399' :
+                                  status === 'work_started' ? '#60a5fa' :
+                                  status === 'funded' ? '#fbbf24' :
+                                  status === 'speech_raised' || status === 'raised' ? '#818cf8' : '#8e90b3';
+                    return (
+                      <div key={idx} style={{ flex: 1, minWidth: '160px', background: 'rgba(255,255,255,0.02)', border: `1px solid ${color}`, borderRadius: '6px', padding: '10px 14px' }}>
+                        <span style={{ fontSize: '9px', color: color, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                          STEP {idx+1} — {status.toUpperCase()}
                         </span>
-                        <strong style={{ fontSize: '13px', color: 'white', display: 'block', margin: '4px 0 2px 0' }}>
-                          {step.phase}
-                        </strong>
-                        <p style={{ fontSize: '11px', color: 'var(--text-desc)', margin: 0 }}>
-                          {step.description}
-                        </p>
+                        <strong style={{ display: 'block', fontSize: '12px', color: 'white', marginTop: '2px' }}>{step.title}</strong>
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Agency: {step.agency}</span>
                       </div>
-                      {idx < approvedPlan.flowchart.length - 1 && (
-                        <div style={{ display: 'flex', alignItems: 'center', color: '#2dd4bf', fontSize: '20px', userSelect: 'none' }}>➔</div>
-                      )}
-                    </React.Fragment>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Detailed Projects Table */}
+              {/* Interactive Funding Table */}
               <div>
-                <span style={{ fontSize: '11px', color: '#818cf8', fontWeight: 'bold', display: 'block', textTransform: 'uppercase', marginBottom: '8px' }}>
-                  📋 Planned Projects & Cost Breakdowns
-                </span>
+                <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', color: '#c7d2fe', fontWeight: 'bold' }}>
+                    📦 Budget Allocation Checklist (Include/Exclude Projects)
+                  </span>
+                  <button
+                    onClick={handleFundSelectedSteps}
+                    style={{ background: '#10b981', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <CheckCircle size={14} />
+                    <span>Allocate Funds for Selected Steps</span>
+                  </button>
+                </div>
+
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontWeight: 'bold' }}>
-                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Project Name</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Action Description</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Agency</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Timeline</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'right' }}>Est. Cost</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center', width: '50px' }}>Include</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Step ID</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Action Step Title</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Details</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Responsible Agency</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Cost Estimate</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {approvedPlan.detailedSteps.map((step: any, idx: number) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
-                          <td style={{ padding: '10px', fontWeight: 'bold', textAlign: 'left' }}>{step.title}</td>
-                          <td style={{ padding: '10px', color: 'var(--text-desc)', textAlign: 'left' }}>{step.description}</td>
-                          <td style={{ padding: '10px', color: '#2dd4bf', textAlign: 'left' }}>{step.agency}</td>
-                          <td style={{ padding: '10px', textAlign: 'center' }}>{step.timeline}</td>
-                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#fbbf24' }}>
-                            ₹{(step.cost / 100000).toFixed(1)} L
-                          </td>
-                        </tr>
-                      ))}
+                      {(approvedPlan.detailedSteps || []).map((step: any, idx: number) => {
+                        const status = step.status || 'proposed';
+                        const isFunded = status === 'funded' || status === 'completed' || status === 'work_started';
+                        return (
+                          <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
+                            <td style={{ padding: '10px', textAlign: 'center' }}>
+                              <input
+                                type="checkbox"
+                                disabled={isFunded}
+                                checked={!!includedSteps[idx]}
+                                onChange={e => setIncludedSteps({ ...includedSteps, [idx]: e.target.checked })}
+                                style={{ width: '16px', height: '16px', cursor: isFunded ? 'not-allowed' : 'pointer' }}
+                              />
+                            </td>
+                            <td style={{ padding: '10px', fontWeight: 'bold' }}>{step.id}</td>
+                            <td style={{ padding: '10px', fontWeight: 'bold' }}>{step.title}</td>
+                            <td style={{ padding: '10px', color: 'var(--text-desc)' }}>{step.description}</td>
+                            <td style={{ padding: '10px', color: '#2dd4bf' }}>{step.agency}</td>
+                            <td style={{ padding: '10px', textAlign: 'center', fontWeight: 'bold', color: '#fbbf24' }}>
+                              ₹{(step.cost || 0).toLocaleString()}
+                            </td>
+                            <td style={{ padding: '10px', textAlign: 'center' }}>
+                              <span style={{ fontSize: '11px', background: isFunded ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255,255,255,0.08)', color: isFunded ? '#34d399' : 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                {status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-                <button 
-                  type="button" 
-                  onClick={() => window.print()}
-                  style={{ background: 'var(--mp-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', flexGrow: 1, textAlign: 'center' }}
-                >
-                  🖨️ Print / Download Action Plan
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowPlanModal(false)}
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-light)', color: 'white', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}
-                >
-                  Close
-                </button>
-              </div>
-
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </main>
 
-      {/* Hidden Printable Action Plan (visible only during window.print()) */}
-      {approvedPlan && (
-        <div 
-          id="printable-plan-mp-card" 
-          style={{
-            display: 'none', background: 'white', color: 'black', padding: '40px', fontFamily: 'Georgia, serif',
-            textAlign: 'left', border: '1px solid #ccc'
-          }}
-        >
-          <div style={{ textAlign: 'center', borderBottom: '2px solid black', paddingBottom: '16px', marginBottom: '24px' }}>
-            <h1 style={{ fontSize: '24px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold', color: 'black' }}>
-              CONSTITUENCY DEVELOPMENT ACTION PLAN
-            </h1>
-            <h2 style={{ fontSize: '18px', margin: '0 0 4px 0', fontWeight: 'bold', color: '#333' }}>
-              Rampur Lok Sabha Constituency, Uttar Pradesh
-            </h2>
-            <span style={{ fontSize: '12px', color: '#666' }}>
-              Date Approved: {new Date().toLocaleDateString()} | Document Status: APPROVED & SYNCED
-            </span>
-          </div>
-
-          <div style={{ marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '16px', borderBottom: '1px solid #888', paddingBottom: '4px', fontWeight: 'bold', margin: '0 0 10px 0', color: 'black' }}>
-              1. PLAN PROFILE & BUDGET SUMMARY
-            </h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', margin: '0 0 12px 0' }}>
-              <tbody>
-                <tr>
-                  <td style={{ padding: '6px 0', width: '220px' }}><strong>Action Plan Name:</strong></td>
-                  <td style={{ padding: '6px 0' }}>{approvedPlan.planName}</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '6px 0' }}><strong>Executive Summary:</strong></td>
-                  <td style={{ padding: '6px 0', fontStyle: 'italic' }}>{approvedPlan.summary}</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '6px 0' }}><strong>Planned Project Count:</strong></td>
-                  <td style={{ padding: '6px 0' }}>{approvedPlan.detailedSteps.length} target sites</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '16px', borderBottom: '1px solid #888', paddingBottom: '4px', fontWeight: 'bold', margin: '0 0 10px 0', color: 'black' }}>
-              2. TIMELINE IMPLEMENTATION FLOWCHART
-            </h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', margin: '0 0 12px 0' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
-                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd', width: '180px' }}>Phase / Duration</th>
-                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Core Phase Action Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {approvedPlan.flowchart.map((step: any, idx: number) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '8px 6px', border: '1px solid #ddd', fontWeight: 'bold' }}>
-                      {step.phase}
-                      <span style={{ display: 'block', fontSize: '9px', color: '#666' }}>({step.duration})</span>
-                    </td>
-                    <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ pageBreakBefore: 'always', paddingTop: '20px' }}>
-            <h3 style={{ fontSize: '16px', borderBottom: '1px solid #888', paddingBottom: '4px', fontWeight: 'bold', margin: '0 0 16px 0', color: 'black' }}>
-              3. PROJECT SITE DETAILS & RESPONSIBLE AGENCIES
-            </h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', margin: '0 0 12px 0' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
-                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>ID</th>
-                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Project Title</th>
-                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Description & Gap Audits</th>
-                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd', width: '180px' }}>Agency</th>
-                  <th style={{ padding: '6px', textAlign: 'center', border: '1px solid #ddd', width: '100px' }}>Estimated Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {approvedPlan.detailedSteps.map((step: any, idx: number) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.id}</td>
-                    <td style={{ padding: '8px 6px', border: '1px solid #ddd', fontWeight: 'bold' }}>{step.title}</td>
-                    <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.description}</td>
-                    <td style={{ padding: '8px 6px', border: '1px solid #ddd', color: '#2b2214' }}>{step.agency}</td>
-                    <td style={{ padding: '8px 6px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold' }}>
-                      ₹{(step.cost / 100000).toFixed(1)} L
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-            <div style={{ textAlign: 'center', width: '200px' }}>
-              <div style={{ borderBottom: '1px solid black', height: '40px' }}></div>
-              <span style={{ display: 'block', marginTop: '6px' }}>Constituency Aggregator (Jansetu)</span>
-            </div>
-            <div style={{ textAlign: 'center', width: '200px' }}>
-              <div style={{ borderBottom: '1px solid black', height: '40px' }}></div>
-              <span style={{ display: 'block', marginTop: '6px' }}>Member of Parliament (MP)</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Global CSS Print Stylesheet overrides for MP View */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-plan-mp-card, #printable-plan-mp-card * {
-            visibility: visible !important;
-          }
-          #printable-plan-mp-card {
-            display: block !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            background: white !important;
-            color: black !important;
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          .no-print {
-            display: none !important;
-            height: 0 !important;
-            width: 0 !important;
-            overflow: hidden !important;
-          }
-        }
-      `}</style>
-
-      <footer className="footer" style={{ marginTop: '40px' }}>
+      <footer className="footer no-print" style={{ marginTop: '40px' }}>
         <div className="container footer-content">
           <div className="footer-text">
             <strong>Jansetu</strong> — Bridging Citizens and Leaders through Intelligent Planning
