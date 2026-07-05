@@ -103,10 +103,6 @@ function ManagerConsole() {
   const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
   const [customPlanName, setCustomPlanName] = useState(() => localStorage.getItem('jansetu_plan_name') || 'Rampur Lok Sabha Constituency Action Plan');
-  const [mpladsBudget, setMpladsBudget] = useState(() => {
-    const saved = localStorage.getItem('jansetu_mplads_budget');
-    return saved ? parseFloat(saved) : 50000000; // ₹5.00 Crores
-  });
 
   // Load Action Plan from online database / local storage on mount
   useEffect(() => {
@@ -132,9 +128,7 @@ function ManagerConsole() {
     localStorage.setItem('jansetu_clustering_results', JSON.stringify(clusteringResults));
   }, [clusteringResults]);
 
-  useEffect(() => {
-    localStorage.setItem('jansetu_mplads_budget', mpladsBudget.toString());
-  }, [mpladsBudget]);
+
 
   // Load demands
   useEffect(() => {
@@ -869,7 +863,6 @@ Provide your response ONLY as a valid JSON object matching the following schema.
 
   const selectedDemandsList = demands.filter(d => selectedPlanIds.includes(d.id));
   const totalPlannedCost = selectedDemandsList.reduce((acc, curr) => acc + getProjectCostEstimate(curr.category, curr.scope), 0);
-  const remainingBudget = Math.max(0, mpladsBudget - totalPlannedCost);
 
   return (
     <>
@@ -2789,41 +2782,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                   </div>
                 </div>
 
-                {/* MPLADS fund tracker card */}
-                <div className="form-card" style={{ padding: '20px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <h4 style={{ color: '#fbbf24', margin: '0 0 6px 0', fontSize: '0.9rem', textTransform: 'uppercase', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <SlidersHorizontal size={16} />
-                      <span>MPLADS Fund Budget Tracker</span>
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMpladsBudget(50000000);
-                        localStorage.setItem('jansetu_mplads_budget', '50000000');
-                        alert("MPLADS ledger re-seeded to ₹5.00 Cr.");
-                      }}
-                      style={{
-                        background: 'transparent', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24',
-                        padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold'
-                      }}
-                    >
-                      🔄 Reset
-                    </button>
-                  </div>
-                  <span style={{ fontSize: '1.6rem', color: 'white', fontWeight: '800', display: 'block', marginTop: '6px' }}>
-                    ₹{(remainingBudget / 10000000).toFixed(2)} Crores remaining
-                  </span>
-                  <div style={{ marginTop: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                      <span>Allocated: ₹{(totalPlannedCost / 100000).toFixed(1)} Lakhs</span>
-                      <span>Total: ₹5.00 Cr / Yr</span>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.08)', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ background: 'var(--mp-grad)', width: `${(remainingBudget / 50000000) * 100}%`, height: '100%' }}></div>
-                    </div>
-                  </div>
-                </div>
+
 
                 {/* Selected priorities plan items card */}
                 <div className="form-card" style={{ padding: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
