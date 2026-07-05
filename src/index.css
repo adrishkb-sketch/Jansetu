@@ -1800,3 +1800,108 @@ body {
   100% { box-shadow: 0 0 4px rgba(99, 102, 241, 0.1); }
 }
 
+/* Complainant Portal Landmark & Overrides Styling */
+.insight-row-interactive {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 10px;
+}
+
+.insight-row-interactive:hover {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.insight-row-interactive.attached {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.insight-row-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.btn-attach-landmark {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #c7d2fe;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-attach-landmark:hover {
+  background: rgba(99, 102, 241, 0.2);
+  color: white;
+}
+
+.insight-row-interactive.attached .btn-attach-landmark {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.associated-place-alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: #93c5fd;
+  margin-top: 12px;
+}
+
+.btn-remove-assoc {
+  background: none;
+  border: none;
+  color: #f87171;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 0 4px;
+}
+
+.population-slider-container {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-light);
+  padding: 16px;
+  border-radius: 12px;
+  margin-top: 10px;
+}
+
+.full-population-slider {
+  width: 100%;
+  accent-color: #4f46e5;
+  cursor: pointer;
+}
+
+.slider-ticks span {
+  flex: 1;
+  text-align: center;
+}
+
+.slider-ticks span:first-child {
+  text-align: left;
+}
+
+.slider-ticks span:last-child {
+  text-align: right;
+}
+

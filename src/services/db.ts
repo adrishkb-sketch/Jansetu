@@ -81,6 +81,13 @@ export interface SubmissionData {
   items: any[];
   email?: string;
   phone?: string;
+  associatedPlace?: any;
+  estimatedImpact?: number;
+  urgency?: string;
+  assetType?: string;
+  fundingSource?: string;
+  aiOverview?: any;
+  circleData?: { lat: number; lng: number; radius: number };
 }
 
 // In-Memory Fallback Local DB (Emulator) to guarantee 100% operation on local/offline env
@@ -134,10 +141,11 @@ const saveLocalEmulatorData = (data: any[]) => {
  * Scales by loading media to Firebase Storage and saving light documents to Firestore.
  */
 export async function submitDemand(data: SubmissionData): Promise<string> {
-  const estimatedImpact = 
+  const estimatedImpact = data.estimatedImpact !== undefined ? data.estimatedImpact : (
     data.scope === 'household' ? 5 :
     data.scope === 'street' ? 150 :
-    data.scope === 'ward' ? 5000 : 100000;
+    data.scope === 'ward' ? 5000 : 100000
+  );
 
   const docData = {
     ...data,

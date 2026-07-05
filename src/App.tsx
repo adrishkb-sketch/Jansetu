@@ -213,9 +213,21 @@ interface Location {
   lng: number;
 }
 
+interface PlaceDetail {
+  name: string;
+  distance: number;
+  lat: number;
+  lng: number;
+}
+
 interface LocationInsights {
-  nearestSchool?: { name: string; distance: number };
-  nearestHospital?: { name: string; distance: number };
+  schools?: PlaceDetail[];
+  hospitals?: PlaceDetail[];
+  policeStations?: PlaceDetail[];
+  parks?: PlaceDetail[];
+  transitStations?: PlaceDetail[];
+  railways?: PlaceDetail[];
+  postOffices?: PlaceDetail[];
 }
 
 function getHaversineDistance(loc1: { lat: number; lng: number }, loc2: { lat: number; lng: number }) {
@@ -235,13 +247,18 @@ interface GoogleMapComponentProps {
   onLocationSelect: (loc: Location, address: string, insights?: LocationInsights) => void;
   selectedLocation: Location | null;
   nearbyHotspots: any[];
+  focusedPlace: { lat: number; lng: number; name: string } | null;
+  circleData: { lat: number; lng: number; radius: number } | null;
 }
 
-function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearbyHotspots }: GoogleMapComponentProps) {
+function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearbyHotspots, focusedPlace, circleData }: GoogleMapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const focusedMarkerRef = useRef<any>(null);
+  const infoWindowRef = useRef<any>(null);
   const hotspotMarkersRef = useRef<any[]>([]);
+  const circleRef = useRef<any>(null);
   const { isLoaded, loadError } = useGoogleMapsLoader(apiKey);
   const [geocoding, setGeocoding] = useState(false);
 
@@ -286,7 +303,7 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearby
       marker.setPosition(selectedLocation);
     }
 
-    const queryPlacesInsights = (latLng: any, addressStr: string) => {
+    const queryPlacesInsights = async (latLng: any, addressStr: string) => {
       const googleObj = (window as any).google;
       const loc = { lat: typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat, lng: typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng };
       
@@ -300,37 +317,56 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearby
       
       const insights: LocationInsights = {};
 
-      service.nearbySearch({
-        location: googleLatLng,
-        radius: 5000,
-        type: 'school'
-      }, (schoolResults: any, status1: any) => {
-        if (status1 === googleObj.maps.places.PlacesServiceStatus.OK && schoolResults && schoolResults.length > 0) {
-          const closest = schoolResults[0];
-          const schoolLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
-          insights.nearestSchool = {
-            name: closest.name,
-            distance: getHaversineDistance(loc, schoolLoc)
-          };
-        }
-
-        service.nearbySearch({
-          location: googleLatLng,
-          radius: 5000,
-          type: 'hospital'
-        }, (hospitalResults: any, status2: any) => {
-          if (status2 === googleObj.maps.places.PlacesServiceStatus.OK && hospitalResults && hospitalResults.length > 0) {
-            const closest = hospitalResults[0];
-            const hospLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
-            insights.nearestHospital = {
-              name: closest.name,
-              distance: getHaversineDistance(loc, hospLoc)
-            };
-          }
-
-          onLocationSelect(loc, addressStr, insights);
+      const queryPlaceType = (type: string): Promise<PlaceDetail[] | null> => {
+        return new Promise((resolve) => {
+          service.nearbySearch({
+            location: googleLatLng,
+            rankBy: googleObj.maps.places.RankBy.DISTANCE,
+            type: type
+          }, (results: any, status: any) => {
+            if (status === googleObj.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+              const sliced = results.slice(0, 5);
+              const mapped = sliced.map((closest: any) => {
+                const placeLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
+                return {
+                  name: closest.name,
+                  distance: getHaversineDistance(loc, placeLoc),
+                  lat: placeLoc.lat,
+                  lng: placeLoc.lng
+                };
+              });
+              resolve(mapped);
+            } else {
+              resolve(null);
+            }
+          });
         });
-      });
+      };
+
+      try {
+        const [schools, hospitals, police, parks, transit, railways, postOffices] = await Promise.all([
+          queryPlaceType('school'),
+          queryPlaceType('hospital'),
+          queryPlaceType('police'),
+          queryPlaceType('park'),
+          queryPlaceType('transit_station'),
+          queryPlaceType('train_station'),
+          queryPlaceType('post_office')
+        ]);
+
+        if (schools) insights.schools = schools;
+        if (hospitals) insights.hospitals = hospitals;
+        if (police) insights.policeStations = police;
+        if (parks) insights.parks = parks;
+        if (transit) insights.transitStations = transit;
+        if (railways) insights.railways = railways;
+        if (postOffices) insights.postOffices = postOffices;
+
+        onLocationSelect(loc, addressStr, insights);
+      } catch (e) {
+        console.error("Places API insights lookup failed: ", e);
+        onLocationSelect(loc, addressStr);
+      }
     };
 
     const handleGeocode = (latLng: any) => {
@@ -376,17 +412,81 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearby
     }
   }, [selectedLocation]);
 
+  // Handle focusing landmark places
+  useEffect(() => {
+    if (!mapInstanceRef.current || !isLoaded) return;
+    const google = (window as any).google;
+    if (!google) return;
+
+    if (focusedPlace) {
+      mapInstanceRef.current.panTo(focusedPlace);
+      mapInstanceRef.current.setZoom(16);
+
+      if (focusedMarkerRef.current) {
+        focusedMarkerRef.current.setMap(null);
+      }
+      if (infoWindowRef.current) {
+        infoWindowRef.current.close();
+      }
+
+      focusedMarkerRef.current = new google.maps.Marker({
+        position: focusedPlace,
+        map: mapInstanceRef.current,
+        title: focusedPlace.name,
+        icon: {
+          url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+        }
+      });
+
+      infoWindowRef.current = new google.maps.InfoWindow({
+        content: `<div style="color: #000; font-family: sans-serif; font-size: 13px; font-weight: 600; padding: 4px;">🎯 Landmark: ${focusedPlace.name}</div>`
+      });
+      infoWindowRef.current.open(mapInstanceRef.current, focusedMarkerRef.current);
+    } else {
+      if (focusedMarkerRef.current) {
+        focusedMarkerRef.current.setMap(null);
+        focusedMarkerRef.current = null;
+      }
+      if (infoWindowRef.current) {
+        infoWindowRef.current.close();
+        infoWindowRef.current = null;
+      }
+    }
+  }, [focusedPlace, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded || !mapInstanceRef.current) return;
+    const google = (window as any).google;
+    if (!google || !google.maps) return;
+
+    if (circleRef.current) {
+      circleRef.current.setMap(null);
+      circleRef.current = null;
+    }
+
+    if (circleData) {
+      circleRef.current = new google.maps.Circle({
+        strokeColor: '#6366f1',
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        fillColor: '#6366f1',
+        fillOpacity: 0.25,
+        map: mapInstanceRef.current,
+        center: { lat: circleData.lat, lng: circleData.lng },
+        radius: circleData.radius
+      });
+    }
+  }, [circleData, isLoaded]);
+
   // Handle drawing of nearby hotspot markers
   useEffect(() => {
     if (!isLoaded || !mapInstanceRef.current) return;
     const google = (window as any).google;
     if (!google) return;
 
-    // Clear old hotspot markers
     hotspotMarkersRef.current.forEach(m => m.setMap(null));
     hotspotMarkersRef.current = [];
 
-    // Create markers for nearby hotspots
     nearbyHotspots.forEach(hotspot => {
       if (selectedLocation && 
           Math.abs(hotspot.location.lat - selectedLocation.lat) < 0.0001 && 
@@ -446,41 +546,60 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearby
               address = `Coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
             }
             
-            // Query places service
-            const googleObj = (window as any).google;
-            if (googleObj && googleObj.maps && googleObj.maps.places && mapInstanceRef.current) {
-              const service = new googleObj.maps.places.PlacesService(mapInstanceRef.current);
-              const insights: LocationInsights = {};
+            // Trigger same parallel insights lookup
+            const mapInstance = mapInstanceRef.current;
+            if (mapInstance) {
+              const service = new google.maps.places.PlacesService(mapInstance);
+              const googleLatLng = new google.maps.LatLng(latitude, longitude);
               
-              service.nearbySearch({
-                location: latLng,
-                radius: 5000,
-                type: 'school'
-              }, (schoolResults: any, status1: any) => {
-                if (status1 === googleObj.maps.places.PlacesServiceStatus.OK && schoolResults && schoolResults.length > 0) {
-                  const closest = schoolResults[0];
-                  const schoolLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
-                  insights.nearestSchool = {
-                    name: closest.name,
-                    distance: getHaversineDistance(loc, schoolLoc)
-                  };
-                }
-                
-                service.nearbySearch({
-                  location: latLng,
-                  radius: 5000,
-                  type: 'hospital'
-                }, (hospitalResults: any, status2: any) => {
-                  if (status2 === googleObj.maps.places.PlacesServiceStatus.OK && hospitalResults && hospitalResults.length > 0) {
-                    const closest = hospitalResults[0];
-                    const hospLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
-                    insights.nearestHospital = {
-                      name: closest.name,
-                      distance: getHaversineDistance(loc, hospLoc)
-                    };
-                  }
-                  onLocationSelect(loc, address, insights);
+              const insights: LocationInsights = {};
+              const queryPlaceType = (type: string): Promise<PlaceDetail[] | null> => {
+                return new Promise((resolve) => {
+                  service.nearbySearch({
+                    location: googleLatLng,
+                    rankBy: google.maps.places.RankBy.DISTANCE,
+                    type: type
+                  }, (results: any, status: any) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                      const sliced = results.slice(0, 5);
+                      const mapped = sliced.map((closest: any) => {
+                        const placeLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
+                        return {
+                          name: closest.name,
+                          distance: getHaversineDistance(loc, placeLoc),
+                          lat: placeLoc.lat,
+                          lng: placeLoc.lng
+                        };
+                      });
+                      resolve(mapped);
+                    } else {
+                      resolve(null);
+                    }
+                  });
                 });
+              };
+
+              Promise.all([
+                queryPlaceType('school'),
+                queryPlaceType('hospital'),
+                queryPlaceType('police'),
+                queryPlaceType('park'),
+                queryPlaceType('transit_station'),
+                queryPlaceType('train_station'),
+                queryPlaceType('post_office')
+              ]).then(([schools, hospitals, police, parks, transit, railways, postOffices]) => {
+                if (schools) insights.schools = schools;
+                if (hospitals) insights.hospitals = hospitals;
+                if (police) insights.policeStations = police;
+                if (parks) insights.parks = parks;
+                if (transit) insights.transitStations = transit;
+                if (railways) insights.railways = railways;
+                if (postOffices) insights.postOffices = postOffices;
+
+                onLocationSelect(loc, address, insights);
+              }).catch(err => {
+                console.error("Auto-detect places lookup failed: ", err);
+                onLocationSelect(loc, address);
               });
             } else {
               onLocationSelect(loc, address);
@@ -600,6 +719,28 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   // Success modal
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // Expanded UI states
+  const [focusedPlace, setFocusedPlace] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [associatedPlace, setAssociatedPlace] = useState<{ name: string; type: string; lat: number; lng: number } | null>(null);
+  const [aiPopulationAffected, setAiPopulationAffected] = useState<number>(150);
+  const [correlatedHotspot, setCorrelatedHotspot] = useState<any | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [imageContextWarning, setImageContextWarning] = useState<boolean>(false);
+  const [showAiAutoDetectSection, setShowAiAutoDetectSection] = useState<boolean>(false);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [aiClarificationQuestion, setAiClarificationQuestion] = useState<string | null>(null);
+  const [aiUnderstood, setAiUnderstood] = useState<boolean>(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
+  const [landmarkSearchQuery, setLandmarkSearchQuery] = useState('');
+  const [searchResultPlaces, setSearchResultPlaces] = useState<any[]>([]);
+  const [aiSuggestedLandmark, setAiSuggestedLandmark] = useState<{ name: string, type: string, lat: number, lng: number } | null>(null);
+  const [urgency, setUrgency] = useState<string>('moderate');
+  const [assetType, setAssetType] = useState<string>('others');
+  const [fundingSource, setFundingSource] = useState<string>('municipality');
+  const [aiOverview, setAiOverview] = useState<{ brief: string; priorityScore: number; priorityLabel: string; estimatedBudget: string; safetyRisk: string } | null>(null);
+  const [circleData, setCircleData] = useState<{ lat: number; lng: number; radius: number } | null>(null);
+  const [clarificationRefusals, setClarificationRefusals] = useState<number>(0);
+
   // Query hotspots when location changes
   useEffect(() => {
     if (location) {
@@ -609,9 +750,30 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     }
   }, [location]);
 
+  // Synchronize map circle based on active location and population scope
+  useEffect(() => {
+    if (location) {
+      let radius = 100; // default for street
+      if (scope === 'household') radius = 30;
+      else if (scope === 'street') radius = 100;
+      else if (scope === 'ward') radius = 500;
+      else if (scope === 'constituency') radius = 2000;
+
+      setCircleData({
+        lat: location.lat,
+        lng: location.lng,
+        radius
+      });
+    } else {
+      setCircleData(null);
+    }
+  }, [location, scope]);
+
   const handleLocationSelect = (loc: Location, addr: string, locInsights?: LocationInsights) => {
     setLocation(loc);
     setAddress(addr);
+    setFocusedPlace(null);
+    setAssociatedPlace(null);
     if (locInsights) {
       setInsights(locInsights);
     }
@@ -631,13 +793,81 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     setNearbyHotspots(prev => prev.map(h => h.id === id ? { ...h, upvotes: updatedVotes } : h));
   };
 
-  const callGeminiExtraction = async (textToAnalyze: string) => {
+  const handleLandmarkSearch = () => {
+    if (!landmarkSearchQuery.trim()) return;
+    const google = (window as any).google;
+    if (!google || !google.maps || !google.maps.places || !mapContainerRef.current) return;
+
+    const service = new google.maps.places.PlacesService(mapContainerRef.current);
+    const request = {
+      location: location ? new google.maps.LatLng(location.lat, location.lng) : new google.maps.LatLng(28.6139, 77.2090),
+      radius: 10000,
+      query: landmarkSearchQuery
+    };
+
+    service.textSearch(request, (results: any, status: any) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+        const mapped = results.slice(0, 5).map((r: any) => ({
+          name: r.name,
+          lat: r.geometry.location.lat(),
+          lng: r.geometry.location.lng(),
+          formatted_address: r.formatted_address
+        }));
+        setSearchResultPlaces(mapped);
+      } else {
+        alert("No results found for your search query.");
+      }
+    });
+  };
+
+  const handleSelectSearchedLandmark = (place: any) => {
+    setFocusedPlace({
+      lat: place.lat,
+      lng: place.lng,
+      name: place.name
+    });
+    setAssociatedPlace({
+      name: place.name,
+      type: 'custom',
+      lat: place.lat,
+      lng: place.lng
+    });
+    setSearchResultPlaces([]);
+    setLandmarkSearchQuery('');
+    mapContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const runAIAttachmentAnalysis = async (textToAnalyze: string) => {
     const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
     if (!activeKey) return;
 
-    setAiIndicator({ active: true, message: 'AI parsing text inputs...' });
+    setAiIndicator({ active: true, message: 'AI identifying problem details & checking correlations...' });
+    setIsAiAnalyzing(true);
+
+    let insightsText = "No local landmarks data available.";
+    if (insights) {
+      const serializeGroup = (label: string, list?: PlaceDetail[]) => {
+        if (!list || list.length === 0) return `${label}: None found within 5km`;
+        return `${label}: ${list.map(p => `${p.name} (${p.distance.toFixed(2)} km away)`).join(', ')}`;
+      };
+      insightsText = [
+        serializeGroup("Schools", insights.schools),
+        serializeGroup("Hospitals", insights.hospitals),
+        serializeGroup("Police Stations", insights.policeStations),
+        serializeGroup("Parks", insights.parks),
+        serializeGroup("Transit Stations", insights.transitStations),
+        serializeGroup("Railway Stations", insights.railways),
+        serializeGroup("Post Offices", insights.postOffices)
+      ].join('\n');
+    }
 
     try {
+      const hotspotsList = nearbyHotspots.map(h => ({
+        id: h.id,
+        category: h.category,
+        content: h.items?.[0]?.content || h.address
+      }));
+
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`, {
         method: 'POST',
         headers: {
@@ -646,15 +876,81 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are the AI engine of Jansetu Citizen Complainant Portal. Analyze the following transcript of a citizen's complaint (which may be submitted natively in Hindi, Bengali, Tamil, Telugu, Marathi, or any other regional Indian language). You must seamlessly understand the native language and analyze it.
-Extract:
-1. The category: Choose exactly one from: "water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others".
-2. The impact scope: Choose exactly one from: "household", "street", "ward", "constituency".
+              text: `You are the AI engine of Jansetu Citizen Complainant Portal. 
+Analyze the following transcript of a citizen's complaint (which may be submitted natively in Hindi, Bengali, Tamil, Telugu, Marathi, or any other regional Indian language).
 
-Format the output strictly as a JSON object:
+Current selected map pin coordinates: Lat: ${location?.lat || 28.6139}, Lng: ${location?.lng || 77.2090}
+
+Verify the user's complaint against the Ground Truth Local Infrastructure list:
+${insightsText}
+
+You must:
+1. Translate it to English if it is in another Indian language. Provide the English translation in the 'translatedText' field.
+2. Determine the category: Choose exactly one from: ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"].
+3. Determine the impact scope: Choose exactly one from: ["household", "street", "ward", "constituency"].
+4. Estimate the population affected: Return a numerical estimate of how many citizens are affected (e.g. 5, 150, 2000, etc.) in the 'estimatedPopulation' field.
+5. Check for duplicates/correlations: We have a list of existing active issues in the same region:
+${JSON.stringify(hotspotsList)}
+Determine if the citizen's complaint matches any of these active issues (i.e. is the same core issue at the same general place).
+If a match is found, return the matching issue's ID in 'matchedHotspotId'. Otherwise, return null.
+6. Verify against Ground Truth infrastructure:
+- If the user complains that a facility type (e.g. school, hospital, police station, park, transit station, railway station, post office) is completely missing, absent, or not nearby, but the Ground Truth list above shows that such a facility actually exists within 5.0 km, you must set 'requiresClarification' to true and write a helpful question in 'clarificationQuestion' asking the user to specify what exactly is deficient, missing, or broken at that specific facility (e.g. "We noticed XYZ Hospital is only 1.2 km away. Could you please clarify what exact facilities, staff, or equipment are missing or broken at XYZ Hospital?").
+- If the user complains about waterlogging, drainage, flooding, or water supply, but has not specified the approximate location, street name, or nearby boundaries in the input transcript, set 'requiresClarification' to true and write a request in 'clarificationQuestion' asking them to describe the approximate area (e.g. "between the market and the school" or "near the railway gates") so we can identify and circle the affected zone on the map.
+- Dynamic Specific Data Collection: For all category tags, evaluate if the input contains necessary specific details to resolve it:
+  * water: Ask about waterlogging depth, water smell, color, duration of outage, or pressure.
+  * roads: Ask about approximate pothole dimensions (depth/width), street blockages, sidewalk cracks, or length of road affected.
+  * education: Ask about lack of classrooms, desks, textbooks, sanitation/toilets, or teacher absenteeism.
+  * health: Ask about lack of medicines, vaccine shortages, clean drinking water, waiting hours, or staff availability.
+  * power: Ask about daily power cut duration, sparked cables, transformers, or street lighting failures.
+  * agriculture: Ask about canal leakage, fertilizer shortages, pest breakouts, or irrigation timing.
+  * safety: Ask about streetlighting failures, dark spots, absence of patrolling, or safety hazards.
+  * environment: Ask about waste accumulation size, open burning of plastics, smoke sources, or tree-felling.
+  * welfare: Ask about pending pensions list, community center damage, or ration shop shortages.
+  * housing: Ask about building wall cracks, lift malfunctions, sewer backups, or fire alarm failures.
+  * anticorruption: Ask about exact department names, bribe amounts, or delay durations.
+  * digital: Ask about internet/broadband downtime, server failure signs, or lack of computer access.
+  * disaster: Ask about flood water levels, fire hazards, blockages, or collapsed structures.
+  * women: Ask about dark lanes lacking streetlights, transport safety issues, or security patrols.
+  * consumer: Ask about adulterated food, overpricing, or false weighing scales.
+  * others: Ask for a clear explanation of what is malfunctioning, broken, or missing.
+  If these key details are missing from the input transcript, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these specifics.
+- If the user's complaint is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem in a full sentence.
+- If the complaint is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
+7. Mentioned Landmark Identification: Check if the user's transcript explicitly mentions any of the landmark names (or partial name matches) in the Ground Truth list above. If they mention one, return its exact name in 'mentionedLandmarkName'. If they don't mention any nearby landmarks, return null.
+8. Extra Classifications:
+- Determine urgency: Choose exactly one from: ["immediate", "moderate", "long_term"]
+- Determine assetType: Choose exactly one from: ["roadway", "drainage", "building", "electrical_grid", "waste_management", "public_safety_asset", "social_facility", "others"]
+- Determine fundingSource: Choose exactly one from: ["municipality", "constituency_development_fund", "state_government", "private_partnership"]
+9. Problem Overview:
+- Create a concise summary (problemBrief) of the issue briefing everything identified (including details gathered from text and vision/photos).
+- Rate the priorityScore from 0 to 100 based on severity and impact.
+- Set priorityLabel: Choose exactly one from: ["Low Priority", "Medium Priority", "High Priority", "Critical Priority"]
+- Set estimatedBudget: Choose exactly one from: ["Low Budget", "Medium Budget", "High Budget", "Mega Project"]
+- Set safetyRisk: Choose exactly one from: ["No Threat", "Low Risk", "Medium Risk", "High Threat / Hazard"]
+10. Resolved Circle Calculation:
+- If the complaint describes an approximate area, street segment, or boundaries (e.g. "between the school and the station" or "near Rampur Hospital gates"), lookup the coordinates of those landmarks in the list provided or calculate relative offsets from the pin coordinates (${location?.lat || 28.6139}, ${location?.lng || 77.2090}), and return the absolute latitude/longitude center and estimated radius (in meters) of this region in fields 'resolvedCircleLat' (number), 'resolvedCircleLng' (number), and 'resolvedCircleRadius' (number). If no location descriptions are present, return null for these three fields.
+
+Format the output strictly as a JSON object with keys:
 {
-  "category": "water",
-  "scope": "street"
+  "translatedText": "...",
+  "category": "...",
+  "scope": "...",
+  "estimatedPopulation": 120,
+  "matchedHotspotId": "..." or null,
+  "requiresClarification": true/false,
+  "clarificationQuestion": "..." or null,
+  "mentionedLandmarkName": "..." or null,
+  "urgency": "...",
+  "assetType": "...",
+  "fundingSource": "...",
+  "problemBrief": "...",
+  "priorityScore": 85,
+  "priorityLabel": "...",
+  "estimatedBudget": "...",
+  "safetyRisk": "...",
+  "resolvedCircleLat": 28.6139 or null,
+  "resolvedCircleLng": 77.2090 or null,
+  "resolvedCircleRadius": 150 or null
 }
 
 Transcript: "${textToAnalyze}"
@@ -671,28 +967,139 @@ JSON:`
       const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) {
         const result = JSON.parse(text);
-        let matchCount = 0;
+        
         if (result.category) {
           setCategory(result.category);
-          matchCount++;
         }
         if (result.scope) {
           setScope(result.scope);
-          matchCount++;
         }
-        if (matchCount > 0) {
-          setAiIndicator({ 
-            active: true, 
-            message: `✨ AI Auto-Synced: Set Category to "${result.category.toUpperCase()}" & Scope to "${result.scope.toUpperCase()}"` 
+        if (result.estimatedPopulation) {
+          setAiPopulationAffected(result.estimatedPopulation);
+        }
+        if (result.urgency) {
+          setUrgency(result.urgency);
+        }
+        if (result.assetType) {
+          setAssetType(result.assetType);
+        }
+        if (result.fundingSource) {
+          setFundingSource(result.fundingSource);
+        }
+        if (result.problemBrief) {
+          setAiOverview({
+            brief: result.problemBrief,
+            priorityScore: result.priorityScore || 50,
+            priorityLabel: result.priorityLabel || 'Medium Priority',
+            estimatedBudget: result.estimatedBudget || 'Medium Budget',
+            safetyRisk: result.safetyRisk || 'Low Risk'
           });
-          setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
         } else {
-          setAiIndicator({ active: false, message: '' });
+          setAiOverview(null);
         }
+
+        if (result.matchedHotspotId) {
+          const matched = nearbyHotspots.find(h => h.id === result.matchedHotspotId);
+          if (matched) {
+            setCorrelatedHotspot(matched);
+          }
+        } else {
+          setCorrelatedHotspot(null);
+        }
+
+        if (result.requiresClarification) {
+          setAiClarificationQuestion(result.clarificationQuestion);
+          setAiUnderstood(false);
+        } else {
+          setAiClarificationQuestion(null);
+          setAiUnderstood(true);
+        }
+
+        if (result.mentionedLandmarkName) {
+          const queryStr = result.mentionedLandmarkName.toLowerCase();
+          let matchedPlace: any = null;
+          let matchedType = '';
+
+          const groups = [
+            { type: 'school', list: insights?.schools },
+            { type: 'hospital', list: insights?.hospitals },
+            { type: 'police', list: insights?.policeStations },
+            { type: 'park', list: insights?.parks },
+            { type: 'transit', list: insights?.transitStations },
+            { type: 'railway', list: insights?.railways },
+            { type: 'postOffice', list: insights?.postOffices }
+          ];
+
+          for (const g of groups) {
+            if (g.list) {
+              const found = g.list.find(p => p.name.toLowerCase().includes(queryStr) || queryStr.includes(p.name.toLowerCase()));
+              if (found) {
+                matchedPlace = found;
+                matchedType = g.type;
+                break;
+              }
+            }
+          }
+
+          if (matchedPlace) {
+            setAiSuggestedLandmark({
+              name: matchedPlace.name,
+              type: matchedType,
+              lat: matchedPlace.lat,
+              lng: matchedPlace.lng
+            });
+          } else {
+            setAiSuggestedLandmark(null);
+          }
+        } else {
+          setAiSuggestedLandmark(null);
+        }
+
+        if (result.resolvedCircleLat && result.resolvedCircleLng) {
+          setCircleData({
+            lat: result.resolvedCircleLat,
+            lng: result.resolvedCircleLng,
+            radius: result.resolvedCircleRadius || 100
+          });
+        }
+
+        setShowAiAutoDetectSection(true);
+
+        setAiIndicator({ 
+          active: true, 
+          message: result.requiresClarification 
+            ? '⚠️ AI Needs Clarification: Please read request below.'
+            : `✨ AI Auto-Synced: Set Category to "${result.category.toUpperCase()}" & Scope to "${result.scope.toUpperCase()}"` 
+        });
+        setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
       }
+      setIsAiAnalyzing(false);
     } catch (e) {
       console.error("Gemini AI extraction failed: ", e);
       setAiIndicator({ active: false, message: '' });
+      setIsAiAnalyzing(false);
+    }
+  };
+
+  const triggerGlobalAIAnalysis = (currentItems: SubmissionItem[]) => {
+    if (currentItems.length === 0) {
+      setAiClarificationQuestion(null);
+      setAiUnderstood(false);
+      setShowAiAutoDetectSection(false);
+      return;
+    }
+    const combinedText = currentItems
+      .map(item => {
+        if (item.type === 'text') return `User Text Note: ${item.content}`;
+        if (item.type === 'audio') return `User Voice Transcript: ${item.speechTranscript || item.content}`;
+        if (item.type === 'photo') return `AI Image Description: ${item.content || item.ocrText}`;
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n');
+
+    if (combinedText.trim()) {
+      runAIAttachmentAnalysis(combinedText);
     }
   };
 
@@ -704,9 +1111,24 @@ JSON:`
       type: 'text',
       content
     };
-    setItems(prev => [...prev, newItem]);
+    const nextItems = [...items, newItem];
+    setItems(nextItems);
     setTextNote('');
-    callGeminiExtraction(content);
+
+    const textLower = content.toLowerCase();
+    const isRefusal = textLower.includes("dont know") || textLower.includes("don't know") || textLower.includes("no idea") || textLower.includes("submit as is") || textLower.includes("submit anyway") || textLower.includes("cannot say") || textLower.includes("can't say") || textLower.includes("cant tell") || textLower.includes("can't tell") || textLower.includes("dont tell");
+    if (isRefusal) {
+      setClarificationRefusals(prev => {
+        const nextVal = prev + 1;
+        if (nextVal >= 2) {
+          setAiUnderstood(true);
+          setAiClarificationQuestion(null);
+        }
+        return nextVal;
+      });
+    }
+
+    triggerGlobalAIAnalysis(nextItems);
   };
 
   const startRecording = async () => {
@@ -716,7 +1138,6 @@ JSON:`
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
 
-      // Programmatically turn off translation during recording to prevent live transcript nodes from getting corrupted
       const selectElement = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
       if (selectElement && selectElement.value !== 'en') {
         selectElement.value = 'en';
@@ -742,13 +1163,13 @@ JSON:`
           speechTranscript: finalTranscript || '(No speech transcript generated)'
         };
 
-        setItems(prev => [...prev, newItem]);
+        const nextItems = [...items, newItem];
+        setItems(nextItems);
         setLiveTranscript('');
         liveTranscriptRef.current = '';
 
         stream.getTracks().forEach(track => track.stop());
 
-        // Restore Google Translate back to selected language
         const restoreSelect = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
         const activeLang = getActiveLangCode() || selectedLang;
         if (restoreSelect && restoreSelect.value !== activeLang) {
@@ -756,12 +1177,22 @@ JSON:`
           restoreSelect.dispatchEvent(new Event('change'));
         }
 
-        if (finalTranscript) {
-          callGeminiExtraction(finalTranscript);
+        const voiceLower = (finalTranscript || '').toLowerCase();
+        const isRefusal = voiceLower.includes("dont know") || voiceLower.includes("don't know") || voiceLower.includes("no idea") || voiceLower.includes("submit as is") || voiceLower.includes("submit anyway") || voiceLower.includes("cannot say") || voiceLower.includes("can't say") || voiceLower.includes("cant tell") || voiceLower.includes("can't tell") || voiceLower.includes("dont tell");
+        if (isRefusal) {
+          setClarificationRefusals(prev => {
+            const nextVal = prev + 1;
+            if (nextVal >= 2) {
+              setAiUnderstood(true);
+              setAiClarificationQuestion(null);
+            }
+            return nextVal;
+          });
         }
+
+        triggerGlobalAIAnalysis(nextItems);
       };
 
-      // Realtime transcription during recording using browser recognition
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         let recognition = new SpeechRecognition();
@@ -859,11 +1290,67 @@ JSON:`
     setIsRecording(false);
   };
 
+  const runGeminiImageAnalysis = async (base64Data: string, mimeType: string): Promise<{ description: string; requiresMoreContext: boolean } | null> => {
+    const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    if (!activeKey) return null;
+
+    setAiIndicator({ active: true, message: 'AI analyzing uploaded image context...' });
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data
+                }
+              },
+              {
+                text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight), output a detailed description of the problem in English. If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false }`
+              }
+            ]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        })
+      });
+
+      const json = await response.json();
+      const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        return JSON.parse(text);
+      }
+      return null;
+    } catch (e) {
+      console.error("Gemini image analysis failed:", e);
+      return null;
+    }
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64String = (reader.result as string).split(',')[1];
+        resolve(base64String);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
 
-    files.forEach(file => {
+    files.forEach(async file => {
       const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
       const fileUrl = URL.createObjectURL(file);
 
@@ -877,49 +1364,96 @@ JSON:`
       };
 
       setItems(prev => [...prev, newItem]);
+      setImageContextWarning(false);
 
-      // Trigger Tesseract OCR
-      Tesseract.recognize(
-        file,
-        'eng+hin', // Scan for English and Hindi text
-        {
-          logger: m => console.log(m)
+      try {
+        const ocrResult = await Tesseract.recognize(
+          file,
+          'eng+hin',
+          { logger: m => console.log(m) }
+        );
+        const cleanedText = ocrResult.data.text.trim();
+
+        if (cleanedText.length > 15) {
+          let nextItems: SubmissionItem[] = [];
+          setItems(prev => {
+            nextItems = prev.map(item => {
+              if (item.id === id) {
+                return {
+                  ...item,
+                  ocrText: cleanedText,
+                  content: `OCR Text: ${cleanedText}`,
+                  processing: false
+                };
+              }
+              return item;
+            });
+            return nextItems;
+          });
+          setTimeout(() => triggerGlobalAIAnalysis(nextItems), 50);
+        } else {
+          const base64Data = await fileToBase64(file);
+          const geminiResult = await runGeminiImageAnalysis(base64Data, file.type);
+          
+          if (geminiResult && geminiResult.description && !geminiResult.requiresMoreContext) {
+            let nextItems: SubmissionItem[] = [];
+            setItems(prev => {
+              nextItems = prev.map(item => {
+                if (item.id === id) {
+                  return {
+                    ...item,
+                    content: geminiResult.description,
+                    processing: false
+                  };
+                }
+                return item;
+              });
+              return nextItems;
+            });
+            setTimeout(() => triggerGlobalAIAnalysis(nextItems), 50);
+          } else {
+            setItems(prev => prev.map(item => {
+              if (item.id === id) {
+                return {
+                  ...item,
+                  content: 'Image uploaded. Please add more context.',
+                  processing: false
+                };
+              }
+              return item;
+            }));
+            setImageContextWarning(true);
+          }
         }
-      ).then(({ data: { text } }) => {
-        const cleanedText = text.trim();
+      } catch (err) {
+        console.error('Image analysis pipeline failed:', err);
         setItems(prev => prev.map(item => {
           if (item.id === id) {
             return {
               ...item,
-              ocrText: cleanedText,
+              content: 'Failed to process image.',
               processing: false
             };
           }
           return item;
         }));
-      }).catch(err => {
-        console.error('OCR analysis failed:', err);
-        setItems(prev => prev.map(item => {
-          if (item.id === id) {
-            return {
-              ...item,
-              ocrText: 'Failed to extract text.',
-              processing: false
-            };
-          }
-          return item;
-        }));
-      });
+        setImageContextWarning(true);
+      }
     });
 
     e.target.value = ''; // Reset input element
   };
 
   const handleDeleteItem = (id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id));
+    let nextItems: SubmissionItem[] = [];
+    setItems(prev => {
+      nextItems = prev.filter(item => item.id !== id);
+      return nextItems;
+    });
+    setTimeout(() => triggerGlobalAIAnalysis(nextItems), 50);
   };
 
-  const isSubmitDisabled = false;
+  const isSubmitDisabled = !location || items.length === 0 || (!aiUnderstood && clarificationRefusals < 2) || (!!aiClarificationQuestion && clarificationRefusals < 2) || imageContextWarning || !!correlatedHotspot;
 
   const SECTOR_CATEGORIES = [
     { id: 'water', label: 'Water & Sanitation', icon: '🚰' },
@@ -951,12 +1485,28 @@ JSON:`
     { id: 'foreign', label: 'International Relations', icon: '🌍' },
     { id: 'others', label: 'Others / General', icon: '📁' }
   ];
+  const URGENCY_LEVELS = [
+    { id: 'immediate', label: 'Immediate Attention', icon: '🚨' },
+    { id: 'moderate', label: 'Moderate Schedule', icon: '📅' },
+    { id: 'long_term', label: 'Long-term Planning', icon: '⏳' }
+  ];
 
-  const SCOPE_STEPS = [
-    { id: 'household', label: 'Household', count: '👤 ~5 citizens affected' },
-    { id: 'street', label: 'Neighborhood / Street', count: '👥 ~150 citizens affected' },
-    { id: 'ward', label: 'Village / Ward', count: '🏘️ ~5,000 citizens affected' },
-    { id: 'constituency', label: 'Constituency-wide', count: '🌐 ~100,000+ citizens affected' }
+  const ASSET_TYPES = [
+    { id: 'roadway', label: 'Roadway & Highway', icon: '🛣️' },
+    { id: 'drainage', label: 'Sanitation & Drainage', icon: '🪠' },
+    { id: 'building', label: 'Public Building / Facility', icon: '🏢' },
+    { id: 'electrical_grid', label: 'Electrical Grid & Power', icon: '⚡' },
+    { id: 'waste_management', label: 'Waste Management & Dumpyard', icon: '🗑️' },
+    { id: 'public_safety_asset', label: 'Public Safety (CCTV, Police)', icon: '🚓' },
+    { id: 'social_facility', label: 'Social Care (School, Hospital)', icon: '🏥' },
+    { id: 'others', label: 'Others / Miscellaneous', icon: '📁' }
+  ];
+
+  const FUNDING_SOURCES = [
+    { id: 'municipality', label: 'Municipality Budget', icon: '🏦' },
+    { id: 'constituency_development_fund', label: 'MLA Constituency Development Fund', icon: '🗳️' },
+    { id: 'state_government', label: 'State Government allocation', icon: '🏛️' },
+    { id: 'private_partnership', label: 'Public Private Partnership (PPP)', icon: '🤝' }
   ];
 
   const handleSubmit = async () => {
@@ -974,12 +1524,52 @@ JSON:`
         speechTranscript: item.speechTranscript || ''
       })),
       email: email.trim() || undefined,
-      phone: phone.trim() || undefined
+      phone: phone.trim() || undefined,
+      associatedPlace: associatedPlace || undefined,
+      estimatedImpact: aiPopulationAffected,
+      urgency,
+      assetType,
+      fundingSource,
+      aiOverview: aiOverview || undefined,
+      circleData: circleData || undefined
     };
 
     const id = await submitDemand(submissionData);
     setTicketId(id);
     setShowSuccess(true);
+  };
+
+  const getGapExplanation = () => {
+    if (!insights) return 'Select a location on the map to evaluate local infrastructure gaps.';
+    const parts: string[] = [];
+    
+    const criticalThreshold = 3.0; // km
+    const warnThreshold = 1.5; // km
+    
+    const places = [
+      { name: 'School', data: insights.schools?.[0] },
+      { name: 'Hospital', data: insights.hospitals?.[0] },
+      { name: 'Police Station', data: insights.policeStations?.[0] },
+      { name: 'Park', data: insights.parks?.[0] },
+      { name: 'Transit Station', data: insights.transitStations?.[0] },
+      { name: 'Railway Station', data: insights.railways?.[0] },
+      { name: 'Post Office', data: insights.postOffices?.[0] }
+    ];
+
+    const criticalPlaces = places.filter(p => p.data && p.data.distance > criticalThreshold);
+    const moderatePlaces = places.filter(p => p.data && p.data.distance <= criticalThreshold && p.data.distance > warnThreshold);
+
+    if (criticalPlaces.length > 0) {
+      parts.push(`🚨 Deficient: ${criticalPlaces.map(p => `${p.name} (${p.data!.distance.toFixed(2)} km)`).join(', ')} exceed the target accessibility threshold of 1.5 km.`);
+    }
+    if (moderatePlaces.length > 0) {
+      parts.push(`⚠️ Moderate Gap: ${moderatePlaces.map(p => `${p.name} (${p.data!.distance.toFixed(2)} km)`).join(', ')} are somewhat distant.`);
+    }
+    if (criticalPlaces.length === 0 && moderatePlaces.length === 0) {
+      parts.push(`✅ All critical facilities are within optimal accessibility range (under 1.5 km).`);
+    }
+
+    return parts.join(' ');
   };
 
   return (
@@ -995,7 +1585,7 @@ JSON:`
       </div>
 
       <div className="portal-grid">
-        {/* Left Column: Contact and Location */}
+        {/* Left Column: Contact, Location, Insights, and Duplicates */}
         <div className="portal-col">
           
           {/* Section 1: Contact details */}
@@ -1024,7 +1614,7 @@ JSON:`
           </div>
 
           {/* Section 2: Compulsory Map location */}
-          <div className="form-card" style={{ marginTop: '24px' }}>
+          <div ref={mapContainerRef} className="form-card" style={{ marginTop: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3>2. Map Selection (Compulsory)</h3>
               <button
@@ -1076,65 +1666,197 @@ JSON:`
               onLocationSelect={handleLocationSelect}
               selectedLocation={location}
               nearbyHotspots={nearbyHotspots}
+              focusedPlace={focusedPlace}
+              circleData={circleData}
             />
+
+            {/* Direct Landmark Search Option */}
+            <div className="input-group" style={{ marginTop: '16px' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#a5b4fc', display: 'block', marginBottom: '6px' }}>
+                🔍 Search & Tag Landmark / Establishment (Optional)
+              </label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="Enter school name, hospital, police station, etc..."
+                  value={landmarkSearchQuery}
+                  onChange={e => setLandmarkSearchQuery(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleLandmarkSearch();
+                    }
+                  }}
+                  style={{ flexGrow: 1, background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', fontSize: '13px' }}
+                />
+                <button 
+                  type="button" 
+                  style={{ flexShrink: 0, padding: '0 16px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }} 
+                  onClick={handleLandmarkSearch}
+                >
+                  Search
+                </button>
+              </div>
+              
+              {searchResultPlaces.length > 0 && (
+                <div className="search-results-dropdown" style={{ background: '#1e1b4b', border: '1px solid rgba(99, 102, 241, 0.4)', borderRadius: '8px', marginTop: '10px', padding: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#c7d2fe', fontWeight: 'bold' }}>Select a place to pan map and link to complaint:</p>
+                  {searchResultPlaces.map((place, idx) => (
+                    <div 
+                      key={idx} 
+                      className="search-place-row" 
+                      onClick={() => handleSelectSearchedLandmark(place)}
+                      style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        padding: '8px 10px', 
+                        background: 'rgba(0,0,0,0.2)', 
+                        border: '1px solid rgba(255,255,255,0.05)', 
+                        borderRadius: '6px', 
+                        marginBottom: '6px', 
+                        cursor: 'pointer', 
+                        fontSize: '12px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, textAlign: 'left' }}>
+                        <strong style={{ color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{place.name}</strong>
+                        <span style={{ fontSize: '10px', color: '#c5c7e6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{place.formatted_address}</span>
+                      </div>
+                      <span className="distance-badge" style={{ fontSize: '10px', flexShrink: 0, marginLeft: '8px', background: 'rgba(99,102,241,0.25)', padding: '4px 6px', borderRadius: '4px', color: '#818cf8', fontWeight: 'bold' }}>📍 Link</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* AI Local Insights Gap factsheet */}
+          {/* Section 3: AI Local Insights Gap factsheet */}
           {insights && (
-            <div className="insights-card notranslate">
+            <div className="insights-card">
               <div className="insights-header">
                 <Sparkles size={16} />
                 <h4>AI Local Insights & Infrastructure Gaps</h4>
               </div>
+              <p className="insights-help" style={{ fontSize: '12px', opacity: 0.8, margin: '-4px 0 12px' }}>
+                💡 Click on any facility to view/focus on the map.
+              </p>
               <div className="insights-body">
-                <div className="insight-row">
-                  <span className="insight-title">🏫 Nearest Public School (Real Places Data):</span>
-                  {insights.nearestSchool ? (
-                    <div className="insight-value">
-                      <strong>{insights.nearestSchool.name}</strong>
-                      <span className="distance-badge">
-                        {insights.nearestSchool.distance.toFixed(2)} km
-                      </span>
+                {[
+                  { label: '🏫 Nearest Public Schools', data: insights.schools, type: 'school' },
+                  { label: '🏥 Nearest Public Hospitals', data: insights.hospitals, type: 'hospital' },
+                  { label: '🚓 Nearest Police Stations', data: insights.policeStations, type: 'police' },
+                  { label: '🌳 Nearest Public Parks', data: insights.parks, type: 'park' },
+                  { label: '🚌 Nearest Transit Stations', data: insights.transitStations, type: 'transit' },
+                  { label: '🚂 Nearest Railway Stations', data: insights.railways, type: 'railway' },
+                  { label: '✉️ Nearest Post Offices', data: insights.postOffices, type: 'postOffice' }
+                ].map((group, groupIdx) => {
+                  if (!group.data || group.data.length === 0) return null;
+                  const isExpanded = !!expandedCategories[group.type];
+                  return (
+                    <div key={groupIdx} className="insight-accordion-group" style={{ marginTop: '8px' }}>
+                      <div 
+                        className="insight-category-header" 
+                        onClick={() => setExpandedCategories(prev => ({ ...prev, [group.type]: !prev[group.type] }))}
+                        style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center', 
+                          cursor: 'pointer', 
+                          padding: '10px 14px', 
+                          background: 'rgba(255,255,255,0.03)', 
+                          border: '1px solid rgba(255,255,255,0.08)', 
+                          borderRadius: '8px',
+                          transition: 'background 0.2s ease'
+                        }}
+                      >
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c7d2fe' }}>{group.label} ({group.data.length} found)</span>
+                        <span style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 'bold' }}>{isExpanded ? '▲' : '▼'}</span>
+                      </div>
+                      
+                      {isExpanded && (
+                        <div className="insight-category-list" style={{ paddingLeft: '10px', borderLeft: '2px solid rgba(99, 102, 241, 0.3)', marginTop: '4px' }}>
+                          {group.data.map((place, idx) => {
+                            const isAttached = associatedPlace?.name === place.name;
+                            return (
+                              <div 
+                                key={idx} 
+                                className={`insight-row-interactive ${isAttached ? 'attached' : ''}`}
+                                onClick={() => {
+                                  setFocusedPlace({ lat: place.lat, lng: place.lng, name: place.name });
+                                  mapContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                }}
+                                style={{ marginTop: '6px' }}
+                              >
+                                <div className="insight-row-left">
+                                  <strong style={{ fontSize: '0.8rem', color: 'white' }}>{idx + 1}. {place.name}</strong>
+                                  <span style={{ fontSize: '0.75rem', color: '#c5c7e6' }}>{place.distance.toFixed(2)} km away</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="btn-attach-landmark"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (isAttached) {
+                                      setAssociatedPlace(null);
+                                    } else {
+                                      setAssociatedPlace({
+                                        name: place.name,
+                                        type: group.type,
+                                        lat: place.lat,
+                                        lng: place.lng
+                                      });
+                                    }
+                                  }}
+                                >
+                                  {isAttached ? '📌 Linked' : '🔗 Link Landmark'}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <span className="insight-no-data">Searching local databases...</span>
-                  )}
-                </div>
-                <div className="insight-row" style={{ marginTop: '12px' }}>
-                  <span className="insight-title">🏥 Nearest Public Hospital/Clinic (Real Places Data):</span>
-                  {insights.nearestHospital ? (
-                    <div className="insight-value">
-                      <strong>{insights.nearestHospital.name}</strong>
-                      <span className="distance-badge">
-                        {insights.nearestHospital.distance.toFixed(2)} km
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="insight-no-data">Searching local databases...</span>
-                  )}
-                </div>
-                <div className="insight-gap-analysis" style={{ marginTop: '16px' }}>
-                  <span className="gap-title">Sector Gap Rating:</span>
-                  {(() => {
-                    const schoolDist = insights.nearestSchool?.distance || 5;
-                    const hospDist = insights.nearestHospital?.distance || 5;
-                    const maxDist = Math.max(schoolDist, hospDist);
-                    if (maxDist > 3.0) {
-                      return <span className="rating-badge critical">🚨 Critically Deficient (High Infrastructure Gap)</span>;
-                    } else if (maxDist > 1.5) {
-                      return <span className="rating-badge warning">⚠️ Moderate (Needs Expansion)</span>;
-                    } else {
-                      return <span className="rating-badge optimal">✅ Good (Optimal Access)</span>;
-                    }
-                  })()}
+                  );
+                })}
+
+                {associatedPlace && (
+                  <div className="associated-place-alert">
+                    <span>📌 Complaint target landmark: <strong>{associatedPlace.name}</strong> ({associatedPlace.type})</span>
+                    <button type="button" className="btn-remove-assoc" onClick={() => setAssociatedPlace(null)}>✕</button>
+                  </div>
+                )}
+
+                <div className="insight-gap-analysis" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="gap-title">Sector Gap Rating:</span>
+                    {(() => {
+                      const schoolDist = insights.schools?.[0]?.distance || 5;
+                      const hospDist = insights.hospitals?.[0]?.distance || 5;
+                      const policeDist = insights.policeStations?.[0]?.distance || 5;
+                      const maxDist = Math.max(schoolDist, hospDist, policeDist);
+                      if (maxDist > 3.0) {
+                        return <span className="rating-badge critical">🚨 Critically Deficient (High Infrastructure Gap)</span>;
+                      } else if (maxDist > 1.5) {
+                        return <span className="rating-badge warning">⚠️ Moderate (Needs Expansion)</span>;
+                      } else {
+                        return <span className="rating-badge optimal">✅ Good (Optimal Access)</span>;
+                      }
+                    })()}
+                  </div>
+                  
+                  <div className="gap-rating-explanation" style={{ marginTop: '10px', fontSize: '12px', lineHeight: '1.5', color: '#c5c7e6', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '6px' }}>
+                    <strong>Accessibility Gap Report:</strong>
+                    <p style={{ margin: '4px 0 0' }}>{getGapExplanation()}</p>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Nearby hotspots overlay votes */}
+          {/* Section 4: Nearby hotspots overlay votes */}
           {nearbyHotspots.length > 0 && (
-            <div className="hotspots-card notranslate">
+            <div className="hotspots-card">
               <h4>⚠️ Existing Active Issues in this Area ({nearbyHotspots.length})</h4>
               <p className="hotspots-help">To prevent duplicate entries, you can support an existing complaint below:</p>
               <div className="hotspots-list">
@@ -1148,6 +1870,10 @@ JSON:`
                         {hotspot.category === 'health' && '🏥'}
                         {hotspot.category === 'power' && '⚡'}
                         {hotspot.category === 'agriculture' && '🌾'}
+                        {hotspot.category === 'safety' && '🚓'}
+                        {hotspot.category === 'environment' && '🌳'}
+                        {hotspot.category === 'welfare' && '🤝'}
+                        {hotspot.category === 'housing' && '🏗️'}
                         {hotspot.category === 'others' && '📁'}
                         {hotspot.category}
                       </span>
@@ -1168,7 +1894,7 @@ JSON:`
 
         </div>
 
-        {/* Right Column: Evidence / attachments list */}
+        {/* Right Column: Evidence, attachments list, and AI auto-detect overrides */}
         <div className="portal-col">
           <div className="form-card h-full">
             <h3>3. Add Suggestion Details & Attach Evidence</h3>
@@ -1182,54 +1908,18 @@ JSON:`
               </div>
             )}
 
-            {/* Visual Category Selector Grid */}
-            <div className="input-box-sub" style={{ marginTop: '20px' }}>
-              <label>Select Category Tag (AI Auto-detects)</label>
-              <div className="category-grid notranslate">
-                {SECTOR_CATEGORIES.map(cat => (
-                  <div 
-                    key={cat.id} 
-                    className={'category-card ' + (category === cat.id ? 'active' : '')}
-                    onClick={() => setCategory(cat.id)}
-                  >
-                    <span className="category-icon">{cat.icon}</span>
-                    <span className="category-label">{cat.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Impact Scope Slider */}
-            <div className="input-box-sub" style={{ marginTop: '20px' }}>
-              <label>Impact Scope (How many citizens are affected?)</label>
-              <div className="scope-slider-container notranslate">
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="3" 
-                  value={SCOPE_STEPS.findIndex(s => s.id === scope)}
-                  onChange={(e) => setScope(SCOPE_STEPS[parseInt(e.target.value)].id)}
-                  className="scope-slider"
-                />
-                <div className="scope-labels-row">
-                  {SCOPE_STEPS.map((step) => (
-                    <span 
-                      key={step.id} 
-                      className={'scope-label ' + (scope === step.id ? 'active' : '')}
-                      onClick={() => setScope(step.id)}
-                    >
-                      {step.label}
-                    </span>
-                  ))}
-                </div>
-                <div className="scope-info-box">
-                  <strong>Estimated Impact:</strong> {SCOPE_STEPS.find(s => s.id === scope)?.count}
+            {isAiAnalyzing && (
+              <div className="ai-verifying-banner" style={{ marginTop: '12px', border: '1px solid #6366f1', padding: '10px 14px', borderRadius: '8px', background: 'rgba(99,102,241,0.08)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Loader2 className="spinner" size={18} style={{ color: '#818cf8' }} />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '13px', color: '#c7d2fe' }}>Verifying with AI...</strong>
+                  <span style={{ fontSize: '11px', color: '#a5b4fc' }}>Cross-referencing details, categories, and local landmark parameters.</span>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Evidence inputs */}
-            <div className="evidence-inputs" style={{ marginTop: '24px' }}>
+            <div className="evidence-inputs" style={{ marginTop: '16px' }}>
               
               {/* Text Description Box */}
               <div className="input-box-sub">
@@ -1292,8 +1982,91 @@ JSON:`
 
             </div>
 
+            {/* Context Warning for Image Analysis */}
+            {imageContextWarning && (
+              <div className="context-warning-card" style={{ marginTop: '16px', border: '1px dashed #fbbf24', padding: '12px', borderRadius: '8px', background: 'rgba(251,191,36,0.1)' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: '#f59e0b' }}>
+                  ❓ <strong>AI needs more context:</strong> The uploaded image details are ambiguous. Please add a brief voice note or text description to describe the exact problem.
+                </p>
+              </div>
+            )}
+
+            {/* AI Suggested Landmark Recommendations */}
+            {aiSuggestedLandmark && (
+              <div className="ai-suggested-place-card" style={{ marginTop: '16px', border: '1px solid #6366f1', padding: '14px', borderRadius: '8px', background: 'rgba(99,102,241,0.08)' }}>
+                <h4 style={{ margin: '0 0 6px', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={16} />
+                  <span>AI Landmark Recommendation</span>
+                </h4>
+                <p style={{ margin: 0, fontSize: '13px', color: '#c7d2fe', lineHeight: '1.4' }}>
+                  It looks like your description mentions <strong>{aiSuggestedLandmark.name}</strong>. Would you like to link this landmark to your complaint?
+                </p>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                  <button 
+                    type="button" 
+                    className="btn-add-action" 
+                    style={{ fontSize: '11px', padding: '6px 12px', background: '#4f46e5' }}
+                    onClick={() => {
+                      setAssociatedPlace(aiSuggestedLandmark);
+                      setFocusedPlace({ lat: aiSuggestedLandmark.lat, lng: aiSuggestedLandmark.lng, name: aiSuggestedLandmark.name });
+                      mapContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
+                      setAiSuggestedLandmark(null);
+                    }}
+                  >
+                    📌 Yes, Tag & Focus
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-toggle-settings" 
+                    style={{ fontSize: '11px', padding: '6px 12px', border: '1px solid rgba(255,255,255,0.2)', color: 'white' }}
+                    onClick={() => setAiSuggestedLandmark(null)}
+                  >
+                    Dismiss Suggestion
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* AI Clarification Warnings */}
+            {aiClarificationQuestion && (
+              <div className="ai-clarification-card" style={{ marginTop: '16px', border: '1px solid #f59e0b', padding: '14px', borderRadius: '8px', background: 'rgba(245,158,11,0.08)' }}>
+                <h4 style={{ margin: '0 0 6px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={16} />
+                  <span>AI Request for Clarification</span>
+                </h4>
+                <p style={{ margin: 0, fontSize: '13px', color: '#fde68a', lineHeight: '1.4', textAlign: 'left' }}>
+                  {aiClarificationQuestion}
+                </p>
+                <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#c5c7e6', fontStyle: 'italic', textAlign: 'left' }}>
+                  Please add a follow-up text description or voice note clarifying the details to unlock submission.
+                </p>
+                <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button" 
+                    className="btn-toggle-settings" 
+                    style={{ fontSize: '11px', padding: '6px 12px', border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.1)', color: '#fbbf24', cursor: 'pointer', borderRadius: '4px' }}
+                    onClick={() => {
+                      setClarificationRefusals(2);
+                      setAiUnderstood(true);
+                      setAiClarificationQuestion(null);
+                    }}
+                  >
+                    ⚠️ Submit Anyway (I don't know more details)
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!aiUnderstood && items.length > 0 && !aiClarificationQuestion && (
+              <div className="ai-status-pending-card" style={{ marginTop: '16px', border: '1px dashed rgba(99, 102, 241, 0.4)', padding: '12px', borderRadius: '8px', background: 'rgba(99,102,241,0.04)' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: '#c7d2fe' }}>
+                  ⏳ AI is currently analyzing your inputs. Submission will unlock once classification and verification are complete.
+                </p>
+              </div>
+            )}
+
             {/* List of attachments */}
-            <div className="attachments-section" style={{ marginTop: '28px' }}>
+            <div className="attachments-section" style={{ marginTop: '24px' }}>
               <h4>Attached Items ({items.length})</h4>
               {items.length === 0 ? (
                 <div className="empty-attachments">
@@ -1324,9 +2097,9 @@ JSON:`
                           <div className="audio-item-wrapper">
                             <audio src={item.fileUrl} controls className="audio-control-bar" />
                             {item.speechTranscript && (
-                              <div className="speech-transcript-box notranslate">
+                              <div className="speech-transcript-box">
                                 <span className="box-title">Speech-to-Text Transcript:</span>
-                                <p className="transcript-text notranslate">{"\"" + item.speechTranscript + "\""}</p>
+                                <p className="transcript-text">{"\"" + item.speechTranscript + "\""}</p>
                               </div>
                             )}
                           </div>
@@ -1340,13 +2113,13 @@ JSON:`
                               {item.processing ? (
                                 <div className="ocr-processing">
                                   <Loader2 className="spinner" size={14} />
-                                  <span>Extracting text (OCR)...</span>
+                                  <span>Extracting text (OCR/AI)...</span>
                                 </div>
                               ) : (
-                                item.ocrText && (
+                                item.content && (
                                   <div className="ocr-text-box">
-                                    <span className="box-title">Extracted Text (OCR):</span>
-                                    <p className="ocr-text">{"\"" + item.ocrText + "\""}</p>
+                                    <span className="box-title">AI Image Description:</span>
+                                    <p className="ocr-text">{"\"" + item.content + "\""}</p>
                                   </div>
                                 )
                               )}
@@ -1359,6 +2132,210 @@ JSON:`
                 </div>
               )}
             </div>
+
+            {/* AI Correlation warning card */}
+            {correlatedHotspot && (
+              <div className="correlation-warning-card" style={{ marginTop: '24px', border: '1px solid #ef4444', padding: '16px', borderRadius: '8px', background: 'rgba(239,68,68,0.1)' }}>
+                <h4 style={{ margin: '0 0 8px', color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px' }}>⚠️ AI Correlation Alert</h4>
+                <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#fca5a5' }}>
+                  Our AI engine has matched your complaint description with an existing issue in the region:
+                </p>
+                <div className="matched-hotspot-preview" style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px' }}>
+                  <strong>Category:</strong> <span style={{ textTransform: 'capitalize' }}>{correlatedHotspot.category}</span><br />
+                  <strong>Detail:</strong> "{correlatedHotspot.items?.[0]?.content || correlatedHotspot.address}"<br />
+                  <strong>Current upvotes:</strong> {correlatedHotspot.upvotes}
+                </div>
+                <div className="correlation-actions" style={{ display: 'flex', gap: '10px' }}>
+                  <button 
+                    type="button" 
+                    className="btn-add-action" 
+                    style={{ background: '#22c55e', color: 'white', flex: 1 }}
+                    onClick={() => {
+                      handleUpvote(correlatedHotspot.id);
+                      alert("Successfully supported the existing issue. Upvote registered!");
+                      setCorrelatedHotspot(null);
+                    }}
+                  >
+                    👍 Just Support/Upvote Existing
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-toggle-settings" 
+                    style={{ flex: 1, borderColor: '#ef4444', color: '#f87171' }}
+                    onClick={() => setCorrelatedHotspot(null)}
+                  >
+                    Create New Independent Complaint
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Sector tags and Scope override - Visible only after items are added and analyzed */}
+            {showAiAutoDetectSection && items.length > 0 && (
+              <div className="ai-classification-overrides" style={{ marginTop: '28px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
+                <h4 style={{ margin: '0 0 12px', color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={16} />
+                  <span>AI Classification & Parameter Overrides</span>
+                </h4>
+
+                {/* Visual Category Selector Grid */}
+                <div className="input-box-sub">
+                  <label>Category Tag (Manual Override)</label>
+                  <div className="category-grid" style={{ maxHeight: '180px', overflowY: 'auto', padding: '6px' }}>
+                    {SECTOR_CATEGORIES.map(cat => (
+                      <div 
+                        key={cat.id} 
+                        className={'category-card ' + (category === cat.id ? 'active' : '')}
+                        onClick={() => setCategory(cat.id)}
+                      >
+                        <span className="category-icon">{cat.icon}</span>
+                        <span className="category-label">{cat.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Impact Scope Visual Range Slider */}
+                <div className="input-box-sub" style={{ marginTop: '20px' }}>
+                  <label>Impact Scope: <strong>{scope.toUpperCase()}</strong> (Manual Override)</label>
+                  <p className="slider-help" style={{ fontSize: '11px', color: '#8e90b3', margin: '-4px 0 8px' }}>
+                    Adjust slider to manually override estimated citizens affected by this complaint.
+                  </p>
+                  
+                  <div className="population-slider-container">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
+                      <span>Estimated Impact:</span>
+                      <strong style={{ color: '#6366f1' }}>{aiPopulationAffected.toLocaleString()} citizens</strong>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="100000" 
+                      step="5"
+                      value={aiPopulationAffected}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setAiPopulationAffected(val);
+                        // Map to scope tag automatically
+                        if (val <= 10) setScope('household');
+                        else if (val <= 500) setScope('street');
+                        else if (val <= 10000) setScope('ward');
+                        else setScope('constituency');
+                      }}
+                      className="full-population-slider"
+                      style={{ width: '100%', accentColor: '#4f46e5' }}
+                    />
+                    <div className="slider-ticks" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#8e90b3', marginTop: '6px' }}>
+                      <span>Household (1-10)</span>
+                      <span>Street (~150)</span>
+                      <span>Ward (~5k)</span>
+                      <span>Constituency (10k+)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Extra Parameters Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '20px' }}>
+                  {/* Urgency Display */}
+                  <div className="input-box-sub" style={{ margin: 0 }}>
+                    <label>Urgency Level (AI Determined)</label>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-light)', color: 'white', padding: '10px 12px', borderRadius: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', minHeight: '38px' }}>
+                      {(() => {
+                        const found = URGENCY_LEVELS.find(u => u.id === urgency);
+                        return found ? `${found.icon} ${found.label}` : `${urgency}`;
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Funding Source Display */}
+                  <div className="input-box-sub" style={{ margin: 0 }}>
+                    <label>Suggested Funding (AI Determined)</label>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-light)', color: 'white', padding: '10px 12px', borderRadius: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', minHeight: '38px' }}>
+                      {(() => {
+                        const found = FUNDING_SOURCES.find(f => f.id === fundingSource);
+                        return found ? `${found.icon} ${found.label}` : `${fundingSource}`;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Asset Type Display */}
+                <div className="input-box-sub" style={{ marginTop: '20px' }}>
+                  <label>Infrastructure Asset Sub-type (AI Determined)</label>
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-light)', color: 'white', padding: '10px 12px', borderRadius: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', minHeight: '38px' }}>
+                    {(() => {
+                      const found = ASSET_TYPES.find(a => a.id === assetType);
+                      return found ? `${found.icon} ${found.label}` : `${assetType}`;
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* AI Summary & Analysis Overview Section */}
+            {showAiAutoDetectSection && items.length > 0 && aiOverview && (
+              <div className="ai-summary-overview-card" style={{ marginTop: '24px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
+                <h4 style={{ margin: '0 0 14px', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={16} />
+                  <span>AI Summary & Pre-Submission Overview</span>
+                </h4>
+
+                <div style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '12px', padding: '16px' }}>
+                  {/* Brief Description */}
+                  <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#c7d2fe', lineHeight: '1.5', textAlign: 'left' }}>
+                    <strong>Problem Summary:</strong> {aiOverview.brief}
+                  </p>
+
+                  {/* Metrics Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '14px' }}>
+                    {/* Priority score & label */}
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'left' }}>
+                      <span style={{ fontSize: '10px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Priority Level</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ 
+                          fontSize: '11px', 
+                          padding: '3px 8px', 
+                          borderRadius: '4px', 
+                          fontWeight: 'bold',
+                          color: 'white',
+                          background: aiOverview.priorityLabel.includes('Critical') || aiOverview.priorityLabel.includes('High') ? '#ef4444' : aiOverview.priorityLabel.includes('Medium') ? '#f59e0b' : '#10b981'
+                        }}>
+                          {aiOverview.priorityLabel}
+                        </span>
+                        <strong style={{ color: 'white', fontSize: '14px' }}>({aiOverview.priorityScore}/100)</strong>
+                      </div>
+                    </div>
+
+                    {/* Safety Risk */}
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'left' }}>
+                      <span style={{ fontSize: '10px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Safety Risk Rating</span>
+                      <strong style={{ 
+                        fontSize: '12px', 
+                        color: aiOverview.safetyRisk.includes('High') || aiOverview.safetyRisk.includes('Hazard') ? '#f87171' : aiOverview.safetyRisk.includes('Medium') ? '#fbbf24' : '#34d399'
+                      }}>
+                        ⚠️ {aiOverview.safetyRisk}
+                      </strong>
+                    </div>
+
+                    {/* Budget Category */}
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'left' }}>
+                      <span style={{ fontSize: '10px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Estimated Budget</span>
+                      <strong style={{ fontSize: '12px', color: '#c7d2fe' }}>
+                        🪙 {aiOverview.estimatedBudget}
+                      </strong>
+                    </div>
+
+                    {/* Impact Scope */}
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'left' }}>
+                      <span style={{ fontSize: '10px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Impact Level</span>
+                      <strong style={{ fontSize: '12px', color: '#a5b4fc', textTransform: 'capitalize' }}>
+                        🌐 {scope} scope
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
@@ -1374,6 +2351,10 @@ JSON:`
           <div className={'checklist-item ' + (items.length > 0 ? 'checked' : '')}>
             <span className="checkbox"></span>
             <span>Evidence Material Provided</span>
+          </div>
+          <div className={'checklist-item ' + (isAiAnalyzing ? 'analyzing' : aiUnderstood && !aiClarificationQuestion ? 'checked' : '')}>
+            {isAiAnalyzing ? <Loader2 className="spinner" size={14} style={{ marginRight: '8px', color: '#818cf8' }} /> : <span className="checkbox"></span>}
+            <span>AI Verification Satisfied</span>
           </div>
         </div>
 
@@ -1418,6 +2399,20 @@ JSON:`
                 <span>Address:</span>
                 <strong className="summary-address">{address}</strong>
               </div>
+              {associatedPlace && (
+                <div className="summary-row">
+                  <span>Target Landmark:</span>
+                  <strong>{associatedPlace.name} ({associatedPlace.type})</strong>
+                </div>
+              )}
+              <div className="summary-row">
+                <span>Category Tag:</span>
+                <strong style={{ textTransform: 'capitalize' }}>{category}</strong>
+              </div>
+              <div className="summary-row">
+                <span>Impact Scope:</span>
+                <strong>{scope.toUpperCase()} (~{aiPopulationAffected.toLocaleString()} citizens)</strong>
+              </div>
               <div className="summary-items-grid">
                 <div className="grid-cell">
                   <strong>{items.filter(i => i.type === 'text').length}</strong>
@@ -1455,6 +2450,23 @@ JSON:`
               setInsights(null);
               setNearbyHotspots([]);
               setTicketId('');
+              setFocusedPlace(null);
+              setAssociatedPlace(null);
+              setAiPopulationAffected(150);
+              setCorrelatedHotspot(null);
+              setImageContextWarning(false);
+              setShowAiAutoDetectSection(false);
+              setAiClarificationQuestion(null);
+              setAiUnderstood(false);
+              setAiSuggestedLandmark(null);
+              setSearchResultPlaces([]);
+              setLandmarkSearchQuery('');
+              setUrgency('moderate');
+              setAssetType('others');
+              setFundingSource('municipality');
+              setAiOverview(null);
+              setCircleData(null);
+              setClarificationRefusals(0);
               onBack(); // Return to landing
             }}>
               Return to Portal Home
