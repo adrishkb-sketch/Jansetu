@@ -89,6 +89,8 @@ function ManagerConsole() {
   const [aiClusterMode, setAiClusterMode] = useState<'constituency' | 'category'>('constituency');
   const [aiClusterTargetConstituency, setAiClusterTargetConstituency] = useState<string>('Rampur');
   const [aiClusterTargetCategory, setAiClusterTargetCategory] = useState<string>('water');
+  const [aiClusterConstituencySearchQuery, setAiClusterConstituencySearchQuery] = useState('Rampur');
+  const [showAiClusterConstituencyDropdown, setShowAiClusterConstituencyDropdown] = useState(false);
 
   // Constituency Plan & Proposal Builder States
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>(() => {
@@ -2159,17 +2161,76 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                   </div>
 
                   {aiClusterMode === 'constituency' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', position: 'relative', width: '220px' }}>
                       <span style={{ fontSize: '11px', color: '#c7d2fe', fontWeight: 'bold' }}>Target Constituency</span>
-                      <select
-                        value={aiClusterTargetConstituency}
-                        onChange={e => setAiClusterTargetConstituency(e.target.value)}
-                        style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '6px 10px', borderRadius: '6px', fontSize: '12.5px' }}
-                      >
-                        {Array.from(new Set(demands.map(d => d.constituency || 'Rampur'))).sort().map(cName => (
-                          <option key={cName} value={cName}>{cName}</option>
-                        ))}
-                      </select>
+                      <input 
+                        type="text"
+                        value={aiClusterConstituencySearchQuery}
+                        placeholder="🔍 Search Constituency..."
+                        onChange={e => {
+                          setAiClusterConstituencySearchQuery(e.target.value);
+                          setShowAiClusterConstituencyDropdown(true);
+                        }}
+                        onFocus={() => setShowAiClusterConstituencyDropdown(true)}
+                        style={{ 
+                          background: '#0e0d24', 
+                          color: 'white', 
+                          border: '1px solid var(--border-light)', 
+                          padding: '6px 10px', 
+                          borderRadius: '6px', 
+                          fontSize: '12.5px',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      {showAiClusterConstituencyDropdown && (() => {
+                        const filtered = Object.keys(ALL_CONSTITUENCIES_DATA)
+                          .filter(c => c.toLowerCase().includes(aiClusterConstituencySearchQuery.toLowerCase()))
+                          .sort();
+                        return (
+                          <div style={{ 
+                            position: 'absolute', 
+                            top: '100%', 
+                            left: 0, 
+                            right: 0, 
+                            background: '#0d0c22', 
+                            border: '1px solid rgba(255,255,255,0.15)', 
+                            borderRadius: '6px', 
+                            maxHeight: '220px', 
+                            overflowY: 'auto', 
+                            zIndex: 1001, 
+                            marginTop: '4px',
+                            boxShadow: '0 8px 16px rgba(0,0,0,0.5)'
+                          }}>
+                            {filtered.length > 0 ? (
+                              filtered.map(cName => (
+                                <div 
+                                  key={cName}
+                                  onClick={() => {
+                                    setAiClusterTargetConstituency(cName);
+                                    setAiClusterConstituencySearchQuery(cName);
+                                    setShowAiClusterConstituencyDropdown(false);
+                                  }}
+                                  style={{ 
+                                    padding: '8px 12px', 
+                                    cursor: 'pointer', 
+                                    fontSize: '12.5px',
+                                    color: cName === aiClusterTargetConstituency ? '#818cf8' : 'white',
+                                    background: cName === aiClusterTargetConstituency ? 'rgba(129, 140, 248, 0.15)' : 'transparent',
+                                    borderBottom: '1px solid rgba(255,255,255,0.03)'
+                                  }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = cName === aiClusterTargetConstituency ? 'rgba(129, 140, 248, 0.15)' : 'transparent'; }}
+                                >
+                                  📍 {cName} <span style={{ color: '#8e90b3', fontSize: '11px', float: 'right' }}>({ALL_CONSTITUENCIES_DATA[cName].state})</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div style={{ padding: '8px 12px', fontSize: '12px', color: 'var(--text-muted)' }}>No matches</div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -2179,8 +2240,8 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                         onChange={e => setAiClusterTargetCategory(e.target.value)}
                         style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '6px 10px', borderRadius: '6px', fontSize: '12.5px' }}
                       >
-                        {Array.from(new Set(demands.map(d => d.category))).sort().map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
+                        {["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"].map(cat => (
+                          <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
                         ))}
                       </select>
                     </div>
