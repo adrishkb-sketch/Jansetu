@@ -1055,7 +1055,6 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
   * power suggestion: solar panels square footage, LED streetlight locations.
   * other suggestions: proposed execution timeline, community benefits, target group.
   If these details are missing, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these suggestion details.
-- Avoid Infinite Clarification Loops: If the citizen's transcript contains more than one separate note, or a text addition containing follow-up answers to a clarification question (e.g. explaining coordinates or giving specifics like 'near XYZ gate' or 'water is smelly'), you MUST set 'requiresClarification' to false and accept it.
 - If the user's input is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem/suggestion in a full sentence.
 - If the input is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
 7. Mentioned Landmark Identification: Check if the user's transcript explicitly mentions any of the landmark names (or partial name matches) in the Ground Truth list above. If they mention one, return its exact name in 'mentionedLandmarkName'. If they don't mention any nearby landmarks, return null.
