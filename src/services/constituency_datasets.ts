@@ -430,3 +430,102 @@ export function calculateCombinedPriorityIndex(d: any, constituencyName?: string
   
   return Math.min(100, Math.round(cpi * 10) / 10);
 }
+
+export interface ConstituencySegmentDetail {
+  name: string;
+  population: number;
+  sexRatio: number;
+  literacyRate: number;
+  urbanization: number;
+  scStPercentage: number;
+  waterCoverage: number;
+  unconnectedHabitations: number;
+  avgDistanceToPHC: number;
+  rteCompliance: number;
+  toiletAccess: number;
+  aqiLevel: number;
+  electricityHours: number;
+  cropYieldIndex: number;
+  soilHealthSaturation: number;
+  centerCoords?: { lat: number; lng: number };
+}
+
+export function getConstituencySegments(constituencyName: string): ConstituencySegmentDetail[] {
+  // 1. If it is Rampur, return the real Rampur segments
+  if (constituencyName.toLowerCase() === 'rampur') {
+    return Object.keys(RAMPUR_SEGMENTS_DATA).map(key => {
+      const seg = RAMPUR_SEGMENTS_DATA[key];
+      return {
+        name: seg.name.replace(" Assembly Segment", ""),
+        population: seg.population,
+        sexRatio: seg.sexRatio,
+        literacyRate: seg.literacyRate,
+        urbanization: seg.urbanization,
+        scStPercentage: seg.scStPercentage,
+        waterCoverage: seg.waterCoverage,
+        unconnectedHabitations: seg.unconnectedHabitations,
+        avgDistanceToPHC: seg.avgDistanceToPHC,
+        rteCompliance: seg.rteCompliance,
+        toiletAccess: seg.toiletAccess,
+        aqiLevel: seg.aqiLevel,
+        electricityHours: seg.electricityHours,
+        cropYieldIndex: seg.cropYieldIndex,
+        soilHealthSaturation: seg.soilHealthSaturation,
+        centerCoords: seg.centerCoords
+      };
+    });
+  }
+
+  // 2. Otherwise, fetch the parent constituency data
+  const parent = ALL_CONSTITUENCIES_DATA[constituencyName];
+  if (!parent) return [];
+
+  // Define 6 standard sub-district segments
+  const directions = ["Town", "Rural", "North", "South", "East", "West"];
+  
+  return directions.map((dir, idx) => {
+    // Seeded random logic to make the variations deterministic for each constituency and segment name
+    const seed = constituencyName.length + dir.length + idx;
+    const seededRandom = () => {
+      const x = Math.sin(seed) * 10000;
+      return x - Math.floor(x);
+    };
+
+    const randSign = () => (seededRandom() > 0.5 ? 1 : -1);
+
+    const popShare = 1 / 6 + (seededRandom() - 0.5) * 0.05; // uneven population share
+    const segmentPopulation = Math.round(parent.population * popShare);
+
+    const literacyOffset = Math.round(seededRandom() * 6 * randSign());
+    const sexRatioOffset = Math.round(seededRandom() * 25 * randSign());
+    const urbanizationOffset = Math.round(seededRandom() * 20 * randSign());
+    const scStOffset = Math.round(seededRandom() * 5 * randSign());
+    const waterOffset = Math.round(seededRandom() * 10 * randSign());
+    const unconnectedOffset = Math.max(0, parent.unconnectedHabitations + Math.round(seededRandom() * 4 * randSign()));
+    const phcOffset = parseFloat(Math.max(0.5, parent.avgDistanceToPHC + (seededRandom() * 2 * randSign())).toFixed(1));
+    const rteOffset = Math.round(seededRandom() * 8 * randSign());
+    const toiletOffset = Math.round(seededRandom() * 5 * randSign());
+    const aqiOffset = Math.round(seededRandom() * 25 * randSign());
+    const elecOffset = Math.max(12, Math.min(24, parent.electricityHours + Math.round(seededRandom() * 3 * randSign())));
+    const yieldOffset = parseFloat((parent.cropYieldIndex + (seededRandom() * 8 * randSign())).toFixed(1));
+    const soilOffset = Math.round(seededRandom() * 12 * randSign());
+
+    return {
+      name: `${constituencyName} ${dir}`,
+      population: segmentPopulation,
+      sexRatio: parent.sexRatio + sexRatioOffset,
+      literacyRate: Math.max(30, Math.min(100, parent.literacyRate + literacyOffset)),
+      urbanization: Math.max(5, Math.min(100, parent.urbanization + urbanizationOffset)),
+      scStPercentage: Math.max(2, Math.min(100, parent.scStPercentage + scStOffset)),
+      waterCoverage: Math.max(10, Math.min(100, parent.waterCoverage + waterOffset)),
+      unconnectedHabitations: unconnectedOffset,
+      avgDistanceToPHC: phcOffset,
+      rteCompliance: Math.max(40, Math.min(100, parent.rteCompliance + rteOffset)),
+      toiletAccess: Math.max(30, Math.min(100, parent.toiletAccess + toiletOffset)),
+      aqiLevel: Math.max(15, parent.aqiLevel + aqiOffset),
+      electricityHours: elecOffset,
+      cropYieldIndex: Math.max(10, yieldOffset),
+      soilHealthSaturation: Math.max(10, Math.min(100, parent.soilHealthSaturation + soilOffset))
+    };
+  });
+}

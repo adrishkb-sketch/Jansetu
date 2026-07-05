@@ -35,7 +35,8 @@ import {
   evaluateInfrastructureGap, 
   calculateCombinedPriorityIndex, 
   getClosestConstituencySegment,
-  ALL_CONSTITUENCIES_DATA
+  ALL_CONSTITUENCIES_DATA,
+  getConstituencySegments
 } from './services/constituency_datasets';
 import './index.css';
 
@@ -2248,7 +2249,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                     </tr>
                   </thead>
                   <tbody>
-                    {[ALL_CONSTITUENCIES_DATA[selectedGlobalConstituency]].filter(Boolean).map(seg => (
+                    {getConstituencySegments(selectedGlobalConstituency).map(seg => (
                       <tr key={seg.name} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
                         <td style={{ padding: '10px', fontWeight: 'bold', textAlign: 'left' }}>📍 {seg.name}</td>
                         <td style={{ padding: '10px', textAlign: 'center' }}>{seg.population.toLocaleString()}</td>
