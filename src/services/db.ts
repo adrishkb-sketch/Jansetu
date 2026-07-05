@@ -12,6 +12,7 @@ import {
   updateDoc, 
   doc, 
   getDoc,
+  setDoc,
   increment,
   limit
 } from 'firebase/firestore';
@@ -389,4 +390,55 @@ export async function updateDemandDetails(id: string, customUpdates: any): Promi
   const localDb = getLocalEmulatorData();
   const updated = localDb.map(item => item.id === id ? { ...item, ...customUpdates } : item);
   saveLocalEmulatorData(updated);
+}
+
+/**
+ * Saves/updates a Constituency Development Action Plan to Firestore.
+ */
+export async function saveActionPlan(plan: any): Promise<void> {
+  const planData = {
+    ...plan,
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    if (db) {
+      const docRef = doc(db, 'plans', 'rampur_constituency_plan');
+      await setDoc(docRef, planData);
+      return;
+    }
+  } catch (e) {
+    console.error("Firestore saveActionPlan failed, using local storage fallback: ", e);
+  }
+
+  // Local Storage fallback
+  localStorage.setItem('jansetu_draft_plan', JSON.stringify(planData));
+  if (plan.isApproved) {
+    localStorage.setItem('jansetu_approved_plan', JSON.stringify(planData));
+  } else {
+    localStorage.removeItem('jansetu_approved_plan');
+  }
+}
+
+/**
+ * Fetches the active action plan from Firestore.
+ */
+export async function getActionPlan(): Promise<any | null> {
+  try {
+    if (db) {
+      const docRef = doc(db, 'plans', 'rampur_constituency_plan');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data();
+      }
+    }
+  } catch (e) {
+    console.error("Firestore getActionPlan failed, reading locally: ", e);
+  }
+
+  try {
+    const saved = localStorage.getItem('jansetu_draft_plan');
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
 }

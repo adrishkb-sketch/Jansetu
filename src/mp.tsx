@@ -13,7 +13,7 @@ import {
   X,
   Brain
 } from 'lucide-react';
-import { getAllDemands, updateDemandStatus } from './services/db';
+import { getAllDemands, updateDemandStatus, getActionPlan } from './services/db';
 import { LanguageSelector, getInitialLanguage, useGoogleMapsLoader } from './App';
 import { AuthModal } from './AuthModal';
 import './index.css';
@@ -64,21 +64,19 @@ function MPApp() {
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('mp_auth') === 'true');
 
   useEffect(() => {
-    const loadApprovedPlan = () => {
-      try {
-        const saved = localStorage.getItem('jansetu_approved_plan');
-        if (saved) {
-          setApprovedPlan(JSON.parse(saved));
-        } else {
-          setApprovedPlan(null);
-        }
-      } catch {
+    const loadApprovedPlan = async () => {
+      const plan = await getActionPlan();
+      if (plan && plan.isApproved) {
+        setApprovedPlan(plan);
+      } else {
         setApprovedPlan(null);
       }
     };
     loadApprovedPlan();
-    window.addEventListener('storage', loadApprovedPlan);
-    return () => window.removeEventListener('storage', loadApprovedPlan);
+    
+    // Check for plan updates every 5 seconds (allows real-time syncing across devices)
+    const interval = setInterval(loadApprovedPlan, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Load demands

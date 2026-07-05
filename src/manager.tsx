@@ -28,7 +28,7 @@ import {
   ChevronUp,
   Loader2
 } from 'lucide-react';
-import { getAllDemands, updateDemandStatus } from './services/db';
+import { getAllDemands, updateDemandStatus, saveActionPlan, getActionPlan } from './services/db';
 import { LanguageSelector, getInitialLanguage, GoogleMapComponent } from './App';
 import { AuthModal } from './AuthModal';
 import { 
@@ -82,18 +82,24 @@ function ManagerConsole() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
-  const [actionPlan, setActionPlan] = useState<any | null>(() => {
-    try {
-      const saved = localStorage.getItem('jansetu_draft_plan');
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
+  const [actionPlan, setActionPlan] = useState<any | null>(null);
   const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
   const [customPlanName, setCustomPlanName] = useState(() => localStorage.getItem('jansetu_plan_name') || 'Rampur Lok Sabha Constituency Action Plan');
   const [mpladsBudget, setMpladsBudget] = useState(() => {
     const saved = localStorage.getItem('jansetu_mplads_budget');
     return saved ? parseFloat(saved) : 50000000; // ₹5.00 Crores
   });
+
+  // Load Action Plan from online database / local storage on mount
+  useEffect(() => {
+    const fetchPlan = async () => {
+      const plan = await getActionPlan();
+      if (plan) {
+        setActionPlan(plan);
+      }
+    };
+    fetchPlan();
+  }, []);
 
   // Persist Plan states
   useEffect(() => {
@@ -111,20 +117,6 @@ function ManagerConsole() {
   useEffect(() => {
     localStorage.setItem('jansetu_mplads_budget', mpladsBudget.toString());
   }, [mpladsBudget]);
-
-  useEffect(() => {
-    if (actionPlan) {
-      localStorage.setItem('jansetu_draft_plan', JSON.stringify(actionPlan));
-      if (actionPlan.isApproved) {
-        localStorage.setItem('jansetu_approved_plan', JSON.stringify(actionPlan));
-      } else {
-        localStorage.removeItem('jansetu_approved_plan');
-      }
-    } else {
-      localStorage.removeItem('jansetu_draft_plan');
-      localStorage.removeItem('jansetu_approved_plan');
-    }
-  }, [actionPlan]);
 
   // Load demands
   useEffect(() => {
@@ -348,7 +340,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
         if (parsedPlan && parsedPlan.planName) {
           parsedPlan.isApproved = false;
           setActionPlan(parsedPlan);
-          localStorage.setItem('jansetu_draft_plan', JSON.stringify(parsedPlan));
+          saveActionPlan(parsedPlan);
           setIsGeneratingProposal(false);
           return;
         }
@@ -412,7 +404,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
       };
 
       setActionPlan(mockPlan);
-      localStorage.setItem('jansetu_draft_plan', JSON.stringify(mockPlan));
+      saveActionPlan(mockPlan);
       setIsGeneratingProposal(false);
     }, 1500);
   };
@@ -2317,11 +2309,14 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={async () => {
                             const next = { ...actionPlan, isApproved: !actionPlan.isApproved };
                             setActionPlan(next);
+                            await saveActionPlan(next);
                             if (next.isApproved) {
                               alert("Action Plan has been approved and is now visible on the MP's dashboard!");
+                            } else {
+                              alert("Action Plan reverted to draft status.");
                             }
                           }}
                           style={{
@@ -2332,6 +2327,20 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                           }}
                         >
                           {actionPlan.isApproved ? '✓ Approved & Sent' : '⚠️ Pending Approval'}
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await saveActionPlan(actionPlan);
+                            alert("Action Plan draft successfully saved to Firestore cloud!");
+                          }}
+                          style={{
+                            background: 'rgba(32, 184, 166, 0.1)', border: '1px solid rgba(32, 184, 166, 0.4)', color: '#2dd4bf',
+                            padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold'
+                          }}
+                        >
+                          💾 Save Draft
                         </button>
                         <button
                           type="button"
