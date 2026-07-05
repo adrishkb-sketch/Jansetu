@@ -1012,6 +1012,13 @@ Current selected map pin coordinates: Lat: ${location?.lat || 28.6139}, Lng: ${l
 Verify the user's ${ticketType} against the Ground Truth Local Infrastructure list:
 ${insightsText}
 
+${aiClarificationQuestion ? `
+[PREVIOUS AI CLARIFICATION REQUEST]
+You previously asked the citizen the following clarification question to resolve/confirm their submission:
+"${aiClarificationQuestion}"
+Please evaluate if the user's follow-up texts or voice notes (provided in the transcript below) have now answered or clarified this request. If the user has provided ANY follow-up details addressing the core issues or added location description context, you MUST set 'requiresClarification' to false and 'clarificationQuestion' to null. Do not keep asking for details indefinitely.
+` : ''}
+
 You must:
 1. Translate it to English if it is in another Indian language or written in regional mixed dialects (such as Hinglish, Banglish, or other languages mixed with English terms, local slang, or local spelling variations). Normalise all local slang and abbreviations into standard English. Provide this standard English translation in the 'translatedText' field.
 2. Determine the category: Choose exactly one from: ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"].
@@ -1048,6 +1055,7 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
   * power suggestion: solar panels square footage, LED streetlight locations.
   * other suggestions: proposed execution timeline, community benefits, target group.
   If these details are missing, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these suggestion details.
+- Avoid Infinite Clarification Loops: If the citizen's transcript contains more than one separate note, or a text addition containing follow-up answers to a clarification question (e.g. explaining coordinates or giving specifics like 'near XYZ gate' or 'water is smelly'), you MUST set 'requiresClarification' to false and accept it.
 - If the user's input is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem/suggestion in a full sentence.
 - If the input is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
 7. Mentioned Landmark Identification: Check if the user's transcript explicitly mentions any of the landmark names (or partial name matches) in the Ground Truth list above. If they mention one, return its exact name in 'mentionedLandmarkName'. If they don't mention any nearby landmarks, return null.
