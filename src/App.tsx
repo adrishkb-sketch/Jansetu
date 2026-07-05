@@ -1137,8 +1137,10 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
   * power suggestion: solar panels square footage, LED streetlight locations.
   * other suggestions: proposed execution timeline, community benefits, target group.
   If these details are missing, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these suggestion details.
+- Location Validation: If the citizen's transcript does not specify a precise street name, block, colony, or relative landmark boundary, you MUST set 'requiresClarification' to true and ask them in 'clarificationQuestion' to specify exactly where this issue is located. General phrases like "in my area", "in Swar", or "near me" are NOT specific enough.
+- Detail Completeness: Ensure the description contains sufficient quantitative or severity details to solve it. If they are missing, you must set 'requiresClarification' to true. For stray dogs/animals or safety issues, ask for details on approximate count of dogs, their behavior, or if they have bitten specific people.
 - If the user's input is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem/suggestion in a full sentence.
-- If the input is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
+- If the input is specific, names a landmark/street, and describes severity (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
 7. Mentioned Landmark Identification: Check if the user's transcript explicitly mentions any of the landmark names (or partial name matches) in the Ground Truth list above. If they mention one, return its exact name in 'mentionedLandmarkName'. If they don't mention any nearby landmarks, return null.
 8. Extra Classifications:
 - Determine urgency: Choose exactly one from: ["immediate", "moderate", "long_term"]
