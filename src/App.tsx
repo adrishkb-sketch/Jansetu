@@ -229,6 +229,7 @@ interface LocationInsights {
   transitStations?: PlaceDetail[];
   railways?: PlaceDetail[];
   postOffices?: PlaceDetail[];
+  temples?: PlaceDetail[];
 }
 
 function getHaversineDistance(loc1: { lat: number; lng: number }, loc2: { lat: number; lng: number }) {
@@ -346,14 +347,15 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
       };
 
       try {
-        const [schools, hospitals, police, parks, transit, railways, postOffices] = await Promise.all([
+        const [schools, hospitals, police, parks, transit, railways, postOffices, temples] = await Promise.all([
           queryPlaceType('school'),
           queryPlaceType('hospital'),
           queryPlaceType('police'),
           queryPlaceType('park'),
           queryPlaceType('transit_station'),
           queryPlaceType('train_station'),
-          queryPlaceType('post_office')
+          queryPlaceType('post_office'),
+          queryPlaceType('place_of_worship')
         ]);
 
         if (schools) insights.schools = schools;
@@ -363,6 +365,7 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
         if (transit) insights.transitStations = transit;
         if (railways) insights.railways = railways;
         if (postOffices) insights.postOffices = postOffices;
+        if (temples) insights.temples = temples;
 
         onLocationSelect(loc, addressStr, insights);
       } catch (e) {
@@ -612,8 +615,9 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
                 queryPlaceType('park'),
                 queryPlaceType('transit_station'),
                 queryPlaceType('train_station'),
-                queryPlaceType('post_office')
-              ]).then(([schools, hospitals, police, parks, transit, railways, postOffices]) => {
+                queryPlaceType('post_office'),
+                queryPlaceType('place_of_worship')
+              ]).then(([schools, hospitals, police, parks, transit, railways, postOffices, temples]) => {
                 if (schools) insights.schools = schools;
                 if (hospitals) insights.hospitals = hospitals;
                 if (police) insights.policeStations = police;
@@ -621,6 +625,7 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
                 if (transit) insights.transitStations = transit;
                 if (railways) insights.railways = railways;
                 if (postOffices) insights.postOffices = postOffices;
+                if (temples) insights.temples = temples;
 
                 onLocationSelect(loc, address, insights);
               }).catch(err => {
@@ -987,7 +992,8 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
         serializeGroup("Parks", insights.parks),
         serializeGroup("Transit Stations", insights.transitStations),
         serializeGroup("Railway Stations", insights.railways),
-        serializeGroup("Post Offices", insights.postOffices)
+        serializeGroup("Post Offices", insights.postOffices),
+        serializeGroup("Temples & Worship Places", insights.temples)
       ].join('\n');
     }
 
@@ -1052,7 +1058,7 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
   If these details are missing, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these suggestion details.
 - If the user's input is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem/suggestion in a full sentence.
 - If the input is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
-7. Mentioned Landmark Identification: Check if the user's transcript mentions, refers to, or describes an issue happening near any of the landmarks, schools, hospitals, police stations, parks, or transit stations in the Ground Truth list above. Even if they do not type the exact name, if they mention "primary school" and "Swar Primary School" is in the Ground Truth list, or if they mention a general area and there is a prominent nearby infrastructure facility from the list that is highly relevant, you must return that landmark's exact name from the Ground Truth list in 'mentionedLandmarkName'. If no landmarks are mentioned or relevant, return null.
+7. Mentioned Landmark Identification: Check if the user's transcript mentions, refers to, or describes an issue happening near any of the landmarks, schools, hospitals, police stations, parks, transit stations, or temples in the Ground Truth list above. Even if they do not type the exact name, if they mention "temple" and "Hatpukur Kali Temple" is in the Ground Truth list, or if they mention a general area and there is a prominent nearby infrastructure facility from the list that is highly relevant, you must return that landmark's exact name from the Ground Truth list in 'mentionedLandmarkName'. If no landmarks are mentioned or relevant, return null.
 8. Extra Classifications:
 - Determine urgency: Choose exactly one from: ["immediate", "moderate", "long_term"]
 - Determine assetType: Choose exactly one from: ["roadway", "drainage", "building", "electrical_grid", "waste_management", "public_safety_asset", "social_facility", "others"]
@@ -1166,7 +1172,8 @@ JSON:`
             { type: 'park', list: insights?.parks },
             { type: 'transit', list: insights?.transitStations },
             { type: 'railway', list: insights?.railways },
-            { type: 'postOffice', list: insights?.postOffices }
+            { type: 'postOffice', list: insights?.postOffices },
+            { type: 'temple', list: insights?.temples }
           ];
 
           for (const g of groups) {
