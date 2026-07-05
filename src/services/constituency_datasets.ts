@@ -36,8 +36,10 @@ export interface ConstituencyDemographics {
 }
 
 import ALL_CONSTITUENCIES_DATA_RAW from './constituencies_543.json';
+import CONSTITUENCIES_MAPPING_RAW from './constituency_segments_mapping.json';
 
 export const ALL_CONSTITUENCIES_DATA: Record<string, ConstituencyDemographics> = (ALL_CONSTITUENCIES_DATA_RAW as unknown) as Record<string, ConstituencyDemographics>;
+export const CONSTITUENCIES_MAPPING: Record<string, string[]> = CONSTITUENCIES_MAPPING_RAW as Record<string, string[]>;
 
 export const MINISTRY_STANDARDS: Record<string, MinistryStandard> = {
   water: {
@@ -480,12 +482,13 @@ export function getConstituencySegments(constituencyName: string): ConstituencyS
   const parent = ALL_CONSTITUENCIES_DATA[constituencyName];
   if (!parent) return [];
 
-  // Define 6 standard sub-district segments
-  const directions = ["Town", "Rural", "North", "South", "East", "West"];
+  // Use real assembly constituency names if mapped, otherwise fall back to generic directions
+  const segments = CONSTITUENCIES_MAPPING[constituencyName] || ["Town", "Rural", "North", "South", "East", "West"];
+  const n = segments.length;
   
-  return directions.map((dir, idx) => {
+  return segments.map((segName, idx) => {
     // Seeded random logic to make the variations deterministic for each constituency and segment name
-    const seed = constituencyName.length + dir.length + idx;
+    const seed = constituencyName.length + segName.length + idx;
     const seededRandom = () => {
       const x = Math.sin(seed) * 10000;
       return x - Math.floor(x);
@@ -493,7 +496,7 @@ export function getConstituencySegments(constituencyName: string): ConstituencyS
 
     const randSign = () => (seededRandom() > 0.5 ? 1 : -1);
 
-    const popShare = 1 / 6 + (seededRandom() - 0.5) * 0.05; // uneven population share
+    const popShare = 1 / n + (seededRandom() - 0.5) * (0.1 / n); // uneven population share
     const segmentPopulation = Math.round(parent.population * popShare);
 
     const literacyOffset = Math.round(seededRandom() * 6 * randSign());
@@ -510,8 +513,16 @@ export function getConstituencySegments(constituencyName: string): ConstituencyS
     const yieldOffset = parseFloat((parent.cropYieldIndex + (seededRandom() * 8 * randSign())).toFixed(1));
     const soilOffset = Math.round(seededRandom() * 12 * randSign());
 
+    // Clean segment name - if it doesn't already contain the parent constituency name, we can format it nicely
+    let formattedName = segName;
+    if (CONSTITUENCIES_MAPPING[constituencyName]) {
+      formattedName = `${segName}`;
+    } else {
+      formattedName = `${constituencyName} ${segName}`;
+    }
+
     return {
-      name: `${constituencyName} ${dir}`,
+      name: formattedName,
       population: segmentPopulation,
       sexRatio: parent.sexRatio + sexRatioOffset,
       literacyRate: Math.max(30, Math.min(100, parent.literacyRate + literacyOffset)),
