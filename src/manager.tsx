@@ -35,7 +35,8 @@ import {
   evaluateInfrastructureGap, 
   calculateCombinedPriorityIndex, 
   getClosestConstituencySegment,
-  RAMPUR_SEGMENTS_DATA 
+  RAMPUR_SEGMENTS_DATA,
+  ALL_CONSTITUENCIES_DATA
 } from './services/constituency_datasets';
 import './index.css';
 
@@ -64,6 +65,7 @@ function ManagerConsole() {
   const [budgetScaleFilter, setBudgetScaleFilter] = useState<string>('all');
   const [scopeSliderFilter, setScopeSliderFilter] = useState<string>('all');
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('manager_auth') === 'true');
+  const [selectedGlobalConstituency, setSelectedGlobalConstituency] = useState<string>('Rampur');
 
   // AI Thematic Clustering States
   const [clusteringResults, setClusteringResults] = useState<any[]>(() => {
@@ -1954,38 +1956,51 @@ Provide your response ONLY as a valid JSON object matching the following schema.
               
               {/* Demographic Summary Card */}
               <div className="form-card" style={{ padding: '24px 30px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <h4 style={{ color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                  <Award size={20} />
-                  <span>Rampur District Census Demographics Profile (Census 2011)</span>
+                <h4 style={{ color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Award size={20} />
+                    <span>Constituency Demographics Profile</span>
+                  </div>
+                  <select 
+                    value={selectedGlobalConstituency} 
+                    onChange={e => setSelectedGlobalConstituency(e.target.value)}
+                    style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '4px 8px', borderRadius: '4px', maxWidth: '300px' }}
+                  >
+                    {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
+                      <option key={cName} value={cName} style={{ color: 'black' }}>{cName} ({ALL_CONSTITUENCIES_DATA[cName].state})</option>
+                    ))}
+                  </select>
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginTop: '6px' }}>
                   <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Total Population</span>
-                    <strong style={{ fontSize: '1.2rem', color: 'white' }}>2.33 Million</strong>
+                    <strong style={{ fontSize: '1.2rem', color: 'white' }}>{(ALL_CONSTITUENCIES_DATA[selectedGlobalConstituency]?.population / 1000000).toFixed(2)} Million</strong>
                   </div>
                   <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Avg Literacy Rate</span>
-                    <strong style={{ fontSize: '1.2rem', color: '#fca5a5' }}>53.3% (Low)</strong>
+                    <strong style={{ fontSize: '1.2rem', color: ALL_CONSTITUENCIES_DATA[selectedGlobalConstituency]?.literacyRate < 60 ? '#fca5a5' : '#86efac' }}>
+                      {ALL_CONSTITUENCIES_DATA[selectedGlobalConstituency]?.literacyRate}%
+                    </strong>
                   </div>
                   <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Sex Ratio</span>
-                    <strong style={{ fontSize: '1.2rem', color: 'white' }}>909 F / 1000 M</strong>
+                    <strong style={{ fontSize: '1.2rem', color: 'white' }}>{ALL_CONSTITUENCIES_DATA[selectedGlobalConstituency]?.sexRatio} F / 1000 M</strong>
                   </div>
                   <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Population Density</span>
-                    <strong style={{ fontSize: '1.2rem', color: 'white' }}>987 / km²</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>State / UT</span>
+                    <strong style={{ fontSize: '1.1rem', color: 'white' }}>{ALL_CONSTITUENCIES_DATA[selectedGlobalConstituency]?.state}</strong>
                   </div>
                   <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>Urbanization</span>
-                    <strong style={{ fontSize: '1.2rem', color: 'white' }}>25.2% Urban</strong>
+                    <strong style={{ fontSize: '1.2rem', color: 'white' }}>{ALL_CONSTITUENCIES_DATA[selectedGlobalConstituency]?.urbanization}% Urban</strong>
                   </div>
                   <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase' }}>SC/ST Proportion</span>
-                    <strong style={{ fontSize: '1.2rem', color: 'white' }}>16.5% average</strong>
+                    <strong style={{ fontSize: '1.2rem', color: 'white' }}>{ALL_CONSTITUENCIES_DATA[selectedGlobalConstituency]?.scStPercentage}% average</strong>
                   </div>
                 </div>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  * Source: Directorate of Census Operations, Uttar Pradesh. Demographic vulnerabilities heavily weight the Combined Priority Index.
+                  * Source: Directorate of Census Operations & NFHS-5. Demographic vulnerabilities heavily weight the Combined Priority Index.
                 </span>
               </div>
 
@@ -2045,37 +2060,34 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.keys(RAMPUR_SEGMENTS_DATA).map(key => {
-                      const seg = RAMPUR_SEGMENTS_DATA[key];
-                      return (
-                        <tr key={key} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
-                          <td style={{ padding: '10px', fontWeight: 'bold', textAlign: 'left' }}>📍 {seg.name.replace(" Assembly Segment", "")}</td>
-                          <td style={{ padding: '10px', textAlign: 'center' }}>{seg.population.toLocaleString()}</td>
-                          <td style={{ padding: '10px', textAlign: 'center', color: seg.literacyRate < 50 ? '#f87171' : 'white' }}>{seg.literacyRate}%</td>
-                          <td style={{ padding: '10px', textAlign: 'center', color: seg.waterCoverage < 60 ? '#f87171' : '#34d399', fontWeight: 'bold' }}>
-                            {seg.waterCoverage}% {seg.waterCoverage < 60 && '⚠️'}
-                          </td>
-                          <td style={{ padding: '10px', textAlign: 'center', color: seg.unconnectedHabitations > 5 ? '#f87171' : 'white' }}>
-                            {seg.unconnectedHabitations} villages {seg.unconnectedHabitations > 5 && '⚠️'}
-                          </td>
-                          <td style={{ padding: '10px', textAlign: 'center', color: seg.avgDistanceToPHC > 8 ? '#f87171' : 'white' }}>
-                            {seg.avgDistanceToPHC} km {seg.avgDistanceToPHC > 8 && '⚠️'}
-                          </td>
-                          <td style={{ padding: '10px', textAlign: 'center' }}>{seg.rteCompliance}%</td>
-                          <td style={{ padding: '10px', textAlign: 'center', color: seg.toiletAccess < 80 ? '#f87171' : 'white' }}>{seg.toiletAccess}%</td>
-                          <td style={{ padding: '10px', textAlign: 'center', color: seg.electricityHours < 15 ? '#f87171' : 'white' }}>
-                            {seg.electricityHours} hrs/day {seg.electricityHours < 15 && '⚠️'}
-                          </td>
-                          <td style={{ padding: '10px', textAlign: 'center', color: seg.aqiLevel > 100 ? '#f87171' : '#34d399', fontWeight: 'bold' }}>
-                            {seg.aqiLevel} µg/m³ {seg.aqiLevel > 100 && '⚠️'}
-                          </td>
-                          <td style={{ padding: '10px', textAlign: 'center' }}>{seg.cropYieldIndex} q/ha</td>
-                          <td style={{ padding: '10px', textAlign: 'center', color: seg.soilHealthSaturation < 75 ? '#f87171' : 'white' }}>
-                            {seg.soilHealthSaturation}% {seg.soilHealthSaturation < 75 && '⚠️'}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {[ALL_CONSTITUENCIES_DATA[selectedGlobalConstituency]].filter(Boolean).map(seg => (
+                      <tr key={seg.name} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
+                        <td style={{ padding: '10px', fontWeight: 'bold', textAlign: 'left' }}>📍 {seg.name}</td>
+                        <td style={{ padding: '10px', textAlign: 'center' }}>{seg.population.toLocaleString()}</td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: seg.literacyRate < 50 ? '#f87171' : 'white' }}>{seg.literacyRate}%</td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: seg.waterCoverage < 60 ? '#f87171' : '#34d399', fontWeight: 'bold' }}>
+                          {seg.waterCoverage}% {seg.waterCoverage < 60 && '⚠️'}
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: seg.unconnectedHabitations > 5 ? '#f87171' : 'white' }}>
+                          {seg.unconnectedHabitations} villages {seg.unconnectedHabitations > 5 && '⚠️'}
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: seg.avgDistanceToPHC > 8 ? '#f87171' : 'white' }}>
+                          {seg.avgDistanceToPHC} km {seg.avgDistanceToPHC > 8 && '⚠️'}
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'center' }}>{seg.rteCompliance}%</td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: seg.toiletAccess < 80 ? '#f87171' : 'white' }}>{seg.toiletAccess}%</td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: seg.electricityHours < 15 ? '#f87171' : 'white' }}>
+                          {seg.electricityHours} hrs/day {seg.electricityHours < 15 && '⚠️'}
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: seg.aqiLevel > 100 ? '#f87171' : '#34d399', fontWeight: 'bold' }}>
+                          {seg.aqiLevel} µg/m³ {seg.aqiLevel > 100 && '⚠️'}
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'center' }}>{seg.cropYieldIndex} q/ha</td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: seg.soilHealthSaturation < 75 ? '#f87171' : 'white' }}>
+                          {seg.soilHealthSaturation}% {seg.soilHealthSaturation < 75 && '⚠️'}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -2108,10 +2120,10 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                     </thead>
                     <tbody>
                       {[...filteredDemands]
-                        .map(d => ({ ...d, cpi: calculateCombinedPriorityIndex(d) }))
+                        .map(d => ({ ...d, cpi: calculateCombinedPriorityIndex(d, selectedGlobalConstituency) }))
                         .sort((a, b) => b.cpi - a.cpi)
                         .map(d => {
-                          const gapDetails = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category);
+                          const gapDetails = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category, selectedGlobalConstituency);
                           const isPinned = selectedPlanIds.includes(d.id);
                           
                           // CPI Color code

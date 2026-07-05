@@ -34,6 +34,10 @@ export interface ConstituencyDemographics {
   soilHealthSaturation: number; // % farmers holding active soil health cards
 }
 
+import ALL_CONSTITUENCIES_DATA_RAW from './constituencies_543.json';
+
+export const ALL_CONSTITUENCIES_DATA: Record<string, ConstituencyDemographics> = ALL_CONSTITUENCIES_DATA_RAW as Record<string, ConstituencyDemographics>;
+
 export const MINISTRY_STANDARDS: Record<string, MinistryStandard> = {
   water: {
     id: 'water',
@@ -265,14 +269,17 @@ export function getClosestConstituencySegment(lat: number, lng: number): Constit
  * Evaluates the specific category gap index based on coordinates.
  * Returns gap severity percentage (0 = compliant with Ministry standards, 100 = extreme deficit).
  */
-export function evaluateInfrastructureGap(lat: number, lng: number, category: string): {
+export function evaluateInfrastructureGap(lat: number, lng: number, category: string, constituencyName?: string): {
   gapPercentage: number;
   localMetric: string;
   benchmarkMetric: string;
   standard: MinistryStandard;
   assemblyName: string;
 } {
-  const segment = getClosestConstituencySegment(lat, lng);
+  // If a constituency name is provided, use the real 543 data. Otherwise fallback to geospatial Rampur lookup.
+  const segment = (constituencyName && ALL_CONSTITUENCIES_DATA[constituencyName]) 
+    ? ALL_CONSTITUENCIES_DATA[constituencyName] 
+    : getClosestConstituencySegment(lat, lng);
   const normalizedCategory = category.toLowerCase();
   
   let gapPercentage = 0;
@@ -383,17 +390,20 @@ export function evaluateInfrastructureGap(lat: number, lng: number, category: st
  * - Infrastructure Gap Score: evaluated percentage from ministry standards
  * - Demographic Vulnerability: derived from segment literacy, SC/ST, and rural levels
  */
-export function calculateCombinedPriorityIndex(d: any): number {
+export function calculateCombinedPriorityIndex(d: any, constituencyName?: string): number {
   // 1. Vote Score (normalized upvotes, capped at 50 upvotes = 100 score)
   const votes = d.upvotes || 1;
   const voteScore = Math.min(100, (votes / 50) * 100);
 
   // 2. Infrastructure Gap Score
-  const gapResult = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category);
+  const gapResult = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category, constituencyName);
   const gapScore = gapResult.gapPercentage;
 
   // 3. Demographic Vulnerability Score
-  const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
+  const segment = (constituencyName && ALL_CONSTITUENCIES_DATA[constituencyName]) 
+    ? ALL_CONSTITUENCIES_DATA[constituencyName] 
+    : getClosestConstituencySegment(d.location.lat, d.location.lng);
+    
   // Vulnerability increases with: low literacy (50% max weight), high SC/ST (30% weight), low urbanization/rurality (20% weight)
   const literacyVuln = Math.max(0, 100 - segment.literacyRate);
   const scstVuln = segment.scStPercentage;
