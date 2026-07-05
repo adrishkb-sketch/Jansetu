@@ -10,7 +10,8 @@ import {
   DollarSign,
   Info,
   Loader2,
-  X
+  X,
+  Brain
 } from 'lucide-react';
 import { getAllDemands, updateDemandStatus } from './services/db';
 import { LanguageSelector, getInitialLanguage, useGoogleMapsLoader } from './App';
@@ -56,7 +57,29 @@ function MPApp() {
   const [generatingBrief, setGeneratingBrief] = useState(false);
   const [showBriefModal, setShowBriefModal] = useState(false);
 
+  // Approved Plan states
+  const [approvedPlan, setApprovedPlan] = useState<any | null>(null);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('mp_auth') === 'true');
+
+  useEffect(() => {
+    const loadApprovedPlan = () => {
+      try {
+        const saved = localStorage.getItem('jansetu_approved_plan');
+        if (saved) {
+          setApprovedPlan(JSON.parse(saved));
+        } else {
+          setApprovedPlan(null);
+        }
+      } catch {
+        setApprovedPlan(null);
+      }
+    };
+    loadApprovedPlan();
+    window.addEventListener('storage', loadApprovedPlan);
+    return () => window.removeEventListener('storage', loadApprovedPlan);
+  }, []);
 
   // Load demands
   useEffect(() => {
@@ -279,6 +302,47 @@ Structure of Speech:
           <h2>AI-Priority Constituency Planner</h2>
           <p className="portal-subtitle">Weigh competing infrastructure requests objectively using citizen demand metrics and demographic gap ratings</p>
         </div>
+
+        {approvedPlan && (
+          <div className="form-card" style={{
+            background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.15) 0%, rgba(13, 12, 29, 0.4) 100%)',
+            border: '1px solid rgba(20, 184, 166, 0.4)',
+            padding: '20px 24px',
+            marginBottom: '24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderRadius: '12px',
+            gap: '20px',
+            textAlign: 'left'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ background: 'rgba(20, 184, 166, 0.2)', padding: '12px', borderRadius: '12px', color: '#2dd4bf' }}>
+                <FileText size={24} />
+              </div>
+              <div>
+                <span style={{ fontSize: '10px', background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                  ✓ Approved Plan Active
+                </span>
+                <h4 style={{ color: 'white', margin: '4px 0', fontSize: '1.1rem' }}>{approvedPlan.planName}</h4>
+                <p style={{ color: 'var(--text-desc)', fontSize: '0.8rem', margin: 0 }}>
+                  {approvedPlan.summary.slice(0, 120)}...
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPlanModal(true)}
+              style={{
+                background: 'var(--manager-grad)', border: 'none', color: 'white', fontWeight: 'bold',
+                padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0
+              }}
+            >
+              <Sparkles size={16} />
+              <span>View Step-by-Step Action Plan</span>
+            </button>
+          </div>
+        )}
 
         {/* MPLADS fund tracker row */}
         <div className="form-card" style={{ padding: '20px 24px', marginBottom: '24px', display: 'flex', flexWrap: 'wrap', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
@@ -541,6 +605,261 @@ Structure of Speech:
           </div>
         </div>
       )}
+
+      {showPlanModal && approvedPlan && (
+        <div className="modal-overlay no-print" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(5, 5, 16, 0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px'
+        }}>
+          <div className="modal-content" style={{ maxWidth: '850px', width: '100%', textAlign: 'left', maxHeight: '90vh', overflowY: 'auto', background: '#0d0c1d', border: '1px solid var(--border-light)', borderRadius: '16px', padding: '28px 36px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '14px', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.25rem' }}>
+                <Brain size={22} style={{ color: '#2dd4bf' }} />
+                <span>Approved Step-by-Step Constituency Development Plan</span>
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setShowPlanModal(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <h4 style={{ color: 'white', fontSize: '1.2rem', margin: '0 0 6px 0' }}>{approvedPlan.planName}</h4>
+                <p style={{ color: 'var(--text-desc)', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>{approvedPlan.summary}</p>
+              </div>
+
+              {/* CSS Interactive Flowchart */}
+              <div>
+                <span style={{ fontSize: '11px', color: '#2dd4bf', fontWeight: 'bold', display: 'block', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  ⌛ Pipeline Implementation Flowchart
+                </span>
+                <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '12px 0', borderBottom: '1px solid var(--border-light)', marginBottom: '10px' }}>
+                  {approvedPlan.flowchart.map((step: any, idx: number) => (
+                    <React.Fragment key={idx}>
+                      <div style={{
+                        background: 'rgba(20, 184, 166, 0.08)', border: '1px solid rgba(20, 184, 166, 0.3)',
+                        borderRadius: '12px', padding: '16px', minWidth: '200px', flex: '1', textAlign: 'left',
+                        position: 'relative'
+                      }}>
+                        <span style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: 'bold', display: 'block', textTransform: 'uppercase' }}>
+                          ⌛ {step.duration}
+                        </span>
+                        <strong style={{ fontSize: '13px', color: 'white', display: 'block', margin: '4px 0 2px 0' }}>
+                          {step.phase}
+                        </strong>
+                        <p style={{ fontSize: '11px', color: 'var(--text-desc)', margin: 0 }}>
+                          {step.description}
+                        </p>
+                      </div>
+                      {idx < approvedPlan.flowchart.length - 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', color: '#2dd4bf', fontSize: '20px', userSelect: 'none' }}>➔</div>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+
+              {/* Detailed Projects Table */}
+              <div>
+                <span style={{ fontSize: '11px', color: '#818cf8', fontWeight: 'bold', display: 'block', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  📋 Planned Projects & Cost Breakdowns
+                </span>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontWeight: 'bold' }}>
+                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Project Name</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Action Description</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Agency</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Timeline</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'right' }}>Est. Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {approvedPlan.detailedSteps.map((step: any, idx: number) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
+                          <td style={{ padding: '10px', fontWeight: 'bold', textAlign: 'left' }}>{step.title}</td>
+                          <td style={{ padding: '10px', color: 'var(--text-desc)', textAlign: 'left' }}>{step.description}</td>
+                          <td style={{ padding: '10px', color: '#2dd4bf', textAlign: 'left' }}>{step.agency}</td>
+                          <td style={{ padding: '10px', textAlign: 'center' }}>{step.timeline}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: '#fbbf24' }}>
+                            ₹{(step.cost / 100000).toFixed(1)} L
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => window.print()}
+                  style={{ background: 'var(--mp-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', flexGrow: 1, textAlign: 'center' }}
+                >
+                  🖨️ Print / Download Action Plan
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setShowPlanModal(false)}
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-light)', color: 'white', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}
+                >
+                  Close
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden Printable Action Plan (visible only during window.print()) */}
+      {approvedPlan && (
+        <div 
+          id="printable-plan-mp-card" 
+          style={{
+            display: 'none', background: 'white', color: 'black', padding: '40px', fontFamily: 'Georgia, serif',
+            textAlign: 'left', border: '1px solid #ccc'
+          }}
+        >
+          <div style={{ textAlign: 'center', borderBottom: '2px solid black', paddingBottom: '16px', marginBottom: '24px' }}>
+            <h1 style={{ fontSize: '24px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold', color: 'black' }}>
+              CONSTITUENCY DEVELOPMENT ACTION PLAN
+            </h1>
+            <h2 style={{ fontSize: '18px', margin: '0 0 4px 0', fontWeight: 'bold', color: '#333' }}>
+              Rampur Lok Sabha Constituency, Uttar Pradesh
+            </h2>
+            <span style={{ fontSize: '12px', color: '#666' }}>
+              Date Approved: {new Date().toLocaleDateString()} | Document Status: APPROVED & SYNCED
+            </span>
+          </div>
+
+          <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '16px', borderBottom: '1px solid #888', paddingBottom: '4px', fontWeight: 'bold', margin: '0 0 10px 0', color: 'black' }}>
+              1. PLAN PROFILE & BUDGET SUMMARY
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', margin: '0 0 12px 0' }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '6px 0', width: '220px' }}><strong>Action Plan Name:</strong></td>
+                  <td style={{ padding: '6px 0' }}>{approvedPlan.planName}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '6px 0' }}><strong>Executive Summary:</strong></td>
+                  <td style={{ padding: '6px 0', fontStyle: 'italic' }}>{approvedPlan.summary}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '6px 0' }}><strong>Planned Project Count:</strong></td>
+                  <td style={{ padding: '6px 0' }}>{approvedPlan.detailedSteps.length} target sites</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '16px', borderBottom: '1px solid #888', paddingBottom: '4px', fontWeight: 'bold', margin: '0 0 10px 0', color: 'black' }}>
+              2. TIMELINE IMPLEMENTATION FLOWCHART
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', margin: '0 0 12px 0' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
+                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd', width: '180px' }}>Phase / Duration</th>
+                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Core Phase Action Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvedPlan.flowchart.map((step: any, idx: number) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '8px 6px', border: '1px solid #ddd', fontWeight: 'bold' }}>
+                      {step.phase}
+                      <span style={{ display: 'block', fontSize: '9px', color: '#666' }}>({step.duration})</span>
+                    </td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ pageBreakBefore: 'always', paddingTop: '20px' }}>
+            <h3 style={{ fontSize: '16px', borderBottom: '1px solid #888', paddingBottom: '4px', fontWeight: 'bold', margin: '0 0 16px 0', color: 'black' }}>
+              3. PROJECT SITE DETAILS & RESPONSIBLE AGENCIES
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', margin: '0 0 12px 0' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
+                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>ID</th>
+                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Project Title</th>
+                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Description & Gap Audits</th>
+                  <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd', width: '180px' }}>Agency</th>
+                  <th style={{ padding: '6px', textAlign: 'center', border: '1px solid #ddd', width: '100px' }}>Estimated Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvedPlan.detailedSteps.map((step: any, idx: number) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.id}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #ddd', fontWeight: 'bold' }}>{step.title}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.description}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #ddd', color: '#2b2214' }}>{step.agency}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold' }}>
+                      ₹{(step.cost / 100000).toFixed(1)} L
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+            <div style={{ textAlign: 'center', width: '200px' }}>
+              <div style={{ borderBottom: '1px solid black', height: '40px' }}></div>
+              <span style={{ display: 'block', marginTop: '6px' }}>Constituency Aggregator (Jansetu)</span>
+            </div>
+            <div style={{ textAlign: 'center', width: '200px' }}>
+              <div style={{ borderBottom: '1px solid black', height: '40px' }}></div>
+              <span style={{ display: 'block', marginTop: '6px' }}>Member of Parliament (MP)</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global CSS Print Stylesheet overrides for MP View */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #printable-plan-mp-card, #printable-plan-mp-card * {
+            visibility: visible !important;
+          }
+          #printable-plan-mp-card {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            color: black !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .no-print {
+            display: none !important;
+            height: 0 !important;
+            width: 0 !important;
+            overflow: hidden !important;
+          }
+        }
+      `}</style>
 
       <footer className="footer" style={{ marginTop: '40px' }}>
         <div className="container footer-content">

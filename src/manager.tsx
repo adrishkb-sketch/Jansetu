@@ -82,7 +82,12 @@ function ManagerConsole() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
-  const [proposalBrief, setProposalBrief] = useState(() => localStorage.getItem('jansetu_proposal_brief') || '');
+  const [actionPlan, setActionPlan] = useState<any | null>(() => {
+    try {
+      const saved = localStorage.getItem('jansetu_draft_plan');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
   const [customPlanName, setCustomPlanName] = useState(() => localStorage.getItem('jansetu_plan_name') || 'Rampur Lok Sabha Constituency Action Plan');
   const [mpladsBudget, setMpladsBudget] = useState(() => {
@@ -106,6 +111,20 @@ function ManagerConsole() {
   useEffect(() => {
     localStorage.setItem('jansetu_mplads_budget', mpladsBudget.toString());
   }, [mpladsBudget]);
+
+  useEffect(() => {
+    if (actionPlan) {
+      localStorage.setItem('jansetu_draft_plan', JSON.stringify(actionPlan));
+      if (actionPlan.isApproved) {
+        localStorage.setItem('jansetu_approved_plan', JSON.stringify(actionPlan));
+      } else {
+        localStorage.removeItem('jansetu_approved_plan');
+      }
+    } else {
+      localStorage.removeItem('jansetu_draft_plan');
+      localStorage.removeItem('jansetu_approved_plan');
+    }
+  }, [actionPlan]);
 
   // Load demands
   useEffect(() => {
@@ -269,6 +288,7 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
     const compiledItemsText = selectedDemands.map((d, index) => {
       const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
       return `Item #${index + 1}:
+- ID: ${d.id}
 - Category: ${d.category}
 - Ticket Type: ${d.ticketType || 'complaint'}
 - Coordinates Address: ${d.address} (Closest Segment: ${segment.name})
@@ -279,26 +299,31 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
 
     if (geminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
       try {
-        const prompt = `You are a professional Lok Sabha speechwriter drafting a formal parliamentary question / constituency representation under Rule 377 for the Rampur Lok Sabha MP.
-We are presenting a Consolidated Constituency Development Plan based on citizen feedback and government benchmarks.
-
-Please draft a detailed, highly persuasive speech (approx 300 words).
-Requirements:
-1. Address the Speaker: "Hon'ble Speaker Sir..."
-2. Group the citizen demands by theme (e.g. merge similar issues together) and by region (e.g. group all issues in swar or chamraua segments).
-3. Include both citizen complaints (e.g., pothole and water leak issues) AND citizen suggestions (e.g., school libraries, solar panels).
-4. Explicitly compare these citizen needs against official Indian ministry datasets & standards:
-   - For water issues: Mention Jal Jeevan Mission benchmarks (55 lpcd potable tap water, BIS:10500 standards).
-   - For road issues: Mention PMGSY Plain area road connectivity standards (eligible for 500+ pop).
-   - For health issues: Mention National Health Mission / Ayushman Bharat PHC proximity norms (PHC within 8 km / Sub-Centre within 3 km).
-   - For education: Mention Right to Education Act primary school limits (within 1 km).
-5. Highlight the exact numbers of supporting citizens and upvotes to show public demand weight.
-6. Request the concerned ministries (Jal Shakti, Rural Development, Health, Education) to immediately allocate central funds or launch action schemes.
-
-Here is the list of selected citizen priorities from the constituency database:
+        const prompt = `You are a constituency development expert. Create a structured step-by-step action plan for Rampur Lok Sabha constituency based on these selected citizen priorities:
 ${compiledItemsText}
 
-Do NOT write placeholders (e.g., "[Insert Name]"). Write a complete, ready-to-read parliamentary speech.`;
+Provide your response ONLY as a valid JSON object matching the following schema. Do NOT include markdown blocks or any text outside the JSON.
+{
+  "planName": "Title of the plan",
+  "summary": "Brief executive summary paragraph highlighting demographics and ministry guidelines",
+  "flowchart": [
+    {
+      "phase": "Phase Title (e.g. Phase 1: Mobilization)",
+      "duration": "Timeline range (e.g. Weeks 1-2)",
+      "description": "Specific action details"
+    }
+  ],
+  "detailedSteps": [
+    {
+      "id": "Matching Ticket ID from the compiled items",
+      "title": "Specific Project Name",
+      "description": "Step-by-step implementation details comparing against ministry norms (Jal Jeevan, PMGSY, NHM, RTE)",
+      "cost": number (Estimated cost in Rupees),
+      "timeline": "Duration (e.g. 30 Days)",
+      "agency": "Government body responsible (e.g. Public Works Department (PWD))"
+    }
+  ]
+}`;
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST',
@@ -308,58 +333,86 @@ Do NOT write placeholders (e.g., "[Insert Name]"). Write a complete, ready-to-re
           body: JSON.stringify({
             contents: [{
               parts: [{ text: prompt }]
-            }]
+            }],
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
           })
         });
 
         const json = await response.json();
-        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          setProposalBrief(text.trim());
-          localStorage.setItem('jansetu_proposal_brief', text.trim());
+        let responseText = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsedPlan = JSON.parse(responseText);
+        
+        if (parsedPlan && parsedPlan.planName) {
+          parsedPlan.isApproved = false;
+          setActionPlan(parsedPlan);
+          localStorage.setItem('jansetu_draft_plan', JSON.stringify(parsedPlan));
           setIsGeneratingProposal(false);
           return;
         }
       } catch (e) {
-        console.error("Gemini proposal brief generation failed: ", e);
+        console.error("Gemini action plan generation failed, falling back to mock: ", e);
       }
     }
 
-    // Dynamic Mock Fallback speech builder:
+    // Dynamic Mock Fallback action plan builder:
     setTimeout(() => {
-      const categoriesCount: Record<string, number> = {};
-      const regionsCount: Record<string, number> = {};
-      let totalUpvotes = 0;
-      selectedDemands.forEach(d => {
-        categoriesCount[d.category] = (categoriesCount[d.category] || 0) + 1;
+      const mockDetailedSteps = selectedDemands.map((d, index) => {
+        const cost = getProjectCostEstimate(d.category, d.scope);
         const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
-        regionsCount[segment.name] = (regionsCount[segment.name] || 0) + 1;
-        totalUpvotes += (d.upvotes || 1);
+        const desc = d.items?.[0]?.content || d.items?.[0]?.speechTranscript || `Remediation for ${d.category} issues in ${segment.name}`;
+        
+        let agency = 'District Development Authority';
+        if (d.category === 'roads') agency = 'Public Works Department (PWD)';
+        else if (d.category === 'water') agency = 'Jal Nigam & Jal Shakti Division';
+        else if (d.category === 'health') agency = 'Chief Medical Officer & NHM';
+        else if (d.category === 'education') agency = 'Basic Shiksha Adhikari (BSA)';
+
+        return {
+          id: d.id,
+          title: `Project ${index + 1}: ${d.category.charAt(0).toUpperCase() + d.category.slice(1)} Intervention at ${d.address.split(',')[0]}`,
+          description: `A data-driven project to address infrastructure gaps in ${segment.name}. Action description: ${desc}. Assessed against Ministry Guidelines.`,
+          cost: cost,
+          timeline: d.scope === 'constituency' ? '90 Days' : d.scope === 'ward' ? '45 Days' : '15 Days',
+          agency: agency
+        };
       });
 
-      const topRegion = Object.keys(regionsCount).sort((a,b)=>regionsCount[b]-regionsCount[a])[0] || 'Rampur segments';
-      const topCategory = Object.keys(categoriesCount).sort((a,b)=>categoriesCount[b]-categoriesCount[a])[0] || 'infrastructure';
+      const mockFlowchart = [
+        {
+          phase: "Phase 1: Mobilization & Feasibility",
+          duration: "Weeks 1-2",
+          description: "Initiating surveys, land clearance checks, and soil stability audits for selected road/water sites in Rampur."
+        },
+        {
+          phase: "Phase 2: Budget Sanction & Tender",
+          duration: "Weeks 3-4",
+          description: "Allocating ₹" + (totalPlannedCost / 100000).toFixed(1) + " Lakhs from MPLADS and initiating transparent digital bids."
+        },
+        {
+          phase: "Phase 3: Civil Construction",
+          duration: "Months 2-3",
+          description: "Execution of concrete layering, pipe laying, and primary health centre equipment installation."
+        },
+        {
+          phase: "Phase 4: Inspection & Verification",
+          duration: "Month 4",
+          description: "Verification of works against RTE, JJM, and national road safety standards prior to handover."
+        }
+      ];
 
-      const speech = `Hon'ble Speaker Sir,
+      const mockPlan = {
+        planName: customPlanName || "Rampur Lok Sabha Constituency Action Plan",
+        summary: `A data-driven development blueprint prioritizing ${selectedDemands.length} civic gaps. Resolves critical deficiencies using MPLADS funding compared against state benchmarks.`,
+        flowchart: mockFlowchart,
+        detailedSteps: mockDetailedSteps,
+        isApproved: false
+      };
 
-I rise today to draw the attention of this August House to a pressing matter of public importance regarding the constituency development of Rampur, Uttar Pradesh. Through our newly deployed intelligent citizen intake portal, Jansetu, we have consolidated over ${selectedDemands.length} high-priority developmental suggestions and grievances, verified by a cumulative total of ${totalUpvotes} citizen support signatures.
-
-Sir, the data gathered from the ground paints a clear picture of infrastructural deficits that violate the standards laid down by our own union ministries:
-
-First, in the sector of ${topCategory.toUpperCase()} development, particularly in ${topRegion}, our citizens have voiced critical concerns. Under the Jal Jeevan Mission, the mandate is to provide clean potable tap water of 55 lpcd to every rural household. However, our field telemetry indicates that water tap connections remain severely below compliance, falling to as low as 48% coverage in key rural pockets. This is corroborated by numerous complaints regarding pipe bursts and water quality.
-
-Second, under the Pradhan Mantri Gram Sadak Yojana (PMGSY), Plain areas with populations above 500 must receive all-weather road connectivity. Sir, we have multiple habitations in Milak and Chamraua that remain disconnected, with citizens filing suggestions for immediate road reconstruction to connect their farmlands to regional markets.
-
-Additionally, our healthcare gap analysis reveals that the average distance to a Primary Health Centre (PHC) in the Swar and Milak segments exceeds 11 km. This directly breaches the National Health Mission and Ayushman Bharat guidelines which recommend a sub-centre within 3 km and a PHC within 8 km. 
-
-Speaker Sir, the citizens of Rampur have not only filed complaints; they have submitted proactive suggestions, including school digitizations and solar water pump installations. 
-
-Therefore, I urgently request the Hon'ble Ministers of Jal Shakti, Rural Development, and Health & Family Welfare to coordinate with the state administration and sanction the required funds from central allocations. The demand of our constituents is backed by objective demographic deficits and citizen consensus. I lay this Constituency Development Plan before the House and urge swift intervention.
-
-Thank you, Sir.`;
-
-      setProposalBrief(speech);
-      localStorage.setItem('jansetu_proposal_brief', speech);
+      setActionPlan(mockPlan);
+      localStorage.setItem('jansetu_draft_plan', JSON.stringify(mockPlan));
       setIsGeneratingProposal(false);
     }, 1500);
   };
@@ -2235,12 +2288,12 @@ Thank you, Sir.`;
                       {isGeneratingProposal ? (
                         <>
                           <Clock className="spinner" size={16} />
-                          <span>Generating Speech & Proposal...</span>
+                          <span>Generating Action Plan...</span>
                         </>
                       ) : (
                         <>
                           <Sparkles size={16} />
-                          <span>Generate Speech & Proposal Brief</span>
+                          <span>Generate AI Action Plan</span>
                         </>
                       )}
                     </button>
@@ -2249,30 +2302,53 @@ Thank you, Sir.`;
 
               </div>
 
-              {/* Right Column: Speech & Parliament Brief Display Panel */}
+              {/* Right Column: AI Action Plan Workspace Panel */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div className="form-card" style={{ minHeight: '500px', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', marginBottom: '16px' }}>
+                <div className="form-card" style={{ minHeight: '600px', display: 'flex', flexDirection: 'column', padding: '24px 30px' }}>
+                  
+                  {/* Header Actions Panel */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                     <h3 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.15rem' }}>
-                      <Sparkles size={18} style={{ color: '#fbbf24' }} />
-                      <span>Parliament Speech Draft (Rule 377 Representation)</span>
+                      <Brain size={20} style={{ color: '#2dd4bf' }} />
+                      <span>AI Constituency Development Plan & Action Steps</span>
                     </h3>
-                    {proposalBrief && (
-                      <button
-                        type="button"
-                        onClick={() => window.print()}
-                        style={{
-                          background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-light)', color: 'white',
-                          padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 'bold'
-                        }}
-                      >
-                        <Printer size={14} />
-                        <span>Print Development Plan</span>
-                      </button>
+                    
+                    {actionPlan && (
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = { ...actionPlan, isApproved: !actionPlan.isApproved };
+                            setActionPlan(next);
+                            if (next.isApproved) {
+                              alert("Action Plan has been approved and is now visible on the MP's dashboard!");
+                            }
+                          }}
+                          style={{
+                            background: actionPlan.isApproved ? 'rgba(16, 185, 129, 0.15)' : 'rgba(251, 191, 36, 0.1)',
+                            border: actionPlan.isApproved ? '1px solid #10b981' : '1px solid rgba(251, 191, 36, 0.4)',
+                            color: actionPlan.isApproved ? '#34d399' : '#fbbf24',
+                            padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold'
+                          }}
+                        >
+                          {actionPlan.isApproved ? '✓ Approved & Sent' : '⚠️ Pending Approval'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => window.print()}
+                          style={{
+                            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-light)', color: 'white',
+                            padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 'bold'
+                          }}
+                        >
+                          <Printer size={14} />
+                          <span>Print Plan</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
-                  {!proposalBrief && !isGeneratingProposal && (
+                  {!actionPlan && !isGeneratingProposal && (
                     <div style={{ margin: 'auto', padding: '60px 0', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
                       Select plan issues on the left and click "Generate Speech & Proposal Brief" to compile citizen priorities with ministry benchmarks using Gemini.
                     </div>
@@ -2281,39 +2357,140 @@ Thank you, Sir.`;
                   {isGeneratingProposal && (
                     <div style={{ margin: 'auto', padding: '60px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
                       <Loader2 className="spinner" size={32} style={{ color: '#fbbf24' }} />
-                      <span style={{ color: 'var(--text-desc)' }}>Gemini AI is synthesizing speeches and comparing data...</span>
+                      <span style={{ color: 'var(--text-desc)' }}>Gemini AI is drafting step-by-step actions and comparing data...</span>
                     </div>
                   )}
 
-                  {proposalBrief && !isGeneratingProposal && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flexGrow: 1 }}>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-desc)', margin: 0 }}>
-                        The speech draft below synthesizes your constituency development plan, grouping citizen voices and comparing them directly to Jal Jeevan, PMGSY, NHM, and RTE guidelines.
-                      </p>
+                  {actionPlan && !isGeneratingProposal && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flexGrow: 1 }}>
                       
-                      <div 
-                        style={{
-                          background: '#fffbf2', border: '1px solid #e5d5be', padding: '24px 30px', borderRadius: '8px',
-                          color: '#2b2214', fontFamily: 'Georgia, serif', fontSize: '0.95rem', lineHeight: '1.6', textAlign: 'left',
-                          boxShadow: 'inset 0 0 10px rgba(0,0,0,0.05)', whiteSpace: 'pre-line', overflowY: 'auto', maxHeight: '420px'
-                        }}
-                      >
-                        {proposalBrief}
+                      {/* Meta Profile Inputs */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold' }}>PLAN TITLE</label>
+                          <input 
+                            type="text"
+                            value={actionPlan.planName}
+                            onChange={e => setActionPlan({ ...actionPlan, planName: e.target.value })}
+                            style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', borderRadius: '6px', fontSize: '13px' }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold' }}>EXECUTIVE PLAN SUMMARY</label>
+                          <textarea 
+                            value={actionPlan.summary}
+                            rows={1}
+                            onChange={e => setActionPlan({ ...actionPlan, summary: e.target.value })}
+                            style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', borderRadius: '6px', fontSize: '13px', resize: 'vertical' }}
+                          />
+                        </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(proposalBrief);
-                          alert('Parliament Brief copied to clipboard!');
-                        }}
-                        style={{
-                          background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-light)', color: 'white',
-                          padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem'
-                        }}
-                      >
-                        Copy Speech Draft to Clipboard
-                      </button>
+                      {/* Interactive CSS Flowchart Diagram */}
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#2dd4bf', fontWeight: 'bold', display: 'block', textTransform: 'uppercase', marginBottom: '8px' }}>
+                          🎯 Project Execution Flowchart Timeline
+                        </span>
+                        <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '8px 0', borderBottom: '1px solid var(--border-light)', marginBottom: '10px' }}>
+                          {actionPlan.flowchart.map((step: any, idx: number) => (
+                            <React.Fragment key={idx}>
+                              <div style={{
+                                background: 'rgba(20, 184, 166, 0.08)', border: '1px solid rgba(20, 184, 166, 0.3)',
+                                borderRadius: '12px', padding: '12px', minWidth: '200px', flex: '1', textAlign: 'left',
+                                position: 'relative'
+                              }}>
+                                <span style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: 'bold', display: 'block', textTransform: 'uppercase' }}>
+                                  ⌛ {step.duration}
+                                </span>
+                                <input
+                                  type="text"
+                                  value={step.phase}
+                                  onChange={e => {
+                                    const nextFlow = [...actionPlan.flowchart];
+                                    nextFlow[idx] = { ...step, phase: e.target.value };
+                                    setActionPlan({ ...actionPlan, flowchart: nextFlow });
+                                  }}
+                                  style={{ background: 'none', border: 'none', color: 'white', fontWeight: 'bold', fontSize: '12px', margin: '4px 0 2px 0', padding: 0, width: '100%' }}
+                                />
+                                <textarea
+                                  value={step.description}
+                                  rows={2}
+                                  onChange={e => {
+                                    const nextFlow = [...actionPlan.flowchart];
+                                    nextFlow[idx] = { ...step, description: e.target.value };
+                                    setActionPlan({ ...actionPlan, flowchart: nextFlow });
+                                  }}
+                                  style={{ background: 'none', border: 'none', color: 'var(--text-desc)', fontSize: '10.5px', padding: 0, resize: 'none', width: '100%', outline: 'none' }}
+                                />
+                              </div>
+                              {idx < actionPlan.flowchart.length - 1 && (
+                                <div style={{ display: 'flex', alignItems: 'center', color: '#2dd4bf', fontSize: '20px', userSelect: 'none' }}>➔</div>
+                              )}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Detailed Project steps spreadsheet */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', color: '#818cf8', fontWeight: 'bold', display: 'block', textTransform: 'uppercase' }}>
+                          🛠️ Target Action Items & Budget Allocations
+                        </span>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '280px', paddingRight: '4px' }}>
+                          {actionPlan.detailedSteps.map((step: any, idx: number) => (
+                            <div key={idx} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-light)', padding: '14px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '12px' }}>
+                                <input 
+                                  type="text"
+                                  value={step.title}
+                                  onChange={e => {
+                                    const nextSteps = [...actionPlan.detailedSteps];
+                                    nextSteps[idx] = { ...step, title: e.target.value };
+                                    setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
+                                  }}
+                                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-light)', color: 'white', fontSize: '12px', padding: '6px 10px', borderRadius: '4px', fontWeight: 'bold' }}
+                                />
+                                <input 
+                                  type="text"
+                                  value={step.agency}
+                                  placeholder="Responsible Agency"
+                                  onChange={e => {
+                                    const nextSteps = [...actionPlan.detailedSteps];
+                                    nextSteps[idx] = { ...step, agency: e.target.value };
+                                    setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
+                                  }}
+                                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-light)', color: '#2dd4bf', fontSize: '11px', padding: '6px 10px', borderRadius: '4px' }}
+                                />
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>₹</span>
+                                  <input 
+                                    type="number"
+                                    value={step.cost}
+                                    onChange={e => {
+                                      const nextSteps = [...actionPlan.detailedSteps];
+                                      nextSteps[idx] = { ...step, cost: parseFloat(e.target.value) || 0 };
+                                      setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
+                                    }}
+                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-light)', color: '#fbbf24', fontSize: '11px', padding: '6px 10px', borderRadius: '4px', width: '100%', fontWeight: 'bold' }}
+                                  />
+                                </div>
+                              </div>
+                              <textarea 
+                                value={step.description}
+                                rows={2}
+                                onChange={e => {
+                                  const nextSteps = [...actionPlan.detailedSteps];
+                                  nextSteps[idx] = { ...step, description: e.target.value };
+                                  setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
+                                }}
+                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', color: 'var(--text-desc)', fontSize: '11px', padding: '8px 10px', borderRadius: '4px', resize: 'vertical' }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                     </div>
                   )}
                 </div>
@@ -2322,7 +2499,7 @@ Thank you, Sir.`;
             </div>
 
             {/* Hidden Printable Card: Rendered only during window.print() */}
-            {proposalBrief && (
+            {actionPlan && (
               <div 
                 id="printable-proposal-card" 
                 style={{
@@ -2332,37 +2509,37 @@ Thank you, Sir.`;
               >
                 <div style={{ textAlign: 'center', borderBottom: '2px solid black', paddingBottom: '16px', marginBottom: '24px' }}>
                   <h1 style={{ fontSize: '24px', margin: '0 0 6px 0', textTransform: 'uppercase', fontWeight: 'bold', color: 'black' }}>
-                    PARLIAMENTARY CONSTITUENCY DEVELOPMENT PROPOSAL
+                    CONSTITUENCY DEVELOPMENT ACTION PLAN
                   </h1>
                   <h2 style={{ fontSize: '18px', margin: '0 0 4px 0', fontWeight: 'bold', color: '#333' }}>
                     Rampur Lok Sabha Constituency, Uttar Pradesh
                   </h2>
                   <span style={{ fontSize: '12px', color: '#666' }}>
-                    Compiled Date: {new Date().toLocaleDateString()} | Document ID: JANSETU-CDP-{Date.now().toString().slice(-6)}
+                    Date Approved: {new Date().toLocaleDateString()} | Document Status: APPROVED & SYNCED
                   </span>
                 </div>
 
                 <div style={{ marginBottom: '24px' }}>
                   <h3 style={{ fontSize: '16px', borderBottom: '1px solid #888', paddingBottom: '4px', fontWeight: 'bold', margin: '0 0 10px 0', color: 'black' }}>
-                    1. GENERAL PLAN PROFILE & FUND LEDGER
+                    1. PLAN PROFILE & BUDGET SUMMARY
                   </h3>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', margin: '0 0 12px 0' }}>
                     <tbody>
                       <tr>
-                        <td style={{ padding: '6px 0', width: '220px' }}><strong>Proposal Title Name:</strong></td>
-                        <td style={{ padding: '6px 0' }}>{customPlanName}</td>
+                        <td style={{ padding: '6px 0', width: '220px' }}><strong>Action Plan Name:</strong></td>
+                        <td style={{ padding: '6px 0' }}>{actionPlan.planName}</td>
                       </tr>
                       <tr>
-                        <td style={{ padding: '6px 0' }}><strong>Consolidated Citizen Grievances:</strong></td>
-                        <td style={{ padding: '6px 0' }}>{selectedPlanIds.length} priorities checked</td>
+                        <td style={{ padding: '6px 0' }}><strong>Executive Summary:</strong></td>
+                        <td style={{ padding: '6px 0', fontStyle: 'italic' }}>{actionPlan.summary}</td>
                       </tr>
                       <tr>
-                        <td style={{ padding: '6px 0' }}><strong>Total MPLADS Allocation Cost:</strong></td>
-                        <td style={{ padding: '6px 0' }}>₹{(totalPlannedCost / 100000).toFixed(1)} Lakhs</td>
+                        <td style={{ padding: '6px 0' }}><strong>Planned Project Count:</strong></td>
+                        <td style={{ padding: '6px 0' }}>{actionPlan.detailedSteps.length} target sites</td>
                       </tr>
                       <tr>
-                        <td style={{ padding: '6px 0' }}><strong>Remaining MPLADS Balance:</strong></td>
-                        <td style={{ padding: '6px 0' }}>₹{(remainingBudget / 10000000).toFixed(2)} Crores</td>
+                        <td style={{ padding: '6px 0' }}><strong>Total Fund Ledger Cost:</strong></td>
+                        <td style={{ padding: '6px 0', fontWeight: 'bold' }}>₹{(totalPlannedCost / 100000).toFixed(1)} Lakhs</td>
                       </tr>
                     </tbody>
                   </table>
@@ -2370,47 +2547,57 @@ Thank you, Sir.`;
 
                 <div style={{ marginBottom: '24px' }}>
                   <h3 style={{ fontSize: '16px', borderBottom: '1px solid #888', paddingBottom: '4px', fontWeight: 'bold', margin: '0 0 10px 0', color: 'black' }}>
-                    2. CONSTITUENT PRIORITY WORKS LIST & GOVT BENCHMARK GAP AUDIT
+                    2. TIMELINE IMPLEMENTATION FLOWCHART
                   </h3>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', margin: '0 0 12px 0' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
-                        <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>ID</th>
-                        <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Category</th>
-                        <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Location & Close Assembly</th>
-                        <th style={{ padding: '6px', textAlign: 'center', border: '1px solid #ddd' }}>Votes</th>
-                        <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Deficit Indicators vs Ministry Norms</th>
+                        <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd', width: '180px' }}>Phase / Duration</th>
+                        <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Core Phase Action Details</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {demands.filter(d => selectedPlanIds.includes(d.id)).map(d => {
-                        const gapDetails = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category);
-                        return (
-                          <tr key={d.id} style={{ borderBottom: '1px solid #eee' }}>
-                            <td style={{ padding: '6px', border: '1px solid #ddd' }}>{d.id}</td>
-                            <td style={{ padding: '6px', textTransform: 'capitalize', border: '1px solid #ddd' }}>{d.category}</td>
-                            <td style={{ padding: '6px', border: '1px solid #ddd' }}>
-                              {d.address.split(',')[0]}
-                              <span style={{ display: 'block', fontSize: '9px', color: '#666' }}>({gapDetails.assemblyName})</span>
-                            </td>
-                            <td style={{ padding: '6px', textAlign: 'center', border: '1px solid #ddd' }}>{d.upvotes || 1}</td>
-                            <td style={{ padding: '6px', border: '1px solid #ddd' }}>
-                              <strong>{gapDetails.gapPercentage.toFixed(0)}% Deficit:</strong> {gapDetails.localMetric} (Standard: {gapDetails.benchmarkMetric})
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {actionPlan.flowchart.map((step: any, idx: number) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '8px 6px', border: '1px solid #ddd', fontWeight: 'bold' }}>
+                            {step.phase}
+                            <span style={{ display: 'block', fontSize: '9px', color: '#666' }}>({step.duration})</span>
+                          </td>
+                          <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.description}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
 
                 <div style={{ pageBreakBefore: 'always', paddingTop: '20px' }}>
                   <h3 style={{ fontSize: '16px', borderBottom: '1px solid #888', paddingBottom: '4px', fontWeight: 'bold', margin: '0 0 16px 0', color: 'black' }}>
-                    3. LOK SABHA SPEECH REPRESENTATION DRAFT (RULE 377)
+                    3. PROJECT SITE DETAILS & RESPONSIBLE AGENCIES
                   </h3>
-                  <div style={{ whiteSpace: 'pre-line', fontSize: '13px', lineHeight: '1.6', color: '#111', fontFamily: 'serif' }}>
-                    {proposalBrief}
-                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', margin: '0 0 12px 0' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
+                        <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>ID</th>
+                        <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Project Title</th>
+                        <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd' }}>Description & Gap Audits</th>
+                        <th style={{ padding: '6px', textAlign: 'left', border: '1px solid #ddd', width: '180px' }}>Agency</th>
+                        <th style={{ padding: '6px', textAlign: 'center', border: '1px solid #ddd', width: '100px' }}>Estimated Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {actionPlan.detailedSteps.map((step: any, idx: number) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.id}</td>
+                          <td style={{ padding: '8px 6px', border: '1px solid #ddd', fontWeight: 'bold' }}>{step.title}</td>
+                          <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.description}</td>
+                          <td style={{ padding: '8px 6px', border: '1px solid #ddd', color: '#2b2214' }}>{step.agency}</td>
+                          <td style={{ padding: '8px 6px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold' }}>
+                            ₹{(step.cost / 100000).toFixed(1)} L
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
 
                 <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
