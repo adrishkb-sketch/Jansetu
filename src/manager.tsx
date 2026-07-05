@@ -272,14 +272,20 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
     setIsAuditing(true);
     const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
 
+    const compiledEvidence = (complaint.items || []).map((item: any, index: number) => {
+      let details = `[Item #${index + 1} - Type: ${item.type}]`;
+      if (item.content) details += ` Description: "${item.content}"`;
+      if (item.speechTranscript) details += ` Voice Transcript: "${item.speechTranscript}"`;
+      if (item.ocrText) details += ` OCR Text: "${item.ocrText}"`;
+      return details;
+    }).join('\n');
+
     const ticketDetails = {
       id: complaint.id,
       category: complaint.category,
       scope: complaint.scope,
       address: complaint.address,
-      description: complaint.items?.[0]?.content || '',
-      speechTranscript: complaint.items?.[0]?.speechTranscript || '',
-      ocrText: complaint.items?.[0]?.ocrText || ''
+      allSubmissionsAndFollowUps: compiledEvidence
     };
 
     if (geminiKey && geminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
