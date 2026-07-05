@@ -13,10 +13,11 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
-  Info
+  Info,
+  MapPin
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
-import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand } from './services/db';
+import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
 
 // ISO 639-1 / Google Translate codes for the 22 Scheduled Indian Languages + English
 const INDIAN_LANGUAGES = [
@@ -251,7 +252,7 @@ interface GoogleMapComponentProps {
   circleData: { lat: number; lng: number; radius: number } | null;
 }
 
-function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearbyHotspots, focusedPlace, circleData }: GoogleMapComponentProps) {
+export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearbyHotspots, focusedPlace, circleData }: GoogleMapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -259,6 +260,7 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearby
   const infoWindowRef = useRef<any>(null);
   const hotspotMarkersRef = useRef<any[]>([]);
   const circleRef = useRef<any>(null);
+  const hotspotCirclesRef = useRef<any[]>([]);
   const { isLoaded, loadError } = useGoogleMapsLoader(apiKey);
   const [geocoding, setGeocoding] = useState(false);
 
@@ -487,6 +489,9 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearby
     hotspotMarkersRef.current.forEach(m => m.setMap(null));
     hotspotMarkersRef.current = [];
 
+    hotspotCirclesRef.current.forEach(c => c.setMap(null));
+    hotspotCirclesRef.current = [];
+
     nearbyHotspots.forEach(hotspot => {
       if (selectedLocation && 
           Math.abs(hotspot.location.lat - selectedLocation.lat) < 0.0001 && 
@@ -494,21 +499,41 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearby
         return;
       }
 
+      // Generate dynamic HSL color matching category
+      const categoriesList = ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"];
+      const catIdx = categoriesList.indexOf(hotspot.category?.toLowerCase() || 'others');
+      const hue = catIdx !== -1 ? (catIdx * (360 / categoriesList.length)) % 360 : 200;
+      const circleColor = `hsl(${hue}, 80%, 55%)`;
+
       const marker = new google.maps.Marker({
         position: hotspot.location,
         map: mapInstanceRef.current,
-        title: `${hotspot.category.toUpperCase()}: ${hotspot.upvotes} upvotes`,
+        title: `${hotspot.category.toUpperCase()}: ${hotspot.upvotes} support votes`,
         icon: {
           url: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png'
         }
       });
 
+      // Add a circular hotspot region
+      const hotspotCircle = new google.maps.Circle({
+        strokeColor: circleColor,
+        strokeOpacity: 0.8,
+        strokeWeight: 1.5,
+        fillColor: circleColor,
+        fillOpacity: 0.18,
+        map: mapInstanceRef.current,
+        center: hotspot.location,
+        radius: Math.max(80, (hotspot.upvotes || 1) * 20) // radius based on upvotes
+      });
+
       const infoWindow = new google.maps.InfoWindow({
         content: `
-          <div style="color: #000; padding: 4px; font-family: sans-serif;">
-            <strong style="text-transform: capitalize; color: #ef4444;">⚠️ ${hotspot.category} Request</strong>
-            <p style="margin: 4px 0; font-size: 12px; font-weight: 500;">"${hotspot.items?.[0]?.content || hotspot.address}"</p>
-            <span style="font-size: 11px; color: #6366f1; font-weight: 600;">👍 Supported by ${hotspot.upvotes} Citizens</span>
+          <div style="color: #000; padding: 6px; font-family: sans-serif; min-width: 180px;">
+            <strong style="text-transform: capitalize; color: ${circleColor}; font-size: 13px; display: block; margin-bottom: 4px;">⚠️ ${hotspot.category} Sector Need</strong>
+            <div style="font-size: 11px; margin-bottom: 6px; line-height: 1.3; color: #333;"><strong>Location:</strong> ${hotspot.address || 'Constituency Landmark'}</div>
+            <div style="font-size: 11px; color: #4f46e5; font-weight: bold; background: rgba(79, 70, 229, 0.08); padding: 4px; border-radius: 4px; text-align: center;">
+              👍 Supported by ${hotspot.upvotes} Citizens
+            </div>
           </div>
         `
       });
@@ -518,6 +543,7 @@ function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearby
       });
 
       hotspotMarkersRef.current.push(marker);
+      hotspotCirclesRef.current.push(hotspotCircle);
     });
   }, [nearbyHotspots, isLoaded, selectedLocation]);
 
@@ -651,6 +677,7 @@ interface SubmissionItem {
   processing?: boolean;
   ocrText?: string;
   speechTranscript?: string;
+  boundingBoxes?: Array<{ label: string; x: number; y: number; width: number; height: number; severity: string }>;
 }
 
 interface ComplainantPortalProps {
@@ -742,6 +769,78 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   const [clarificationRefusals, setClarificationRefusals] = useState<number>(0);
   const [contributingIssue, setContributingIssue] = useState<any | null>(null);
   const [submittedAsIncomplete, setSubmittedAsIncomplete] = useState<boolean>(false);
+  const [ticketType, setTicketType] = useState<'complaint' | 'suggestion'>('complaint');
+
+  const [isDashboardView, setIsDashboardView] = useState<boolean>(false);
+  const [loginEmail, setLoginEmail] = useState<string>('');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [citizenDemands, setCitizenDemands] = useState<any[]>([]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('login') === 'true') {
+      setIsDashboardView(true);
+    }
+  }, []);
+
+  const handleLogin = async () => {
+    if (!loginEmail.trim()) return;
+    const all = await getAllDemands();
+    const filtered = all.filter(d => d.email && d.email.trim().toLowerCase() === loginEmail.trim().toLowerCase());
+    setCitizenDemands(filtered);
+    setIsLoggedIn(true);
+  };
+
+  const [upvotedHotspotIds, setUpvotedHotspotIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('jansetu_upvoted_ids');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [petitionId, setPetitionId] = useState<string | null>(null);
+  const [petitionTicket, setPetitionTicket] = useState<any | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pid = params.get('petitionId');
+    if (pid) {
+      setPetitionId(pid);
+      getAllDemands().then(all => {
+        const found = all.find(d => d.id === pid);
+        if (found) {
+          setPetitionTicket(found);
+        } else {
+          alert("Could not load the specified petition.");
+        }
+      });
+    }
+  }, []);
+
+  const handlePetitionUpvote = async () => {
+    if (!petitionTicket) return;
+    if (upvotedHotspotIds.includes(petitionTicket.id)) {
+      alert("⚠️ You have already signed/upvoted this petition!");
+      return;
+    }
+    if (!location) {
+      alert("📍 Map Location Required: Please select your coordinates on the map in Section 2 first to verify you live near this issue.");
+      return;
+    }
+    const dist = getHaversineDistance(location, petitionTicket.location);
+    if (dist > 2.0) {
+      alert(`⛔ Access Denied: You are located ${dist.toFixed(2)} km away. Petition signing/upvoting is restricted to local residents residing within 2.0 km of the issue to prevent spam.`);
+      return;
+    }
+    const updatedVotes = await upvoteDemand(petitionTicket.id);
+    alert("🎉 Thank you! Your community signature has been added to this petition.");
+    setPetitionTicket((prev: any) => prev ? { ...prev, upvotes: updatedVotes } : null);
+    const nextVoted = [...upvotedHotspotIds, petitionTicket.id];
+    setUpvotedHotspotIds(nextVoted);
+    localStorage.setItem('jansetu_upvoted_ids', JSON.stringify(nextVoted));
+  };
 
   // Query hotspots when location changes
   useEffect(() => {
@@ -798,8 +897,27 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   };
 
   const handleUpvote = async (id: string) => {
+    if (upvotedHotspotIds.includes(id)) {
+      alert("⚠️ You have already upvoted/supported this ticket!");
+      return;
+    }
+    const target = nearbyHotspots.find(h => h.id === id);
+    if (target) {
+      if (!location) {
+        alert("📍 Map Location Required: Please select your location on the map in Section 2 first to verify you reside nearby.");
+        return;
+      }
+      const dist = getHaversineDistance(location, target.location);
+      if (dist > 2.0) {
+        alert(`⛔ Access Denied: You are located ${dist.toFixed(2)} km away from the issue coordinates. Upvoting is restricted to local residents residing within 2.0 km of the issue location to prevent spam.`);
+        return;
+      }
+    }
     const updatedVotes = await upvoteDemand(id);
     setNearbyHotspots(prev => prev.map(h => h.id === id ? { ...h, upvotes: updatedVotes } : h));
+    const nextVoted = [...upvotedHotspotIds, id];
+    setUpvotedHotspotIds(nextVoted);
+    localStorage.setItem('jansetu_upvoted_ids', JSON.stringify(nextVoted));
   };
 
   const handleLandmarkSearch = () => {
@@ -847,6 +965,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   };
 
   const runAIAttachmentAnalysis = async (textToAnalyze: string) => {
+    if (!location) return;
     const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
     if (!activeKey) return;
 
@@ -885,16 +1004,16 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are the AI engine of Jansetu Citizen Complainant Portal. 
-Analyze the following transcript of a citizen's complaint (which may be submitted natively in Hindi, Bengali, Tamil, Telugu, Marathi, or any other regional Indian language).
+              text: `You are the AI engine of Jansetu Citizen Complainant & Suggestion Portal. 
+Analyze the following transcript of a citizen's contribution (which is submitted as a ${ticketType.toUpperCase()}).
 
 Current selected map pin coordinates: Lat: ${location?.lat || 28.6139}, Lng: ${location?.lng || 77.2090}
 
-Verify the user's complaint against the Ground Truth Local Infrastructure list:
+Verify the user's ${ticketType} against the Ground Truth Local Infrastructure list:
 ${insightsText}
 
 You must:
-1. Translate it to English if it is in another Indian language. Provide the English translation in the 'translatedText' field.
+1. Translate it to English if it is in another Indian language or written in regional mixed dialects (such as Hinglish, Banglish, or other languages mixed with English terms, local slang, or local spelling variations). Normalise all local slang and abbreviations into standard English. Provide this standard English translation in the 'translatedText' field.
 2. Determine the category: Choose exactly one from: ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"].
 3. Determine the impact scope: Choose exactly one from: ["household", "street", "ward", "constituency"].
 4. Estimate the population affected: Return a numerical estimate of how many citizens are affected (e.g. 5, 150, 2000, etc.) in the 'estimatedPopulation' field.
@@ -922,9 +1041,15 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
   * women: Ask about dark lanes lacking streetlights, transport safety issues, or security patrols.
   * consumer: Ask about adulterated food, overpricing, or false weighing scales.
   * others: Ask for a clear explanation of what is malfunctioning, broken, or missing.
-  If these key details are missing from the input transcript, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these specifics.
-- If the user's complaint is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem in a full sentence.
-- If the complaint is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
+- Auditing suggestions: If the ticketType is SUGGESTION, check if the input includes key details for proposed new infrastructure:
+  * water suggestion: proposed pipeline route, purification tech, or tank capacity.
+  * roads suggestion: bypass paths, pedestrian crossings, or lane count expansions.
+  * education/health suggestion: mobile health clinic hours, smart classroom assets, library size.
+  * power suggestion: solar panels square footage, LED streetlight locations.
+  * other suggestions: proposed execution timeline, community benefits, target group.
+  If these details are missing, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these suggestion details.
+- If the user's input is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem/suggestion in a full sentence.
+- If the input is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
 7. Mentioned Landmark Identification: Check if the user's transcript explicitly mentions any of the landmark names (or partial name matches) in the Ground Truth list above. If they mention one, return its exact name in 'mentionedLandmarkName'. If they don't mention any nearby landmarks, return null.
 8. Extra Classifications:
 - Determine urgency: Choose exactly one from: ["immediate", "moderate", "long_term"]
@@ -1091,6 +1216,7 @@ JSON:`
   };
 
   const triggerGlobalAIAnalysis = (currentItems: SubmissionItem[]) => {
+    if (!location) return;
     if (currentItems.length === 0) {
       setAiClarificationQuestion(null);
       setAiUnderstood(false);
@@ -1299,7 +1425,7 @@ JSON:`
     setIsRecording(false);
   };
 
-  const runGeminiImageAnalysis = async (base64Data: string, mimeType: string): Promise<{ description: string; requiresMoreContext: boolean } | null> => {
+  const runGeminiImageAnalysis = async (base64Data: string, mimeType: string): Promise<{ description: string; requiresMoreContext: boolean; boundingBoxes?: any[] } | null> => {
     const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
     if (!activeKey) return null;
 
@@ -1321,7 +1447,7 @@ JSON:`
                 }
               },
               {
-                text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight), output a detailed description of the problem in English. If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false }`
+                text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight, blocked drainage), output a detailed description of the problem in English. In addition, localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`
               }
             ]
           }],
@@ -1412,6 +1538,7 @@ JSON:`
                   return {
                     ...item,
                     content: geminiResult.description,
+                    boundingBoxes: geminiResult.boundingBoxes,
                     processing: false
                   };
                 }
@@ -1521,17 +1648,37 @@ JSON:`
   const handleSubmit = async () => {
     if (isSubmitDisabled) return;
 
-    const itemsMapped = items.map(item => ({
-      type: item.type,
-      content: item.content,
-      fileUrl: item.fileUrl || '',
-      speechTranscript: item.speechTranscript || ''
-    }));
+    const itemsMapped = items.map(item => {
+      if (item.type === 'audio') {
+        return {
+          type: item.type,
+          content: item.content,
+          fileUrl: '', // Discard audio recording, store transcript only
+          speechTranscript: item.speechTranscript || ''
+        };
+      }
+      if (item.type === 'photo' && item.content.startsWith('Image uploaded.')) {
+        return {
+          type: item.type,
+          content: item.content,
+          fileUrl: '', // Discard image since Gemini deemed it unnecessary / insufficient on its own
+          speechTranscript: ''
+        };
+      }
+      return {
+        type: item.type,
+        content: item.content,
+        fileUrl: item.fileUrl || '',
+        speechTranscript: item.speechTranscript || '',
+        boundingBoxes: item.boundingBoxes || undefined
+      };
+    });
 
     const isIncomplete = !!(aiClarificationQuestion || !aiUnderstood);
     setSubmittedAsIncomplete(isIncomplete);
 
     const submissionData = {
+      ticketType,
       category,
       scope,
       location: location || { lat: 0, lng: 0 },
@@ -1553,7 +1700,15 @@ JSON:`
     if (contributingIssue) {
       const extraData = {
         status: !isIncomplete ? 'pending' : 'needs_info',
-        needsMoreInfo: isIncomplete
+        needsMoreInfo: isIncomplete,
+        category,
+        scope,
+        estimatedImpact: aiPopulationAffected,
+        urgency,
+        assetType,
+        fundingSource,
+        aiOverview: aiOverview || undefined,
+        circleData: circleData || undefined
       };
       await contributeToDemand(contributingIssue.id, itemsMapped, extraData);
       setTicketId(contributingIssue.id);
@@ -1601,23 +1756,387 @@ JSON:`
   return (
     <div className="complainant-portal container">
       {/* Title block with back action */}
-      <div className="portal-header">
-        <button type="button" className="btn-back" onClick={onBack}>
-          <ArrowLeft size={18} />
-          <span>Back to Roles</span>
+      <div className="portal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <button type="button" className="btn-back" onClick={onBack}>
+            <ArrowLeft size={18} />
+            <span>Back to Roles</span>
+          </button>
+          <h2>{isDashboardView ? "Citizen Profile & Gamification Space" : "Citizen Complainant Portal"}</h2>
+          <p className="portal-subtitle">
+            {isDashboardView 
+              ? "Track your submitted complaints/suggestions, claim achievements, and view civic points" 
+              : "Submit infrastructure and developmental demands directly into the constituency registry"}
+          </p>
+        </div>
+        <button 
+          type="button" 
+          className="btn-toggle-settings" 
+          onClick={() => {
+            setIsDashboardView(!isDashboardView);
+            setIsLoggedIn(false);
+            setLoginEmail('');
+          }}
+          style={{ padding: '8px 16px', fontSize: '13px', background: isDashboardView ? 'rgba(99,102,241,0.2)' : 'rgba(16,185,129,0.2)', color: isDashboardView ? '#a5b4fc' : '#6ee7b7', borderColor: isDashboardView ? '#6366f1' : '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          {isDashboardView ? "✍️ Switch to Form Submission" : "🏆 Switch to Profile Login"}
         </button>
-        <h2>Citizen Complainant Portal</h2>
-        <p className="portal-subtitle">Submit infrastructure and developmental demands directly into the constituency registry</p>
       </div>
+      {petitionTicket && !isDashboardView ? (
+        <div className="form-card" style={{ maxWidth: '800px', margin: '40px auto', padding: '32px', textAlign: 'left' }}>
+          <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px', marginBottom: '20px' }}>
+            <span style={{ fontSize: '11px', background: '#10b981', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+              📢 ACTIVE COMMUNITY PETITION (Ref: {petitionId})
+            </span>
+            <h3 style={{ marginTop: '12px', color: 'white' }}>"{petitionTicket.aiOverview?.brief || petitionTicket.category}"</h3>
+            <p style={{ fontSize: '13px', color: '#c5c7e6', margin: '6px 0 0' }}>📍 Address: {petitionTicket.address}</p>
+            <p style={{ fontSize: '13px', color: '#a5b4fc', margin: '4px 0 0' }}>
+              Current Signatures: <strong>{petitionTicket.upvotes || 1} local residents</strong>
+            </p>
+          </div>
 
-      <div className="portal-grid">
-        {/* Left Column: Contact, Location, Insights, and Duplicates */}
-        <div className="portal-col">
+          <div style={{ marginBottom: '24px' }}>
+            <strong style={{ display: 'block', fontSize: '14.5px', marginBottom: '10px', color: '#c7d2fe' }}>
+              Step 1: Click the map to verify your local coordinates (Must be within 2.0 km of the issue to prevent spam)
+            </strong>
+            <div style={{ height: '380px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <GoogleMapComponent
+                apiKey={apiKey}
+                onLocationSelect={(loc, addr) => {
+                  setLocation(loc);
+                  setAddress(addr);
+                }}
+                selectedLocation={location}
+                nearbyHotspots={[]}
+                focusedPlace={petitionTicket.location}
+                circleData={{ lat: petitionTicket.location.lat, lng: petitionTicket.location.lng, radius: 200 }}
+              />
+            </div>
+            {location && (
+              <span style={{ fontSize: '12.5px', color: '#34d399', display: 'block', marginTop: '10px' }}>
+                📍 Coordinates Verified: {location.lat.toFixed(5)}, {location.lng.toFixed(5)} ({address})
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <button
+              type="button"
+              style={{
+                flex: 1,
+                padding: '14px',
+                background: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                fontSize: '14px',
+                cursor: 'pointer',
+                textAlign: 'center',
+                boxShadow: '0 4px 12px rgba(16,185,129,0.2)'
+              }}
+              onClick={handlePetitionUpvote}
+            >
+              👍 Agree & Sign Petition
+            </button>
+            
+            <button
+              type="button"
+              style={{
+                flex: 1,
+                padding: '14px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                color: '#ef4444',
+                border: '1px solid #ef4444',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                fontSize: '14px',
+                cursor: 'pointer',
+                textAlign: 'center'
+              }}
+              onClick={() => {
+                alert("You declined to sign this petition.");
+                setPetitionTicket(null);
+                setPetitionId(null);
+                window.history.replaceState({}, document.title, window.location.pathname);
+              }}
+            >
+              👎 Decline
+            </button>
+          </div>
+        </div>
+      ) : isDashboardView ? (
+        <div style={{ marginTop: '24px' }}>
+          {!isLoggedIn ? (
+            <div className="form-card" style={{ maxWidth: '480px', margin: '40px auto', padding: '32px' }}>
+              <div style={{ background: 'rgba(99, 102, 241, 0.1)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#818cf8' }}>
+                <Award size={32} />
+              </div>
+              <h3 style={{ textAlign: 'center', margin: '0 0 8px' }}>Complainant Login</h3>
+              <p style={{ textAlign: 'center', fontSize: '13px', color: '#8e90b3', margin: '0 0 24px' }}>
+                Access your profile using your email address. No password or OTP required.
+              </p>
+              
+              <div className="input-group">
+                <label>Email Address</label>
+                <input
+                  type="email"
+                  placeholder="citizen@domain.com"
+                  value={loginEmail}
+                  onChange={e => setLoginEmail(e.target.value)}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
+                />
+              </div>
+
+              <button 
+                type="button" 
+                className="btn-add-action" 
+                onClick={handleLogin}
+                disabled={!loginEmail.trim()}
+                style={{ width: '100%', marginTop: '20px', padding: '12px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                Access Citizen Space
+              </button>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'left' }}>
+              {/* Profile Card Header */}
+              <div className="form-card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(79, 70, 229, 0.08))', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 4px', color: '#c7d2fe' }}>👤 Citizen: {loginEmail}</h3>
+                  <span style={{ fontSize: '13px', color: '#a5b4fc' }}>
+                    Rank status: <strong>{(() => {
+                      const demandsCount = citizenDemands.length;
+                      const totalUpvotes = citizenDemands.reduce((sum, d) => sum + (d.upvotes || 0), 0);
+                      const score = demandsCount * 100 + totalUpvotes * 10;
+                      if (score >= 1000) return '🏆 Level 4: Constituency Champion';
+                      if (score >= 400) return '🛡️ Level 3: Ward Guardian';
+                      if (score >= 100) return '🎖️ Level 2: Community Sentinel';
+                      return '🌱 Level 1: Civic Observer';
+                    })()}</strong>
+                  </span>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', minWidth: '100px', textAlign: 'center' }}>
+                    <span style={{ display: 'block', fontSize: '10px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 'bold' }}>Civic Score</span>
+                    <strong style={{ fontSize: '20px', color: '#6366f1' }}>{(() => {
+                      const demandsCount = citizenDemands.length;
+                      const totalUpvotes = citizenDemands.reduce((sum, d) => sum + (d.upvotes || 0), 0);
+                      return demandsCount * 100 + totalUpvotes * 10;
+                    })()} pts</strong>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', minWidth: '100px', textAlign: 'center' }}>
+                    <span style={{ display: 'block', fontSize: '10px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 'bold' }}>Submissions</span>
+                    <strong style={{ fontSize: '20px', color: '#10b981' }}>{citizenDemands.length}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Achievement Badges grid */}
+              <div className="form-card" style={{ marginTop: '20px', padding: '20px' }}>
+                <h4 style={{ margin: '0 0 12px', color: '#a5b4fc' }}>🎖️ Claimed Achievement Badges</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                  {/* Scribe Badge */}
+                  <div style={{ 
+                    background: 'rgba(0,0,0,0.2)', 
+                    border: '1px solid', 
+                    borderColor: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'text')) ? '#6366f1' : 'rgba(255,255,255,0.05)', 
+                    opacity: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'text')) ? 1 : 0.4,
+                    padding: '12px', 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px' 
+                  }}>
+                    <span style={{ fontSize: '24px' }}>✍️</span>
+                    <div>
+                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Scribe Badge</strong>
+                      <span style={{ fontSize: '10px', color: '#a5b4fc' }}>Submitted text description</span>
+                    </div>
+                  </div>
+
+                  {/* Speaker Badge */}
+                  <div style={{ 
+                    background: 'rgba(0,0,0,0.2)', 
+                    border: '1px solid', 
+                    borderColor: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'audio')) ? '#10b981' : 'rgba(255,255,255,0.05)', 
+                    opacity: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'audio')) ? 1 : 0.4,
+                    padding: '12px', 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px' 
+                  }}>
+                    <span style={{ fontSize: '24px' }}>🎤</span>
+                    <div>
+                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Speaker Badge</strong>
+                      <span style={{ fontSize: '10px', color: '#6ee7b7' }}>Submitted voice notes</span>
+                    </div>
+                  </div>
+
+                  {/* Inspector Badge */}
+                  <div style={{ 
+                    background: 'rgba(0,0,0,0.2)', 
+                    border: '1px solid', 
+                    borderColor: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'photo')) ? '#fbbf24' : 'rgba(255,255,255,0.05)', 
+                    opacity: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'photo')) ? 1 : 0.4,
+                    padding: '12px', 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px' 
+                  }}>
+                    <span style={{ fontSize: '24px' }}>📸</span>
+                    <div>
+                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Inspector Badge</strong>
+                      <span style={{ fontSize: '10px', color: '#fde68a' }}>Submitted photo evidence</span>
+                    </div>
+                  </div>
+
+                  {/* Collaborator Badge */}
+                  <div style={{ 
+                    background: 'rgba(0,0,0,0.2)', 
+                    border: '1px solid', 
+                    borderColor: citizenDemands.some(d => d.items?.length > 1) ? '#ec4899' : 'rgba(255,255,255,0.05)', 
+                    opacity: citizenDemands.some(d => d.items?.length > 1) ? 1 : 0.4,
+                    padding: '12px', 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px' 
+                  }}>
+                    <span style={{ fontSize: '24px' }}>🤝</span>
+                    <div>
+                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Collaborator Badge</strong>
+                      <span style={{ fontSize: '10px', color: '#fbcfe8' }}>Contributed details/updates</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Your Registered Items */}
+              <div style={{ marginTop: '24px' }}>
+                <h4 style={{ margin: '0 0 12px', color: '#c7d2fe' }}>📋 Your Submitted Issues & Suggestions</h4>
+                
+                {citizenDemands.length === 0 ? (
+                  <div className="form-card" style={{ padding: '32px', textAlign: 'center', color: '#8e90b3' }}>
+                    No registered tickets found for this email address. Switch back to Form view to submit your first suggestion!
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                    {citizenDemands.map(demand => {
+                      const isSug = demand.ticketType === 'suggestion';
+                      return (
+                        <div key={demand.id} className="form-card" style={{ padding: '20px', borderLeft: isSug ? '4px solid #10b981' : '4px solid #f59e0b' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                                <span style={{ fontSize: '10px', background: isSug ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSug ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                  {isSug ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
+                                </span>
+                                <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.08)', color: '#c7d2fe', padding: '1px 6px', borderRadius: '4px', textTransform: 'capitalize' }}>
+                                  {demand.category}
+                                </span>
+                              </div>
+                              <strong style={{ fontSize: '14px', color: 'white', display: 'block' }}>Ticket ID: {demand.id}</strong>
+                              <span style={{ fontSize: '12px', color: '#8e90b3' }}>📍 Address: {demand.address}</span>
+                            </div>
+                            
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ 
+                                fontSize: '11px', 
+                                padding: '3px 8px', 
+                                borderRadius: '4px', 
+                                fontWeight: 'bold',
+                                color: 'white',
+                                background: demand.status === 'approved' ? '#10b981' : demand.status === 'needs_info' ? '#ef4444' : '#f59e0b'
+                              }}>
+                                {demand.status === 'approved' ? 'Approved by MLA Workspace' : demand.status === 'needs_info' ? 'Needs More Info' : 'Pending Verification'}
+                              </span>
+                              <span style={{ display: 'block', fontSize: '11px', color: '#a5b4fc', marginTop: '6px' }}>
+                                👍 {demand.upvotes || 1} Agreements
+                              </span>
+                            </div>
+                          </div>
+
+                          {demand.aiOverview?.brief && (
+                            <p style={{ margin: '12px 0 0', fontSize: '13px', color: '#c7d2fe', background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px' }}>
+                              <strong>AI Summary:</strong> {demand.aiOverview.brief}
+                            </p>
+                          )}
+
+                          {/* Render Attachments count */}
+                          <div style={{ marginTop: '12px', display: 'flex', gap: '12px', fontSize: '11px', color: '#8e90b3' }}>
+                            <span>✍️ {demand.items?.filter((i: any) => i.type === 'text').length || 0} Text notes</span>
+                            <span>🔊 {demand.items?.filter((i: any) => i.type === 'audio').length || 0} Voice recordings</span>
+                            <span>🖼️ {demand.items?.filter((i: any) => i.type === 'photo').length || 0} Images</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="portal-grid">
+          {/* Left Column: Contact, Location, Insights, and Duplicates */}
+          <div className="portal-col">
           
+          {/* Submission Mode Selector (Complaint vs Suggestion) */}
+          <div className="form-card" style={{ marginBottom: '24px', padding: '16px', display: 'flex', gap: '12px', alignItems: 'center', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(79, 70, 229, 0.15))', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#c7d2fe', textTransform: 'uppercase', flexShrink: 0 }}>Ticket Type:</span>
+            <button
+              type="button"
+              onClick={() => {
+                setTicketType('complaint');
+                setItems([]);
+              }}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid',
+                borderColor: ticketType === 'complaint' ? '#6366f1' : 'rgba(255,255,255,0.1)',
+                background: ticketType === 'complaint' ? 'rgba(99,102,241,0.2)' : 'rgba(0,0,0,0.2)',
+                color: ticketType === 'complaint' ? '#a5b4fc' : '#8e90b3',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              ⚠️ Complaint (Broken Infrastructure)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTicketType('suggestion');
+                setItems([]);
+              }}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid',
+                borderColor: ticketType === 'suggestion' ? '#10b981' : 'rgba(255,255,255,0.1)',
+                background: ticketType === 'suggestion' ? 'rgba(16,185,129,0.2)' : 'rgba(0,0,0,0.2)',
+                color: ticketType === 'suggestion' ? '#6ee7b7' : '#8e90b3',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              💡 Suggestion (New Proposals)
+            </button>
+          </div>
+
           {/* Section 1: Contact details */}
           <div className="form-card">
             <h3>1. Contact Details (Optional)</h3>
-            <p className="section-help">Provide details if you wish to receive progress updates on your suggestion.</p>
+            <p className="section-help">Provide details to receive updates. Submit your email to earn Civic Points and unlock profile badges.</p>
             
             <div className="input-group">
               <label>Email Address</label>
@@ -1848,7 +2367,7 @@ JSON:`
 
                 {associatedPlace && (
                   <div className="associated-place-alert">
-                    <span>📌 Complaint target landmark: <strong>{associatedPlace.name}</strong> ({associatedPlace.type})</span>
+                    <span>📌 {ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'} target landmark: <strong>{associatedPlace.name}</strong> ({associatedPlace.type})</span>
                     <button type="button" className="btn-remove-assoc" onClick={() => setAssociatedPlace(null)}>✕</button>
                   </div>
                 )}
@@ -1883,62 +2402,80 @@ JSON:`
           {/* Section 4: Nearby hotspots overlay votes */}
           {nearbyHotspots.length > 0 && (
             <div className="hotspots-card">
-              <h4>⚠️ Existing Active Issues in this Area ({nearbyHotspots.length})</h4>
-              <p className="hotspots-help">To prevent duplicate entries, you can support an existing complaint below:</p>
+              <h4>⚠️ Existing Active Submissions in this Area ({nearbyHotspots.length})</h4>
+              <p className="hotspots-help">To prevent duplicate entries, you can support or agree to an active submission below:</p>
               <div className="hotspots-list">
-                {nearbyHotspots.map(hotspot => (
-                  <div key={hotspot.id} className="hotspot-item">
-                    <div className="hotspot-info">
-                      <span className="hotspot-badge" style={{ textTransform: 'capitalize' }}>
-                        {hotspot.category === 'water' && '🚰'}
-                        {hotspot.category === 'roads' && '🛣️'}
-                        {hotspot.category === 'education' && '🏫'}
-                        {hotspot.category === 'health' && '🏥'}
-                        {hotspot.category === 'power' && '⚡'}
-                        {hotspot.category === 'agriculture' && '🌾'}
-                        {hotspot.category === 'safety' && '🚓'}
-                        {hotspot.category === 'environment' && '🌳'}
-                        {hotspot.category === 'welfare' && '🤝'}
-                        {hotspot.category === 'housing' && '🏗️'}
-                        {hotspot.category === 'others' && '📁'}
-                        {hotspot.category}
-                      </span>
-                      <p className="hotspot-text">{"\"" + (hotspot.items[0]?.content || hotspot.address) + "\""}</p>
-                      {isHotspotIncomplete(hotspot) && (
-                        <span style={{ fontSize: '10px', background: 'rgba(239,68,68,0.2)', color: '#f87171', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block', marginTop: '4px' }}>
-                          ⚠️ Needs Details / Evidence
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
-                      <button 
-                        type="button" 
-                        className="btn-upvote" 
-                        onClick={() => handleUpvote(hotspot.id)}
-                        style={{ padding: '6px 10px', fontSize: '12px' }}
-                      >
-                        👍 Support ({hotspot.upvotes})
-                      </button>
-                      {isHotspotIncomplete(hotspot) && (
+                {nearbyHotspots.map(hotspot => {
+                  const isSuggestion = hotspot.ticketType === 'suggestion';
+                  const isIncomplete = isHotspotIncomplete(hotspot);
+                  return (
+                    <div key={hotspot.id} className="hotspot-item" style={{ borderLeft: isSuggestion ? '4px solid #10b981' : '4px solid #f59e0b' }}>
+                      <div className="hotspot-info">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '10px', background: isSuggestion ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSuggestion ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                            {isSuggestion ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
+                          </span>
+                          <span className="hotspot-badge" style={{ textTransform: 'capitalize', margin: 0 }}>
+                            {hotspot.category === 'water' && '🚰'}
+                            {hotspot.category === 'roads' && '🛣️'}
+                            {hotspot.category === 'education' && '🏫'}
+                            {hotspot.category === 'health' && '🏥'}
+                            {hotspot.category === 'power' && '⚡'}
+                            {hotspot.category === 'agriculture' && '🌾'}
+                            {hotspot.category === 'safety' && '🚓'}
+                            {hotspot.category === 'environment' && '🌳'}
+                            {hotspot.category === 'welfare' && '🤝'}
+                            {hotspot.category === 'housing' && '🏗️'}
+                            {hotspot.category === 'others' && '📁'}
+                            {hotspot.category}
+                          </span>
+                        </div>
+                        <p className="hotspot-text">{"\"" + (hotspot.items[0]?.content || hotspot.address) + "\""}</p>
+                        {isIncomplete && (
+                          <span style={{ fontSize: '10px', background: 'rgba(239,68,68,0.2)', color: '#f87171', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block', marginTop: '4px' }}>
+                            ⚠️ Needs Details / {isSuggestion ? 'Crowdfunding Info' : 'Evidence'}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
                         <button 
-                          type="button" 
-                          className="btn-add-action" 
-                          onClick={() => {
-                            setContributingIssue(hotspot);
-                            setLocation({ lat: hotspot.location.lat, lng: hotspot.location.lng });
-                            setAddress(hotspot.address);
-                            setCategory(hotspot.category);
-                            setScope(hotspot.scope);
-                            document.querySelector('.portal-col')?.scrollIntoView({ behavior: 'smooth' });
+                          type="button"
+                          className="btn-upvote"
+                          disabled={upvotedHotspotIds.includes(hotspot.id)}
+                          onClick={() => handleUpvote(hotspot.id)}
+                          style={{ 
+                            padding: '6px 10px', 
+                            fontSize: '12px', 
+                            borderColor: upvotedHotspotIds.includes(hotspot.id) ? 'rgba(255,255,255,0.1)' : isSuggestion ? '#10b981' : '#f59e0b', 
+                            color: upvotedHotspotIds.includes(hotspot.id) ? '#8e90b3' : isSuggestion ? '#6ee7b7' : '#fde68a',
+                            background: upvotedHotspotIds.includes(hotspot.id) ? 'rgba(255,255,255,0.05)' : 'transparent',
+                            cursor: upvotedHotspotIds.includes(hotspot.id) ? 'not-allowed' : 'pointer'
                           }}
-                          style={{ fontSize: '10.5px', padding: '4px 8px', background: '#e11d48', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                         >
-                          📝 Contribute Info
+                          {upvotedHotspotIds.includes(hotspot.id) ? '👍 Supported' : isSuggestion ? '👍 Agree' : '👍 Support'} ({hotspot.upvotes})
                         </button>
-                      )}
+                        {isIncomplete && (
+                          <button 
+                            type="button" 
+                            className="btn-add-action" 
+                            onClick={() => {
+                              setContributingIssue(hotspot);
+                              setTicketType(hotspot.ticketType || 'complaint');
+                              setLocation({ lat: hotspot.location.lat, lng: hotspot.location.lng });
+                              setAddress(hotspot.address);
+                              setCategory(hotspot.category);
+                              setScope(hotspot.scope);
+                              document.querySelector('.portal-col')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            style={{ fontSize: '10.5px', padding: '4px 8px', background: isSuggestion ? '#10b981' : '#e11d48', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            {isSuggestion ? '🪙 Crowdfund Info' : '📝 Contribute Info'}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1948,14 +2485,14 @@ JSON:`
         {/* Right Column: Evidence, attachments list, and AI auto-detect overrides */}
         <div className="portal-col">
           <div className="form-card h-full">
-            <h3>3. Add Suggestion Details & Attach Evidence</h3>
+            <h3>3. Add {ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'} Details & Attach {ticketType === 'suggestion' ? 'Proposals / Details' : 'Evidence'}</h3>
             <p className="section-help">You can attach multiple entries. At least one attachment is required.</p>
 
             {contributingIssue && (
-              <div className="contributing-banner" style={{ border: '1px solid #e11d48', background: 'rgba(225,29,72,0.1)', padding: '12px 14px', borderRadius: '8px', marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="contributing-banner" style={{ border: '1px solid #10b981', background: 'rgba(16,185,129,0.1)', padding: '12px 14px', borderRadius: '8px', marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ textAlign: 'left' }}>
-                  <strong style={{ color: '#fb7185', fontSize: '13px', display: 'block' }}>📝 Mode: Contributing Info to Existing Issue</strong>
-                  <span style={{ fontSize: '11px', color: '#fda4af' }}>Your inputs will be appended to the active complaint ticket: <strong>"{contributingIssue.items?.[0]?.content || contributingIssue.address}"</strong></span>
+                  <strong style={{ color: '#34d399', fontSize: '13px', display: 'block' }}>📝 Mode: Contributing Info to Existing {contributingIssue.ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'}</strong>
+                  <span style={{ fontSize: '11px', color: '#6ee7b7' }}>Your inputs will be appended to the active {contributingIssue.ticketType || 'complaint'} ticket: <strong>"{contributingIssue.items?.[0]?.content || contributingIssue.address}"</strong></span>
                 </div>
                 <button 
                   type="button" 
@@ -1971,26 +2508,48 @@ JSON:`
               </div>
             )}
 
-            {/* AI sync status banner */}
-            {aiIndicator.active && (
-              <div className="ai-indicator-banner notranslate">
-                <Sparkles size={14} />
-                <span>{aiIndicator.message}</span>
-              </div>
-            )}
 
             {isAiAnalyzing && (
               <div className="ai-verifying-banner" style={{ marginTop: '12px', border: '1px solid #6366f1', padding: '10px 14px', borderRadius: '8px', background: 'rgba(99,102,241,0.08)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Loader2 className="spinner" size={18} style={{ color: '#818cf8' }} />
                 <div>
-                  <strong style={{ display: 'block', fontSize: '13px', color: '#c7d2fe' }}>Verifying with AI...</strong>
+                  <strong style={{ display: 'block', fontSize: '13px', color: '#c7d2fe' }}>{aiIndicator.message || "Verifying with AI..."}</strong>
                   <span style={{ fontSize: '11px', color: '#a5b4fc' }}>Cross-referencing details, categories, and local landmark parameters.</span>
                 </div>
               </div>
             )}
 
             {/* Evidence inputs */}
-            <div className="evidence-inputs" style={{ marginTop: '16px' }}>
+            <div className="evidence-inputs" style={{ marginTop: '16px', position: 'relative' }}>
+              
+              {!location && (
+                <div style={{
+                  position: 'absolute',
+                  top: -8,
+                  left: -8,
+                  right: -8,
+                  bottom: -8,
+                  background: 'rgba(15, 23, 42, 0.9)',
+                  backdropFilter: 'blur(5px)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '24px',
+                  borderRadius: '12px',
+                  zIndex: 20,
+                  textAlign: 'center',
+                  border: '1px solid rgba(99, 102, 241, 0.2)'
+                }}>
+                  <div style={{ background: 'rgba(99, 102, 241, 0.2)', padding: '12px', borderRadius: '50%', marginBottom: '12px', color: '#818cf8' }}>
+                    <MapPin size={32} />
+                  </div>
+                  <strong style={{ color: '#c7d2fe', fontSize: '15px', display: 'block', marginBottom: '6px' }}>📍 Map Location Required</strong>
+                  <p style={{ color: '#a5b4fc', fontSize: '12.5px', margin: 0, lineHeight: '1.4' }}>
+                    Please select a point on the map in Section 2 first to unlock descriptions, attachments, and the AI verification engine.
+                  </p>
+                </div>
+              )}
               
               {/* Text Description Box */}
               <div className="input-box-sub">
@@ -2177,9 +2736,44 @@ JSON:`
                         )}
 
                         {item.type === 'photo' && (
-                          <div className="photo-item-wrapper">
-                            <img src={item.fileUrl} alt={item.fileName} className="photo-preview-thumbnail" />
-                            <div className="photo-details">
+                          <div className="photo-item-wrapper" style={{ position: 'relative' }}>
+                            <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                              <img src={item.fileUrl} alt={item.fileName} className="photo-preview-thumbnail" style={{ display: 'block', width: '100%', borderRadius: '6px' }} />
+                              {item.boundingBoxes && item.boundingBoxes.map((box, idx) => (
+                                <div
+                                  key={idx}
+                                  style={{
+                                    position: 'absolute',
+                                    border: '2px solid #ef4444',
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    left: `${box.x}%`,
+                                    top: `${box.y}%`,
+                                    width: `${box.width}%`,
+                                    height: `${box.height}%`,
+                                    zIndex: 10,
+                                    pointerEvents: 'none',
+                                    boxShadow: '0 0 8px rgba(239, 68, 68, 0.5)'
+                                  }}
+                                >
+                                  <span style={{
+                                    position: 'absolute',
+                                    top: '-18px',
+                                    left: '-2px',
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '9px',
+                                    padding: '1px 4px',
+                                    borderRadius: '2px',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                                  }}>
+                                    {box.label} ({box.severity})
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="photo-details" style={{ marginTop: '12px' }}>
                               <span className="photo-name">{item.fileName}</span>
                               {item.processing ? (
                                 <div className="ocr-processing">
@@ -2211,7 +2805,24 @@ JSON:`
                 <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#fca5a5' }}>
                   Our AI engine has matched your complaint description with an existing issue in the region:
                 </p>
-                <div className="matched-hotspot-preview" style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px' }}>
+                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', background: 'rgba(239, 68, 68, 0.15)', padding: '8px 12px', borderRadius: '6px' }}>
+                  <span style={{ fontSize: '11px', color: '#fca5a5', fontWeight: 'bold' }}>🤖 AI Similarity Score:</span>
+                  <span style={{ fontSize: '12px', color: '#ffffff', fontWeight: '900', background: '#ef4444', padding: '2px 6px', borderRadius: '4px' }}>92% Match</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', margin: '8px 0 12px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', padding: '8px', borderRadius: '6px', fontSize: '11px', textAlign: 'left' }}>
+                    <span style={{ color: '#8e90b3', display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Your Input:</span>
+                    <span style={{ color: '#c7d2fe' }}>"{items[0]?.content || 'Empty'}"</span>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', padding: '8px', borderRadius: '6px', fontSize: '11px', textAlign: 'left' }}>
+                    <span style={{ color: '#8e90b3', display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Existing Record:</span>
+                    <span style={{ color: '#c7d2fe' }}>"{correlatedHotspot.items?.[0]?.content || correlatedHotspot.address}"</span>
+                  </div>
+                </div>
+
+                <div className="matched-hotspot-preview" style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', textAlign: 'left' }}>
                   <strong>Category:</strong> <span style={{ textTransform: 'capitalize' }}>{correlatedHotspot.category}</span><br />
                   <strong>Detail:</strong> "{correlatedHotspot.items?.[0]?.content || correlatedHotspot.address}"<br />
                   <strong>Current upvotes:</strong> {correlatedHotspot.upvotes}
@@ -2220,14 +2831,20 @@ JSON:`
                   <button 
                     type="button" 
                     className="btn-add-action" 
-                    style={{ background: '#22c55e', color: 'white', flex: 1 }}
+                    style={{ 
+                      background: upvotedHotspotIds.includes(correlatedHotspot.id) ? 'rgba(255,255,255,0.05)' : '#22c55e', 
+                      color: upvotedHotspotIds.includes(correlatedHotspot.id) ? '#8e90b3' : 'white', 
+                      flex: 1,
+                      cursor: upvotedHotspotIds.includes(correlatedHotspot.id) ? 'not-allowed' : 'pointer'
+                    }}
+                    disabled={upvotedHotspotIds.includes(correlatedHotspot.id)}
                     onClick={() => {
                       handleUpvote(correlatedHotspot.id);
                       alert("Successfully supported the existing issue. Upvote registered!");
                       setCorrelatedHotspot(null);
                     }}
                   >
-                    👍 Just Support/Upvote Existing
+                    {upvotedHotspotIds.includes(correlatedHotspot.id) ? '👍 Already Supported' : '👍 Just Support/Upvote Existing'}
                   </button>
                   <button 
                     type="button" 
@@ -2411,9 +3028,11 @@ JSON:`
           </div>
         </div>
       </div>
+      )}
 
       {/* Submit verification bar */}
-      <div className="submit-bar">
+      {!isDashboardView && (
+        <div className="submit-bar">
         <div className="checklist">
           <div className={'checklist-item ' + (location ? 'checked' : '')}>
             <span className="checkbox"></span>
@@ -2435,10 +3054,11 @@ JSON:`
           disabled={isSubmitDisabled}
           onClick={handleSubmit}
         >
-          <span>Submit Suggestion to Registry</span>
+          <span>Submit {ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'} to Registry</span>
           <ArrowRight size={18} />
         </button>
       </div>
+      )}
 
       {/* Submission Success Modal */}
       {showSuccess && (
@@ -2447,9 +3067,9 @@ JSON:`
             <div className="modal-success-icon">
               <CheckCircle size={64} />
             </div>
-            <h3>Demands Registered Successfully!</h3>
+            <h3>{ticketType === 'suggestion' ? 'Suggestion Registered Successfully!' : 'Complaint Registered Successfully!'}</h3>
             <p className="modal-desc">
-              Your suggestion has been logged. AI Engine will index, cluster, and present this to constituency officials.
+              Your {ticketType} has been logged. The AI Engine will index, cluster, and present this to constituency officials.
             </p>
 
             {submittedAsIncomplete && (
@@ -2459,7 +3079,7 @@ JSON:`
                   <span>Awaiting Community Contribution</span>
                 </strong>
                 <span style={{ fontSize: '12px', color: '#fde68a', lineHeight: '1.4', display: 'block' }}>
-                  This complaint has been registered with incomplete details. It is marked as <strong>"Needs More Info"</strong> and will be processed once additional evidence or descriptions are contributed by other citizens.
+                  This {ticketType} has been registered with incomplete details. It is marked as <strong>"Needs More Info"</strong> and will be processed once additional evidence, suggestions, or descriptions are contributed by other citizens.
                 </span>
               </div>
             )}
@@ -2518,6 +3138,41 @@ JSON:`
                   style={{ width: '120px', height: '120px', borderRadius: '8px', border: '1px solid #4f46e5' }}
                 />
                 <span style={{ fontSize: '11px', color: '#8e90b3', fontWeight: '600' }}>Scan to track status live</span>
+              </div>
+
+              <div className="whatsapp-petition-card" style={{ marginTop: '20px', border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', borderRadius: '8px', padding: '14px', textAlign: 'left' }}>
+                <strong style={{ color: '#4ade80', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  📢 WhatsApp Petition Generator
+                </strong>
+                <span style={{ fontSize: '12px', color: '#a7f3d0', lineHeight: '1.4', display: 'block', marginBottom: '10px' }}>
+                  Generate a shareable petition link. Neighbors must select their map location nearby to upvote/agree.
+                </span>
+                
+                <button
+                  type="button"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: '#22c55e',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '12.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                  onClick={() => {
+                    const text = `Hi neighbors! I have raised a ${ticketType === 'suggestion' ? 'proposal' : 'complaint'} on Jansetu regarding "${aiOverview?.brief || category}". We need community signatures to draw local MLA attention. Please upvote this petition here (must be within 2.0 km of the map location): ${window.location.origin}/complainant.html?petitionId=${ticketId}`;
+                    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+                    window.open(whatsappUrl, '_blank');
+                  }}
+                >
+                  💬 Share Petition on WhatsApp Groups
+                </button>
               </div>
             </div>
 
@@ -2653,6 +3308,26 @@ function App() {
               <div className="card-action">
                 <button className="role-btn" onClick={(e) => { e.stopPropagation(); window.location.href = '/complainant.html'; }}>
                   <span>Complainant</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Portal 1b: Complainant Profile Login */}
+            <div className="role-card card-citizen" id="portal-citizen-login" onClick={() => window.location.href = '/complainant.html?login=true'} style={{ borderLeft: '4px solid #818cf8' }}>
+              <div className="card-content">
+                <div className="icon-box" style={{ background: 'rgba(129, 140, 248, 0.1)', color: '#818cf8' }}>
+                  <Award size={28} />
+                </div>
+                <span className="role-label">Citizen Space</span>
+                <h3 className="role-title">Complainant Login</h3>
+                <p className="role-desc">
+                  Access your profile, track status of submitted complaints/suggestions, view your civic score, and view active badges.
+                </p>
+              </div>
+              <div className="card-action">
+                <button className="role-btn" onClick={(e) => { e.stopPropagation(); window.location.href = '/complainant.html?login=true'; }} style={{ background: '#818cf8', color: '#1e1b4b' }}>
+                  <span>Profile Login</span>
                   <ArrowRight size={16} />
                 </button>
               </div>
