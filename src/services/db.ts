@@ -8,6 +8,7 @@ import {
   where, 
   updateDoc, 
   doc, 
+  getDoc,
   increment,
   limit
 } from 'firebase/firestore';
@@ -170,6 +171,44 @@ export async function submitDemand(data: SubmissionData): Promise<string> {
   localDb.push({ id, ...docData });
   saveLocalEmulatorData(localDb);
   return id;
+}
+
+/**
+ * Appends new items/evidence to an existing citizen complaint.
+ */
+export async function contributeToDemand(id: string, newItems: any[], extraData?: any): Promise<void> {
+  try {
+    if (db && !id.startsWith('local_')) {
+      const docRef = doc(db, 'demands', id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const existingData = docSnap.data();
+        const updatedItems = [...(existingData.items || []), ...newItems];
+        const updatePayload: any = {
+          items: updatedItems,
+          ...extraData
+        };
+        await updateDoc(docRef, updatePayload);
+        return;
+      }
+    }
+  } catch (e) {
+    console.error("Firestore contribute failed, falling back to local storage: ", e);
+  }
+
+  // Local Storage fallback
+  const localDb = getLocalEmulatorData();
+  const updatedDb = localDb.map(item => {
+    if (item.id === id) {
+      return {
+        ...item,
+        items: [...(item.items || []), ...newItems],
+        ...extraData
+      };
+    }
+    return item;
+  });
+  saveLocalEmulatorData(updatedDb);
 }
 
 /**

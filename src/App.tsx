@@ -16,7 +16,7 @@ import {
   Info
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
-import { submitDemand, getNearbyHotspots, upvoteDemand } from './services/db';
+import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand } from './services/db';
 
 // ISO 639-1 / Google Translate codes for the 22 Scheduled Indian Languages + English
 const INDIAN_LANGUAGES = [
@@ -740,6 +740,8 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   const [aiOverview, setAiOverview] = useState<{ brief: string; priorityScore: number; priorityLabel: string; estimatedBudget: string; safetyRisk: string } | null>(null);
   const [circleData, setCircleData] = useState<{ lat: number; lng: number; radius: number } | null>(null);
   const [clarificationRefusals, setClarificationRefusals] = useState<number>(0);
+  const [contributingIssue, setContributingIssue] = useState<any | null>(null);
+  const [submittedAsIncomplete, setSubmittedAsIncomplete] = useState<boolean>(false);
 
   // Query hotspots when location changes
   useEffect(() => {
@@ -768,6 +770,13 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
       setCircleData(null);
     }
   }, [location, scope]);
+
+  const isHotspotIncomplete = (h: any) => {
+    if (h.status === 'needs_info' || h.needsMoreInfo) return true;
+    const content = h.items?.[0]?.content || '';
+    if (content.length < 35 && !h.items?.find((i: any) => i.type === 'photo')) return true;
+    return false;
+  };
 
   const handleLocationSelect = (loc: Location, addr: string, locInsights?: LocationInsights) => {
     setLocation(loc);
@@ -1512,17 +1521,22 @@ JSON:`
   const handleSubmit = async () => {
     if (isSubmitDisabled) return;
 
+    const itemsMapped = items.map(item => ({
+      type: item.type,
+      content: item.content,
+      fileUrl: item.fileUrl || '',
+      speechTranscript: item.speechTranscript || ''
+    }));
+
+    const isIncomplete = !!(aiClarificationQuestion || !aiUnderstood);
+    setSubmittedAsIncomplete(isIncomplete);
+
     const submissionData = {
       category,
       scope,
       location: location || { lat: 0, lng: 0 },
       address,
-      items: items.map(item => ({
-        type: item.type,
-        content: item.content,
-        fileUrl: item.fileUrl || '',
-        speechTranscript: item.speechTranscript || ''
-      })),
+      items: itemsMapped,
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       associatedPlace: associatedPlace || undefined,
@@ -1531,11 +1545,23 @@ JSON:`
       assetType,
       fundingSource,
       aiOverview: aiOverview || undefined,
-      circleData: circleData || undefined
+      circleData: circleData || undefined,
+      status: isIncomplete ? 'needs_info' : 'pending',
+      needsMoreInfo: isIncomplete
     };
 
-    const id = await submitDemand(submissionData);
-    setTicketId(id);
+    if (contributingIssue) {
+      const extraData = {
+        status: !isIncomplete ? 'pending' : 'needs_info',
+        needsMoreInfo: isIncomplete
+      };
+      await contributeToDemand(contributingIssue.id, itemsMapped, extraData);
+      setTicketId(contributingIssue.id);
+    } else {
+      const id = await submitDemand(submissionData);
+      setTicketId(id);
+    }
+
     setShowSuccess(true);
   };
 
@@ -1878,14 +1904,39 @@ JSON:`
                         {hotspot.category}
                       </span>
                       <p className="hotspot-text">{"\"" + (hotspot.items[0]?.content || hotspot.address) + "\""}</p>
+                      {isHotspotIncomplete(hotspot) && (
+                        <span style={{ fontSize: '10px', background: 'rgba(239,68,68,0.2)', color: '#f87171', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block', marginTop: '4px' }}>
+                          ⚠️ Needs Details / Evidence
+                        </span>
+                      )}
                     </div>
-                    <button 
-                      type="button" 
-                      className="btn-upvote" 
-                      onClick={() => handleUpvote(hotspot.id)}
-                    >
-                      👍 Support ({hotspot.upvotes})
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
+                      <button 
+                        type="button" 
+                        className="btn-upvote" 
+                        onClick={() => handleUpvote(hotspot.id)}
+                        style={{ padding: '6px 10px', fontSize: '12px' }}
+                      >
+                        👍 Support ({hotspot.upvotes})
+                      </button>
+                      {isHotspotIncomplete(hotspot) && (
+                        <button 
+                          type="button" 
+                          className="btn-add-action" 
+                          onClick={() => {
+                            setContributingIssue(hotspot);
+                            setLocation({ lat: hotspot.location.lat, lng: hotspot.location.lng });
+                            setAddress(hotspot.address);
+                            setCategory(hotspot.category);
+                            setScope(hotspot.scope);
+                            document.querySelector('.portal-col')?.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          style={{ fontSize: '10.5px', padding: '4px 8px', background: '#e11d48', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                          📝 Contribute Info
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1899,6 +1950,26 @@ JSON:`
           <div className="form-card h-full">
             <h3>3. Add Suggestion Details & Attach Evidence</h3>
             <p className="section-help">You can attach multiple entries. At least one attachment is required.</p>
+
+            {contributingIssue && (
+              <div className="contributing-banner" style={{ border: '1px solid #e11d48', background: 'rgba(225,29,72,0.1)', padding: '12px 14px', borderRadius: '8px', marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ textAlign: 'left' }}>
+                  <strong style={{ color: '#fb7185', fontSize: '13px', display: 'block' }}>📝 Mode: Contributing Info to Existing Issue</strong>
+                  <span style={{ fontSize: '11px', color: '#fda4af' }}>Your inputs will be appended to the active complaint ticket: <strong>"{contributingIssue.items?.[0]?.content || contributingIssue.address}"</strong></span>
+                </div>
+                <button 
+                  type="button" 
+                  className="btn-toggle-settings" 
+                  onClick={() => {
+                    setContributingIssue(null);
+                    setItems([]);
+                  }}
+                  style={{ flexShrink: 0, padding: '4px 8px', fontSize: '11px', color: '#fca5a5', borderColor: '#fda4af', cursor: 'pointer', borderRadius: '4px' }}
+                >
+                  Cancel Contribution
+                </button>
+              </div>
+            )}
 
             {/* AI sync status banner */}
             {aiIndicator.active && (
@@ -2381,6 +2452,18 @@ JSON:`
               Your suggestion has been logged. AI Engine will index, cluster, and present this to constituency officials.
             </p>
 
+            {submittedAsIncomplete && (
+              <div className="incomplete-success-alert" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid #d97706', padding: '14px', borderRadius: '8px', margin: '16px 0', textAlign: 'left' }}>
+                <strong style={{ color: '#fbbf24', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  <Sparkles size={14} />
+                  <span>Awaiting Community Contribution</span>
+                </strong>
+                <span style={{ fontSize: '12px', color: '#fde68a', lineHeight: '1.4', display: 'block' }}>
+                  This complaint has been registered with incomplete details. It is marked as <strong>"Needs More Info"</strong> and will be processed once additional evidence or descriptions are contributed by other citizens.
+                </span>
+              </div>
+            )}
+
             <div className="modal-summary-card">
               <h4>Submission Summary</h4>
               <div className="summary-row">
@@ -2467,6 +2550,8 @@ JSON:`
               setAiOverview(null);
               setCircleData(null);
               setClarificationRefusals(0);
+              setContributingIssue(null);
+              setSubmittedAsIncomplete(false);
               onBack(); // Return to landing
             }}>
               Return to Portal Home
