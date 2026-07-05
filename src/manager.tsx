@@ -22,6 +22,14 @@ import { LanguageSelector, getInitialLanguage, GoogleMapComponent } from './App'
 import { AuthModal } from './AuthModal';
 import './index.css';
 
+const getCategoryColor = (category: string) => {
+  const categoriesList = ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"];
+  const idx = categoriesList.indexOf(category.toLowerCase());
+  if (idx === -1) return '#818cf8';
+  const hue = (idx * (360 / categoriesList.length)) % 360;
+  return `hsl(${hue}, 75%, 60%)`;
+};
+
 function ManagerConsole() {
   const [selectedLang, setSelectedLang] = useState(getInitialLanguage);
   const [demands, setDemands] = useState<any[]>([]);
@@ -37,7 +45,6 @@ function ManagerConsole() {
   const [signatureSlider, setSignatureSlider] = useState<number>(0);
   const [budgetScaleFilter, setBudgetScaleFilter] = useState<string>('all');
   const [scopeSliderFilter, setScopeSliderFilter] = useState<string>('all');
-  const [hoveredChartBar, setHoveredChartBar] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('manager_auth') === 'true');
 
   // Load demands
@@ -127,30 +134,37 @@ function ManagerConsole() {
   // Dynamic real-data calculations based on filters and sliders
   const totalCount = filteredDemands.length;
   const pendingCount = filteredDemands.filter(d => d.status === 'pending').length;
-  const approvedCount = filteredDemands.filter(d => d.status === 'approved').length;
   const totalVotes = filteredDemands.reduce((acc, curr) => acc + (curr.upvotes || 0), 0);
 
   // Red Alerts (Priority Score > 80)
   const redAlertCount = filteredDemands.filter(d => (d.aiOverview?.priorityScore || 0) > 80).length;
 
-  // Capital Budget Outlay Estimates Summation
-  const estimatedBudgetSum = filteredDemands.reduce((acc, curr) => {
-    const budgetStr = (curr.aiOverview?.estimatedBudget || '').toLowerCase();
-    if (budgetStr.includes('under') || budgetStr.includes('5,000')) return acc + 8000;
-    if (budgetStr.includes('10,000') || budgetStr.includes('25,000') || budgetStr.includes('30,000')) return acc + 30000;
-    if (budgetStr.includes('50,000') || budgetStr.includes('100k') || budgetStr.includes('+')) return acc + 85000;
-    return acc + 10000; // default average
-  }, 0);
-
-  // Average Safety Risk Rating Index
-  const averageSafetyScore = filteredDemands.length > 0
-    ? (filteredDemands.reduce((acc, curr) => {
-        const risk = (curr.aiOverview?.safetyRisk || '').toLowerCase();
-        if (risk.includes('high')) return acc + 3;
-        if (risk.includes('med') || risk.includes('moderate')) return acc + 2;
-        return acc + 1; // low
-      }, 0) / filteredDemands.length).toFixed(1)
+  // Average Citizen Support (average votes per complaint)
+  const averageVotesPerComplaint = filteredDemands.length > 0
+    ? (totalVotes / filteredDemands.length).toFixed(1)
     : '0.0';
+
+  // Find the category with the highest average priority score
+  let mostUrgentSector = 'None';
+  if (filteredDemands.length > 0) {
+    const categoryPrioritySums: any = {};
+    const categoryPriorityCounts: any = {};
+    filteredDemands.forEach(d => {
+      const cat = d.category;
+      const score = d.aiOverview?.priorityScore || 50;
+      categoryPrioritySums[cat] = (categoryPrioritySums[cat] || 0) + score;
+      categoryPriorityCounts[cat] = (categoryPriorityCounts[cat] || 0) + 1;
+    });
+    
+    let highestAveragePriority = 0;
+    Object.keys(categoryPrioritySums).forEach(cat => {
+      const avg = categoryPrioritySums[cat] / categoryPriorityCounts[cat];
+      if (avg > highestAveragePriority) {
+        highestAveragePriority = avg;
+        mostUrgentSector = cat;
+      }
+    });
+  }
 
   // Sort the filtered list
   const sortedDemands = [...filteredDemands].sort((a, b) => {
@@ -184,11 +198,7 @@ function ManagerConsole() {
     count: categoryCounts[cat]
   })).sort((a, b) => b.count - a.count);
 
-  const statusCounts = {
-    pending: pendingCount,
-    approved: approvedCount,
-    needs_info: filteredDemands.filter(d => d.status === 'needs_info' || d.needsMoreInfo).length
-  };
+
 
   const zones: any = {};
   filteredDemands.forEach(d => {
@@ -206,6 +216,26 @@ function ManagerConsole() {
   });
 
   const topZones = Object.values(zones).sort((a: any, b: any) => b.total - a.total).slice(0, 5);
+
+  // Priority histogram calculation
+  const priorityBands = [0, 0, 0, 0, 0]; // 0-20, 21-40, 41-60, 61-80, 81-100
+  filteredDemands.forEach(d => {
+    const score = d.aiOverview?.priorityScore || 50;
+    if (score <= 20) priorityBands[0]++;
+    else if (score <= 40) priorityBands[1]++;
+    else if (score <= 60) priorityBands[2]++;
+    else if (score <= 80) priorityBands[3]++;
+    else priorityBands[4]++;
+  });
+
+  // Scope count calculations
+  const scopeCounts = { household: 0, street: 0, ward: 0, constituency: 0 };
+  filteredDemands.forEach(d => {
+    if (d.scope === 'household') scopeCounts.household++;
+    else if (d.scope === 'street') scopeCounts.street++;
+    else if (d.scope === 'ward') scopeCounts.ward++;
+    else if (d.scope === 'constituency') scopeCounts.constituency++;
+  });
 
   return (
     <>
@@ -253,8 +283,8 @@ function ManagerConsole() {
             <ArrowLeft size={18} />
             <span>Back to Roles</span>
           </button>
-          <h2>Consolidated Grievance Registry</h2>
-          <p className="portal-subtitle">Review multi-modal citizen submissions, audit AI gap insights, and approve clustered hotspot demands</p>
+          <h2>Citizen Issues Dashboard</h2>
+          <p className="portal-subtitle">Review citizen submissions, local deficits table, and hotspots map</p>
         </div>
 
         {/* Tab selection menu */}
@@ -297,7 +327,7 @@ function ManagerConsole() {
               gap: '8px'
             }}
           >
-            📋 All Complaints (Citizen Submissions)
+            📋 All Submitted Complaints
           </button>
         </div>
 
@@ -306,7 +336,7 @@ function ManagerConsole() {
           <div className="form-card" style={{ padding: '20px 24px', marginBottom: '24px', textAlign: 'left' }}>
             <h4 style={{ color: '#2dd4bf', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 16px 0', fontSize: '1rem' }}>
               <Sliders size={18} />
-              <span>Interactive Parameter Tuning & Simulation Controls</span>
+              <span>Dashboard Filters & Controls</span>
             </h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
               
@@ -383,12 +413,12 @@ function ManagerConsole() {
           </div>
         )}
 
-        {/* Dashboard Stats row (6-Grid Advanced KPI indicators) */}
+        {/* Dashboard Stats row (6-Grid Advanced KPI indicators in simple English) */}
         <div className="role-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
           <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
             <div style={{ fontSize: '1.8rem' }}>📁</div>
             <div>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Active Grievances</span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Active Issues</span>
               <h3 style={{ fontSize: '1.4rem', color: 'white', margin: 0 }}>{totalCount}</h3>
             </div>
           </div>
@@ -396,7 +426,7 @@ function ManagerConsole() {
           <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
             <div style={{ fontSize: '1.8rem' }}>🚨</div>
             <div>
-              <span style={{ fontSize: '0.7rem', color: '#f87171', textTransform: 'uppercase', fontWeight: 'bold' }}>Red Alerts (&gt;80)</span>
+              <span style={{ fontSize: '0.7rem', color: '#f87171', textTransform: 'uppercase', fontWeight: 'bold' }}>Urgent Issues</span>
               <h3 style={{ fontSize: '1.4rem', color: '#f87171', margin: 0 }}>{redAlertCount}</h3>
             </div>
           </div>
@@ -404,7 +434,7 @@ function ManagerConsole() {
           <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
             <div style={{ fontSize: '1.8rem' }}>⏳</div>
             <div>
-              <span style={{ fontSize: '0.7rem', color: '#fbbf24', textTransform: 'uppercase', fontWeight: 'bold' }}>Pending Audit</span>
+              <span style={{ fontSize: '0.7rem', color: '#fbbf24', textTransform: 'uppercase', fontWeight: 'bold' }}>Awaiting Review</span>
               <h3 style={{ fontSize: '1.4rem', color: '#fbbf24', margin: 0 }}>{pendingCount}</h3>
             </div>
           </div>
@@ -412,24 +442,24 @@ function ManagerConsole() {
           <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
             <div style={{ fontSize: '1.8rem' }}>👍</div>
             <div>
-              <span style={{ fontSize: '0.7rem', color: '#6366f1', textTransform: 'uppercase', fontWeight: 'bold' }}>Citizen Votes</span>
+              <span style={{ fontSize: '0.7rem', color: '#6366f1', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Support Votes</span>
               <h3 style={{ fontSize: '1.4rem', color: '#818cf8', margin: 0 }}>{totalVotes}</h3>
             </div>
           </div>
 
           <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
-            <div style={{ fontSize: '1.8rem' }}>💰</div>
+            <div style={{ fontSize: '1.8rem' }}>📈</div>
             <div>
-              <span style={{ fontSize: '0.7rem', color: '#34d399', textTransform: 'uppercase', fontWeight: 'bold' }}>Est. Budget Outlay</span>
-              <h3 style={{ fontSize: '1.3rem', color: '#34d399', margin: 0 }}>₹{(estimatedBudgetSum * 85).toLocaleString('en-IN')}</h3>
+              <span style={{ fontSize: '0.7rem', color: '#34d399', textTransform: 'uppercase', fontWeight: 'bold' }}>Average Support</span>
+              <h3 style={{ fontSize: '1.4rem', color: '#34d399', margin: 0 }}>{averageVotesPerComplaint} votes</h3>
             </div>
           </div>
 
           <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
-            <div style={{ fontSize: '1.8rem' }}>🛡️</div>
+            <div style={{ fontSize: '1.8rem' }}>🔥</div>
             <div>
-              <span style={{ fontSize: '0.7rem', color: '#a5b4fc', textTransform: 'uppercase', fontWeight: 'bold' }}>Avg Safety Risk</span>
-              <h3 style={{ fontSize: '1.4rem', color: '#a5b4fc', margin: 0 }}>{averageSafetyScore}/3.0</h3>
+              <span style={{ fontSize: '0.7rem', color: '#a5b4fc', textTransform: 'uppercase', fontWeight: 'bold' }}>Most Urgent Sector</span>
+              <h3 style={{ fontSize: '1.25rem', color: '#a5b4fc', margin: 0, textTransform: 'capitalize' }}>{mostUrgentSector}</h3>
             </div>
           </div>
         </div>
@@ -531,314 +561,355 @@ function ManagerConsole() {
         {activeTab === 'registry' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '32px' }}>
             
-            {/* Top Analytics Panel: Map Heatzones & Top Categories Prevalence */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }} className="role-grid">
-              
-              {/* Map Heatzones */}
-              <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
-                <h4 style={{ color: '#2dd4bf', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
-                  <MapPin size={18} style={{ color: '#2dd4bf' }} />
-                  <span>Interactive Regional Hotspot Heat-Zones (Filtered System Data)</span>
-                </h4>
-                <div style={{ height: '320px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <GoogleMapComponent
-                    apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
-                    onLocationSelect={() => {}}
-                    selectedLocation={selectedDemand?.location || { lat: 28.803, lng: 79.025 }}
-                    nearbyHotspots={filteredDemands.map(fd => ({
-                      id: fd.id,
-                      location: fd.location,
-                      category: fd.category,
-                      upvotes: fd.upvotes || 1
-                    }))}
-                    focusedPlace={null}
-                    circleData={null}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '11px', color: '#8e90b3' }}>
-                  <span>⭕ Circle radius represents support signatures count</span>
-                  <span style={{ color: '#f87171' }}>● Roads (Red)</span>
-                  <span style={{ color: '#fbbf24' }}>● Water (Yellow)</span>
-                  <span style={{ color: '#38bdf8' }}>● Education (Blue)</span>
-                  <span style={{ color: '#a78bfa' }}>● Power (Purple)</span>
-                </div>
+            {/* Top Analytics Panel: Full-Width Geographical Hotspots Map */}
+            <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
+              <h4 style={{ color: '#2dd4bf', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
+                <MapPin size={18} style={{ color: '#2dd4bf' }} />
+                <span>Geographical Hotspots Map</span>
+              </h4>
+              <div style={{ height: '480px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <GoogleMapComponent
+                  apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
+                  onLocationSelect={() => {}}
+                  selectedLocation={selectedDemand?.location || { lat: 28.803, lng: 79.025 }}
+                  nearbyHotspots={filteredDemands.map(fd => ({
+                    id: fd.id,
+                    location: fd.location,
+                    category: fd.category,
+                    upvotes: fd.upvotes || 1
+                  }))}
+                  focusedPlace={null}
+                  circleData={null}
+                />
               </div>
-
-              {/* Prevalence & Workflow share charts */}
-              <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
-                <h4 style={{ color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
-                  <Sparkles size={18} />
-                  <span>Category Prevalence & Resolution shares</span>
-                </h4>
-                
-                {/* SVG Bar Chart */}
-                <div style={{ flexGrow: 1, position: 'relative' }}>
-                  <span style={{ fontSize: '11.5px', color: 'var(--text-desc)', display: 'block', marginBottom: '8px' }}>
-                    📈 Incoming Prevalence counts (Hover for details):
-                  </span>
-                  {sortedCategories.length === 0 ? (
-                    <div style={{ height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8e90b3', fontSize: '12px' }}>
-                      No data to chart.
-                    </div>
-                  ) : (
-                    <svg viewBox={`0 0 400 130`} style={{ width: '100%', height: '130px', overflow: 'visible' }}>
-                      {sortedCategories.slice(0, 5).map((c, i) => {
-                        const barWidth = 40;
-                        const gapSize = 30;
-                        const x = 50 + i * (barWidth + gapSize);
-                        const maxVal = Math.max(...sortedCategories.map(item => item.count), 1);
-                        const height = (c.count / maxVal) * 80;
-                        const y = 100 - height;
-                        const isHovered = hoveredChartBar === c.category;
-
-                        return (
-                          <g 
-                            key={c.category} 
-                            onMouseEnter={() => setHoveredChartBar(c.category)}
-                            onMouseLeave={() => setHoveredChartBar(null)}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            {/* Bar Rect */}
-                            <rect 
-                              x={x} 
-                              y={y} 
-                              width={barWidth} 
-                              height={height} 
-                              rx={4} 
-                              fill={isHovered ? '#2dd4bf' : 'url(#barGrad)'} 
-                              style={{ transition: 'all 0.2s ease' }}
-                            />
-                            {/* Count label */}
-                            <text x={x + barWidth / 2} y={y - 6} textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">
-                              {c.count}
-                            </text>
-                            {/* X-axis Label */}
-                            <text x={x + barWidth / 2} y={115} textAnchor="middle" fill="#8e90b3" fontSize="9" fontWeight="600" style={{ textTransform: 'uppercase' }}>
-                              {c.category.substring(0, 6)}
-                            </text>
-                          </g>
-                        );
-                      })}
-                      {/* Gradients */}
-                      <defs>
-                        <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#818cf8" />
-                          <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.4" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
-                  )}
-                  {hoveredChartBar && (
-                    <div style={{ position: 'absolute', top: 0, right: 0, background: 'rgba(9, 8, 26, 0.95)', border: '1px solid #14b8a6', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', color: 'white', zIndex: 10 }}>
-                      Category: <strong style={{ color: '#2dd4bf', textTransform: 'capitalize' }}>{hoveredChartBar}</strong>
-                      <br />
-                      Share: <strong>{((categoryCounts[hoveredChartBar] || 0) / (filteredDemands.length || 1) * 100).toFixed(0)}%</strong>
-                    </div>
-                  )}
+              
+              {/* Category HSL Color Legend for all active categories */}
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                <div style={{ fontSize: '11px', color: '#8e90b3', width: '100%', marginBottom: '4px', fontWeight: 'bold' }}>
+                  ⭕ Circle boundary size represents citizen support count. Map marker color code key:
                 </div>
-
-                {/* Donut progress status grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
-                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '6px', textAlign: 'center' }}>
-                    <span style={{ fontSize: '9px', color: '#8e90b3', display: 'block' }}>⏳ PENDING</span>
-                    <strong style={{ fontSize: '12px', color: '#fbbf24' }}>
-                      {statusCounts.pending} ({totalCount > 0 ? (statusCounts.pending / totalCount * 100).toFixed(0) : 0}%)
-                    </strong>
+                {sortedCategories.map(c => (
+                  <div key={c.category} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#c5c7e6' }}>
+                    <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: getCategoryColor(c.category) }}></span>
+                    <span style={{ textTransform: 'capitalize' }}>{c.category}</span>
+                    <span style={{ color: '#8e90b3', fontSize: '10.5px' }}>({c.count})</span>
                   </div>
-                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '6px', textAlign: 'center' }}>
-                    <span style={{ fontSize: '9px', color: '#8e90b3', display: 'block' }}>✅ APPROVED</span>
-                    <strong style={{ fontSize: '12px', color: '#34d399' }}>
-                      {statusCounts.approved} ({totalCount > 0 ? (statusCounts.approved / totalCount * 100).toFixed(0) : 0}%)
-                    </strong>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '6px', textAlign: 'center' }}>
-                    <span style={{ fontSize: '9px', color: '#8e90b3', display: 'block' }}>🛠️ NEEDS INFO</span>
-                    <strong style={{ fontSize: '12px', color: '#ef4444' }}>
-                      {statusCounts.needs_info} ({totalCount > 0 ? (statusCounts.needs_info / totalCount * 100).toFixed(0) : 0}%)
-                    </strong>
-                  </div>
-                </div>
-
+                ))}
               </div>
             </div>
 
-            {/* Middle Analytics Panel: Urgency vs Impact & Velocity Trend */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }} className="role-grid">
+            {/* Middle Analytics Panel: SVG Donut Chart, SVG Histogram, and Gauge Meters */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '24px' }} className="role-grid">
               
-              {/* Scatter bubble Plot */}
+              {/* SVG Category Shares Pie/Donut Chart */}
+              <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
+                <h4 style={{ color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1.05rem' }}>
+                  <Sparkles size={18} />
+                  <span>Incoming Issues by Category</span>
+                </h4>
+                
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexGrow: 1 }}>
+                  {sortedCategories.length === 0 ? (
+                    <div style={{ height: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8e90b3', fontSize: '12px', width: '100%' }}>
+                      No data to chart.
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ width: '45%' }}>
+                        {(() => {
+                          let accumulatedCircumference = 0;
+                          const r = 35;
+                          const circumference = 2 * Math.PI * r; // ~219.9
+                          
+                          return (
+                            <svg viewBox="0 0 100 100" style={{ width: '100%', height: '120px', overflow: 'visible' }}>
+                              <circle cx="50" cy="50" r={r} fill="transparent" stroke="rgba(255,255,255,0.04)" strokeWidth="15" />
+                              {sortedCategories.map((c) => {
+                                const share = c.count / totalCount;
+                                const strokeDash = share * circumference;
+                                const strokeDashOffset = -accumulatedCircumference;
+                                accumulatedCircumference += strokeDash;
+                                
+                                return (
+                                  <circle
+                                    key={c.category}
+                                    cx="50"
+                                    cy="50"
+                                    r={r}
+                                    fill="transparent"
+                                    stroke={getCategoryColor(c.category)}
+                                    strokeWidth="15"
+                                    strokeDasharray={`${strokeDash} ${circumference - strokeDash}`}
+                                    strokeDashoffset={strokeDashOffset}
+                                    style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%', transition: 'all 0.3s ease', cursor: 'pointer' }}
+                                  >
+                                    <title>{c.category.toUpperCase()}: {c.count} ({Math.round(share * 100)}%)</title>
+                                  </circle>
+                                );
+                              })}
+                            </svg>
+                          );
+                        })()}
+                      </div>
+                      <div style={{ width: '55%', display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', maxHeight: '140px', paddingRight: '4px' }}>
+                        {sortedCategories.map(c => {
+                          const share = c.count / totalCount;
+                          return (
+                            <div key={c.category} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#c5c7e6' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: getCategoryColor(c.category), flexShrink: 0 }}></span>
+                                <span style={{ textTransform: 'capitalize' }}>{c.category}</span>
+                              </div>
+                              <strong>{Math.round(share * 100)}%</strong>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Priority Histogram Chart */}
               <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
                 <h4 style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
                   <Award size={18} style={{ color: '#fbbf24' }} />
-                  <span>AI Priority Score vs Estimated Impact Population</span>
+                  <span>Issue Priority Score Spread</span>
                 </h4>
-                <div style={{ flexGrow: 1, position: 'relative' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-desc)', display: 'block', marginBottom: '8px' }}>
-                    🔴 Target Quadrant: Top-Right (High Priority, High Population Impact, Requires Direct Constituency Funds)
-                  </span>
+                <div style={{ flexGrow: 1 }}>
                   {filteredDemands.length === 0 ? (
                     <div style={{ height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8e90b3', fontSize: '12px' }}>
-                      No data to plot.
+                      No score data available.
                     </div>
                   ) : (
-                    <svg viewBox="0 0 400 150" style={{ width: '100%', height: '150px', overflow: 'visible' }}>
-                      {/* Quadrant grid lines */}
-                      <line x1="200" y1="10" x2="200" y2="130" stroke="rgba(255,255,255,0.06)" strokeDasharray="3" />
-                      <line x1="30" y1="70" x2="380" y2="70" stroke="rgba(255,255,255,0.06)" strokeDasharray="3" />
-                      
-                      {/* Axes */}
-                      <line x1="30" y1="130" x2="380" y2="130" stroke="rgba(255,255,255,0.2)" />
-                      <line x1="30" y1="10" x2="30" y2="130" stroke="rgba(255,255,255,0.2)" />
-
-                      {/* Bubble points */}
-                      {filteredDemands.map((fd, i) => {
-                        const score = fd.aiOverview?.priorityScore || 50;
-                        const impact = Math.min(fd.estimatedImpact || 150, 10000);
-                        
-                        // Map score 0-100 to x 40-370
-                        const x = 40 + (score / 100) * 320;
-                        // Map impact 0-10000 to y 120-20
-                        const y = 120 - (Math.sqrt(impact) / 100) * 100;
-                        
-                        // Circle size based on upvotes
-                        const r = Math.min(4 + (fd.upvotes || 1) * 0.4, 16);
-
-                        let color = '#818cf8'; // power
-                        if (fd.category === 'roads') color = '#ef4444';
-                        if (fd.category === 'water') color = '#fbbf24';
-                        if (fd.category === 'education') color = '#38bdf8';
-                        if (fd.category === 'health') color = '#10b981';
-
-                        return (
-                          <circle 
-                            key={i}
-                            cx={x}
-                            cy={y}
-                            r={r}
-                            fill={color}
-                            fillOpacity="0.75"
-                            stroke="white"
-                            strokeWidth="0.5"
-                            style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
-                          >
-                            <title>
-                              {fd.category.toUpperCase()} Grievance\nPriority: {score}/100\nImpact: {impact} citizens\nSignatures: {fd.upvotes || 1}\nAddress: {fd.address}
-                            </title>
-                          </circle>
-                        );
-                      })}
-
-                      {/* Axes Labels */}
-                      <text x="380" y="142" textAnchor="end" fill="#8e90b3" fontSize="8">Priority Score ➔</text>
-                      <text x="10" y="20" textAnchor="start" fill="#8e90b3" fontSize="8" transform="rotate(-90 10 20)">Impact Pop. ➔</text>
-                    </svg>
-                  )}
-                </div>
-              </div>
-
-              {/* Velocity Line/Area Chart */}
-              <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
-                <h4 style={{ color: '#2dd4bf', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
-                  <Calendar size={18} style={{ color: '#2dd4bf' }} />
-                  <span>Constituency Submission Velocity Velocity Trend</span>
-                </h4>
-                <div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-desc)', display: 'block', marginBottom: '8px' }}>
-                    📈 Daily incoming submission volume (last 7 submission days):
-                  </span>
-                  {filteredDemands.length === 0 ? (
-                    <div style={{ height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8e90b3', fontSize: '12px' }}>
-                      No data to chart.
-                    </div>
-                  ) : (
-                    <svg viewBox="0 0 400 150" style={{ width: '100%', height: '150px', overflow: 'visible' }}>
-                      {/* Grid lines */}
-                      <line x1="30" y1="40" x2="380" y2="40" stroke="rgba(255,255,255,0.04)" />
-                      <line x1="30" y1="80" x2="380" y2="80" stroke="rgba(255,255,255,0.04)" />
-                      
-                      {/* Axes */}
-                      <line x1="30" y1="120" x2="380" y2="120" stroke="rgba(255,255,255,0.2)" />
-
-                      {/* Area polygon points */}
-                      {(() => {
-                        // Group by date
-                        const datesGroup: any = {};
-                        filteredDemands.forEach(d => {
-                          const dateStr = d.createdAt ? new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'N/A';
-                          datesGroup[dateStr] = (datesGroup[dateStr] || 0) + 1;
-                        });
-                        const sortedDates = Object.keys(datesGroup).map(k => ({ date: k, count: datesGroup[k] })).slice(-7);
-                        if (sortedDates.length === 0) return null;
-                        
-                        const maxCount = Math.max(...sortedDates.map(d => d.count), 1);
-                        const points = sortedDates.map((sd, i) => {
-                          const x = 40 + i * (330 / Math.max(sortedDates.length - 1, 1));
-                          const y = 120 - (sd.count / maxCount) * 80;
-                          return { x, y, ...sd };
-                        });
-
-                        const pathDef = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-                        const areaDef = `${pathDef} L ${points[points.length - 1].x} 120 L ${points[0].x} 120 Z`;
-
-                        return (
-                          <g>
-                            {/* Area fill */}
-                            <path d={areaDef} fill="url(#areaFillGrad)" />
-                            {/* Line path */}
-                            <path d={pathDef} fill="none" stroke="#2dd4bf" strokeWidth="2.5" />
-                            {/* Circle dots */}
-                            {points.map((p, idx) => (
-                              <g key={idx}>
-                                <circle cx={p.x} cy={p.y} r="4" fill="white" stroke="#2dd4bf" strokeWidth="1.5" />
-                                <text x={p.x} y={135} textAnchor="middle" fill="#8e90b3" fontSize="8" fontWeight="bold">
-                                  {p.date}
+                    (() => {
+                      const maxBandCount = Math.max(...priorityBands, 1);
+                      const labels = ["Low", "Mod", "Med", "High", "Urgent"];
+                      return (
+                        <svg viewBox="0 0 320 130" style={{ width: '100%', height: '130px', overflow: 'visible' }}>
+                          {priorityBands.map((count, i) => {
+                            const barWidth = 32;
+                            const gap = 16;
+                            const x = 30 + i * (barWidth + gap);
+                            const height = (count / maxBandCount) * 85;
+                            const y = 100 - height;
+                            
+                            return (
+                              <g key={i}>
+                                <rect
+                                  x={x}
+                                  y={y}
+                                  width={barWidth}
+                                  height={height}
+                                  rx={4}
+                                  fill="url(#priorityGrad)"
+                                  style={{ transition: 'all 0.3s ease' }}
+                                />
+                                <text x={x + barWidth/2} y={y - 6} textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">
+                                  {count}
                                 </text>
-                                <text x={p.x} y={p.y - 8} textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">
-                                  {p.count}
+                                <text x={x + barWidth/2} y="115" textAnchor="middle" fill="#8e90b3" fontSize="9.5" fontWeight="600">
+                                  {labels[i]}
                                 </text>
                               </g>
-                            ))}
-                            <defs>
-                              <linearGradient id="areaFillGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.4" />
-                                <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0.0" />
-                              </linearGradient>
-                            </defs>
-                          </g>
-                        );
-                      })()}
-                    </svg>
+                            );
+                          })}
+                          <defs>
+                            <linearGradient id="priorityGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#ef4444" />
+                              <stop offset="100%" stopColor="#ef4444" stopOpacity="0.3" />
+                            </linearGradient>
+                          </defs>
+                          <line x1="15" y1="100" x2="305" y2="100" stroke="rgba(255,255,255,0.15)" />
+                        </svg>
+                      );
+                    })()
                   )}
                 </div>
               </div>
 
+              {/* Scope Hierarchy & Citizen Support Radial Gauge */}
+              <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '18px', textAlign: 'left' }}>
+                <h4 style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
+                  <Calendar size={18} style={{ color: '#38bdf8' }} />
+                  <span>Scope Ratios & Support Meter</span>
+                </h4>
+                
+                {/* Scope segmented progress bar */}
+                <div>
+                  <span style={{ fontSize: '11px', color: '#8e90b3', display: 'block', marginBottom: '6px' }}>Impact Level Breakdowns:</span>
+                  {(() => {
+                    const totalScope = Object.values(scopeCounts).reduce((a, b) => a + b, 0) || 1;
+                    const sh = scopeCounts.household / totalScope * 100;
+                    const ss = scopeCounts.street / totalScope * 100;
+                    const sw = scopeCounts.ward / totalScope * 100;
+                    const sc = scopeCounts.constituency / totalScope * 100;
+                    
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', height: '14px', borderRadius: '7px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)' }}>
+                          {sh > 0 && <div style={{ width: `${sh}%`, background: '#f59e0b' }} title="Household" />}
+                          {ss > 0 && <div style={{ width: `${ss}%`, background: '#3b82f6' }} title="Street" />}
+                          {sw > 0 && <div style={{ width: `${sw}%`, background: '#10b981' }} title="Ward" />}
+                          {sc > 0 && <div style={{ width: `${sc}%`, background: '#8b5cf6' }} title="Constituency" />}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px', fontSize: '9.5px', color: '#a5b4fc' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '6px', height: '6px', background: '#f59e0b', borderRadius: '1px' }}></span> Household ({scopeCounts.household})
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '6px', height: '6px', background: '#3b82f6', borderRadius: '1px' }}></span> Street ({scopeCounts.street})
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '6px', height: '6px', background: '#10b981', borderRadius: '1px' }}></span> Ward ({scopeCounts.ward})
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '6px', height: '6px', background: '#8b5cf6', borderRadius: '1px' }}></span> Constituency ({scopeCounts.constituency})
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Support Radial Progress Dial */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                  {(() => {
+                    const value = Math.min(Number(averageVotesPerComplaint), 25);
+                    const target = 25;
+                    const percentage = value / target;
+                    const radius = 24;
+                    const circumference = 2 * Math.PI * radius;
+                    const strokeDashoffset = circumference - percentage * circumference;
+                    
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <svg viewBox="0 0 60 60" style={{ width: '48px', height: '48px', overflow: 'visible', flexShrink: 0 }}>
+                          <circle cx="30" cy="30" r={radius} fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="6" />
+                          <circle
+                            cx="30"
+                            cy="30"
+                            r={radius}
+                            fill="transparent"
+                            stroke="#2dd4bf"
+                            strokeWidth="6"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={strokeDashoffset}
+                            strokeLinecap="round"
+                            style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%', transition: 'all 0.4s ease' }}
+                          />
+                          <text x="30" y="34" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">
+                            {averageVotesPerComplaint}
+                          </text>
+                        </svg>
+                        <div>
+                          <span style={{ fontSize: '10px', color: '#8e90b3', display: 'block', textTransform: 'uppercase' }}>Average Support Votes</span>
+                          <span style={{ fontSize: '12px', color: 'white', fontWeight: 'bold' }}>
+                            {percentage >= 0.8 ? '🎉 Active Engagement' : '📢 Moderate Engagement'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+              </div>
             </div>
 
-            {/* Bottom Analytics Panel: Ward Gap Matrix Grid */}
+            {/* Bottom Analytics Panel: Submission Velocity History Trend */}
+            <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
+              <h4 style={{ color: '#2dd4bf', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
+                <Calendar size={18} style={{ color: '#2dd4bf' }} />
+                <span>Submission History (Last 7 Days)</span>
+              </h4>
+              <div>
+                <span style={{ fontSize: '11.5px', color: 'var(--text-desc)', display: 'block', marginBottom: '8px' }}>
+                  📈 Number of daily incoming citizen submissions:
+                </span>
+                {filteredDemands.length === 0 ? (
+                  <div style={{ height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8e90b3', fontSize: '12px' }}>
+                    No historical logs.
+                  </div>
+                ) : (
+                  <svg viewBox="0 0 400 120" style={{ width: '100%', height: '120px', overflow: 'visible' }}>
+                    <line x1="30" y1="30" x2="380" y2="30" stroke="rgba(255,255,255,0.03)" />
+                    <line x1="30" y1="60" x2="380" y2="60" stroke="rgba(255,255,255,0.03)" />
+                    <line x1="30" y1="90" x2="380" y2="90" stroke="rgba(255,255,255,0.15)" />
+
+                    {(() => {
+                      const datesGroup: any = {};
+                      filteredDemands.forEach(d => {
+                        const dateStr = d.createdAt ? new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'N/A';
+                        datesGroup[dateStr] = (datesGroup[dateStr] || 0) + 1;
+                      });
+                      const sortedDates = Object.keys(datesGroup).map(k => ({ date: k, count: datesGroup[k] })).slice(-7);
+                      if (sortedDates.length === 0) return null;
+                      
+                      const maxCount = Math.max(...sortedDates.map(d => d.count), 1);
+                      const points = sortedDates.map((sd, i) => {
+                        const x = 40 + i * (330 / Math.max(sortedDates.length - 1, 1));
+                        const y = 90 - (sd.count / maxCount) * 65;
+                        return { x, y, ...sd };
+                      });
+
+                      const pathDef = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+                      const areaDef = `${pathDef} L ${points[points.length - 1].x} 90 L ${points[0].x} 90 Z`;
+
+                      return (
+                        <g>
+                          <path d={areaDef} fill="url(#areaFillGradSimple)" />
+                          <path d={pathDef} fill="none" stroke="#2dd4bf" strokeWidth="2.5" />
+                          {points.map((p, idx) => (
+                            <g key={idx}>
+                              <circle cx={p.x} cy={p.y} r="3.5" fill="white" stroke="#2dd4bf" strokeWidth="1.5" />
+                              <text x={p.x} y="105" textAnchor="middle" fill="#8e90b3" fontSize="8.5" fontWeight="bold">
+                                {p.date}
+                              </text>
+                              <text x={p.x} y={p.y - 8} textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">
+                                {p.count}
+                              </text>
+                            </g>
+                          ))}
+                          <defs>
+                            <linearGradient id="areaFillGradSimple" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0.0" />
+                            </linearGradient>
+                          </defs>
+                        </g>
+                      );
+                    })()}
+                  </svg>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Grid: Deficits Table by Neighborhood Grid */}
             <div className="form-card" style={{ padding: '20px', textAlign: 'left' }}>
               <h4 style={{ color: '#c7d2fe', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 16px 0', fontSize: '1rem' }}>
                 <Database size={18} />
-                <span>Geospatial Ward Infrastructure Gaps Matrix Table</span>
+                <span>Deficits Table by Neighborhood Grid</span>
               </h4>
               <p style={{ fontSize: '12px', color: 'var(--text-desc)', margin: '0 0 16px 0' }}>
-                Rounded coordinate clusters (approx. 1km² zones) representing local wards. Compares infrastructure deficits across categories.
+                Shows infrastructure gap indicators aggregated by coordinates (approx. 1km² zones).
               </p>
               {topZones.length === 0 ? (
                 <div style={{ color: '#8e90b3', fontStyle: 'italic', fontSize: '13px', padding: '20px', textAlign: 'center' }}>
-                  No regional data clusters matching filters.
+                  No regional data clusters matching active filters.
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontWeight: 'bold' }}>
-                        <th style={{ padding: '10px 14px', textAlign: 'left' }}>Local Neighborhood (Approx. Grid)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'left' }}>Neighborhood Grid Coordinates</th>
                         <th style={{ padding: '10px 14px', textAlign: 'center' }}>🚰 Water</th>
                         <th style={{ padding: '10px 14px', textAlign: 'center' }}>🛣️ Roads</th>
                         <th style={{ padding: '10px 14px', textAlign: 'center' }}>🏫 Education</th>
                         <th style={{ padding: '10px 14px', textAlign: 'center' }}>🏥 Health</th>
                         <th style={{ padding: '10px 14px', textAlign: 'center' }}>⚡ Power</th>
                         <th style={{ padding: '10px 14px', textAlign: 'center' }}>📁 Other</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'center', color: '#2dd4bf' }}>Total Deficit Index</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center', color: '#2dd4bf' }}>Total Issues Logged</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -866,289 +937,8 @@ function ManagerConsole() {
           </div>
         )}
 
-        {/* Content Layout Grid */}
-        {activeTab === 'registry' ? (
-          <div className="portal-grid" style={{ gridTemplateColumns: '400px 1fr' }}>
-            
-            {/* Left Column: Demands List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '680px', paddingRight: '4px' }}>
-              {sortedDemands.length === 0 ? (
-                <div className="empty-attachments" style={{ padding: '40px' }}>
-                  <AlertTriangle size={24} />
-                  <span>No registered demands match this search criteria.</span>
-                </div>
-              ) : (
-                sortedDemands.map(d => (
-                  <div 
-                    key={d.id} 
-                    onClick={() => setSelectedDemand(d)}
-                    style={{
-                      background: selectedDemand?.id === d.id ? 'rgba(20, 184, 166, 0.08)' : 'rgba(13, 12, 29, 0.4)',
-                      border: selectedDemand?.id === d.id ? '1px solid rgba(20, 184, 166, 0.5)' : '1px solid var(--border-light)',
-                      borderRadius: '12px',
-                      padding: '16px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '0.7rem', color: '#14b8a6', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                        ID: {d.id.substring(0, 10)}
-                      </span>
-                      <span style={{ 
-                        fontSize: '0.75rem', 
-                        background: d.status === 'approved' ? 'rgba(52, 211, 153, 0.15)' : d.status === 'pending' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-                        color: d.status === 'approved' ? '#34d399' : d.status === 'pending' ? '#fbbf24' : 'white',
-                        padding: '2px 8px', 
-                        borderRadius: '8px', 
-                        fontWeight: 'bold' 
-                      }}>
-                        {d.status}
-                      </span>
-                    </div>
-                    <strong style={{ display: 'block', fontSize: '0.9rem', color: 'white', marginBottom: '4px', textTransform: 'capitalize' }}>
-                      {d.category === 'water' && '🚰'}
-                      {d.category === 'roads' && '🛣️'}
-                      {d.category === 'education' && '🏫'}
-                      {d.category === 'health' && '🏥'}
-                      {d.category === 'power' && '⚡'}
-                      {d.category === 'agriculture' && '🌾'}
-                      {d.category === 'others' && '📁'}
-                      {d.category} — {d.scope} scope
-                    </strong>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-desc)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      📍 {d.address}
-                    </p>
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      <span>👍 {d.upvotes || 1} support votes</span>
-                      <span>👥 Est. impact: {d.estimatedImpact || 150}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Right Column: Detailed Review Card */}
-            <div>
-              {selectedDemand ? (
-                <div className="form-card" style={{ minHeight: '600px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
-                    <div>
-                      <h3 style={{ fontSize: '1.4rem', color: 'white', textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                        <span>{selectedDemand.category} grievance file</span>
-                        <span style={{ fontSize: '0.8rem', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '2px 10px', borderRadius: '10px' }}>
-                          {selectedDemand.scope} scope
-                        </span>
-                      </h3>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-                        📍 Coordinates: {selectedDemand.location.lat.toFixed(5)}, {selectedDemand.location.lng.toFixed(5)} | Address: {selectedDemand.address}
-                      </p>
-                    </div>
-                    
-                    {/* Status Actions */}
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {selectedDemand.status !== 'approved' ? (
-                        <button 
-                          type="button" 
-                          onClick={() => handleUpdateStatus(selectedDemand.id, 'approved')}
-                          style={{ background: 'var(--manager-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-                        >
-                          <Check size={16} />
-                          <span>Verify & Approve</span>
-                        </button>
-                      ) : (
-                        <span style={{ color: '#34d399', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
-                          <CheckCircle size={18} />
-                          <span>Approved & Hotspotted</span>
-                        </span>
-                      )}
-
-                      {selectedDemand.status !== 'pending' && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(selectedDemand.id, 'pending')}
-                          style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer' }}
-                        >
-                          Re-open Review
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Interactive Map Coordinates Block */}
-                  <div>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#c7d2fe', marginBottom: '8px', textAlign: 'left' }}>
-                      <MapPin size={14} style={{ color: '#818cf8' }} /> Google Map Grievance Location & Circle Boundaries
-                    </strong>
-                    <div style={{ height: '260px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <GoogleMapComponent
-                        apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
-                        onLocationSelect={() => {}}
-                        selectedLocation={selectedDemand.location}
-                        nearbyHotspots={[]}
-                        focusedPlace={{ lat: selectedDemand.location.lat, lng: selectedDemand.location.lng, name: selectedDemand.associatedPlace?.name || 'Citizen Location' }}
-                        circleData={selectedDemand.circleData || { lat: selectedDemand.location.lat, lng: selectedDemand.location.lng, radius: 100 }}
-                      />
-                    </div>
-                  </div>
-
-                  {selectedDemand.associatedPlace && (
-                    <div style={{ background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)', padding: '14px', borderRadius: '8px', textAlign: 'left' }}>
-                      <strong style={{ color: '#818cf8', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                        📌 Linked Infrastructure/Target Landmark
-                      </strong>
-                      <span style={{ color: 'white', fontSize: '14px' }}>
-                        Name: <strong>{selectedDemand.associatedPlace.name}</strong> ({selectedDemand.associatedPlace.type})
-                      </span>
-                    </div>
-                  )}
-
-                  {selectedDemand.circleData && (
-                    <div style={{ background: 'rgba(20, 184, 166, 0.05)', border: '1px solid rgba(20, 184, 166, 0.15)', padding: '14px', borderRadius: '8px', textAlign: 'left' }}>
-                      <strong style={{ color: '#2dd4bf', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                        ⭕ Selected Impact Boundary Region
-                      </strong>
-                      <span style={{ color: 'white', fontSize: '13px' }}>
-                        Scope Radius: <strong>{selectedDemand.circleData.radius.toFixed(0)} meters</strong> centered at coords ({selectedDemand.circleData.lat.toFixed(5)}, {selectedDemand.circleData.lng.toFixed(5)})
-                      </span>
-                    </div>
-                  )}
-
-                  {/* AI Validation Gauge & Clusters */}
-                  <div className="role-grid" style={{ gridTemplateColumns: '1fr 1.2fr', gap: '16px' }}>
-                    <div style={{ border: '1px solid rgba(99, 102, 241, 0.15)', background: 'rgba(99, 102, 241, 0.02)', padding: '16px', borderRadius: '12px' }}>
-                      <h4 style={{ color: '#818cf8', display: 'flex', alignItems: 'center', gap: '6px', margin: '0 0 10px 0', fontSize: '0.9rem' }}>
-                        <Sparkles size={15} />
-                        <span>AI Data Integrity Audit</span>
-                      </h4>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                          <span style={{ color: 'var(--text-desc)' }}>Credibility Rating:</span>
-                          <strong style={{ color: '#34d399' }}>96% Reliable</strong>
-                        </div>
-                        <div style={{ background: 'rgba(255,255,255,0.08)', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ background: 'linear-gradient(90deg, #818cf8, #34d399)', width: '96%', height: '100%' }}></div>
-                        </div>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                          AI determined location matches geocoded network IP, voice accent correlates with regional standard, and no text plagiarisms detected.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div style={{ border: '1px solid rgba(20, 184, 166, 0.15)', background: 'rgba(20, 184, 166, 0.02)', padding: '16px', borderRadius: '12px' }}>
-                      <h4 style={{ color: '#2dd4bf', display: 'flex', alignItems: 'center', gap: '6px', margin: '0 0 10px 0', fontSize: '0.9rem' }}>
-                        <Database size={15} />
-                        <span>Geospatial Similarity Clustering</span>
-                      </h4>
-                      <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <strong style={{ color: 'white', display: 'block', fontSize: '0.85rem' }}>3 Local Demands Correlated</strong>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Within 500 meters radius</span>
-                        </div>
-                        <span style={{ background: 'rgba(20, 184, 166, 0.15)', color: '#2dd4bf', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          AUTO-AGGREGATED
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '8px 0 0 0' }}>
-                        The AI pipeline has consolidated duplicate submissions into this primary reference to optimize the MP's priority pipeline.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Multi-modal evidence materials list */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
-                    <h4 style={{ color: 'white', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', margin: 0, fontSize: '1rem' }}>
-                      📁 Submitted Evidence Materials ({selectedDemand.items?.length || 0})
-                    </h4>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                      {selectedDemand.items?.map((item: any, idx: number) => (
-                        <div 
-                          key={idx} 
-                          style={{
-                            background: 'rgba(0,0,0,0.15)',
-                            border: '1px solid var(--border-light)',
-                            borderRadius: '10px',
-                            padding: '16px'
-                          }}
-                        >
-                          <span style={{
-                            fontSize: '0.7rem',
-                            background: 'rgba(255,255,255,0.06)',
-                            color: 'var(--text-desc)',
-                            padding: '2px 8px',
-                            borderRadius: '6px',
-                            fontWeight: 'bold',
-                            display: 'inline-block',
-                            marginBottom: '10px',
-                            textTransform: 'uppercase'
-                          }}>
-                            {item.type === 'text' && '✍️ Description'}
-                            {item.type === 'audio' && '🔊 Voice Recording'}
-                            {item.type === 'photo' && '🖼️ Uploaded Photo'}
-                          </span>
-
-                          {item.type === 'text' && (
-                            <p style={{ color: 'white', margin: 0, fontSize: '0.9rem', lineHeight: '1.4' }}>
-                              "{item.content}"
-                            </p>
-                          )}
-
-                          {item.type === 'audio' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                              {item.fileUrl ? (
-                                <audio src={item.fileUrl} controls style={{ width: '100%' }} />
-                              ) : (
-                                <span style={{ fontSize: '12.5px', color: '#8e90b3', fontStyle: 'italic' }}>Audio file was not saved (transcripts only).</span>
-                              )}
-                              {item.speechTranscript && (
-                                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', borderLeft: '3px solid #818cf8' }}>
-                                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#818cf8', fontWeight: 'bold', marginBottom: '4px' }}>
-                                    Transcribed regional transcript (OCR/STT):
-                                  </span>
-                                  <p style={{ color: 'white', margin: 0, fontSize: '0.85rem', fontStyle: 'italic' }}>
-                                    "{item.speechTranscript}"
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {item.type === 'photo' && (
-                            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                              {item.fileUrl ? (
-                                <img src={item.fileUrl} alt="Evidence" style={{ width: '120px', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
-                              ) : (
-                                <div style={{ width: '120px', height: '90px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <ImageIcon size={24} style={{ color: 'var(--text-muted)' }} />
-                                </div>
-                              )}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <span style={{ fontSize: '0.8rem', color: 'white', fontWeight: '600' }}>Photo Attachment Audit</span>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
-                                  {item.fileUrl ? "AI Vision model confirmed layout depicts structural infrastructure context." : "Image detail discarded by AI (not deemed necessary to identify the problem)."}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                </div>
-              ) : (
-                <div className="form-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '600px', color: 'var(--text-muted)' }}>
-                  <div className="text-center">
-                    <Database size={48} style={{ marginBottom: '12px', color: 'var(--border-light)' }} />
-                    <p>Select a citizen grievance file from the list to review detailed audits.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-          </div>
-        ) : (
+        {/* Content Layout Grid (Only for All Submitted Complaints View) */}
+        {activeTab === 'complaints' && (
           <div className="portal-grid" style={{ gridTemplateColumns: '400px 1fr' }}>
             
             {/* Left Column: Direct Submissions List */}

@@ -260,6 +260,7 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
   const infoWindowRef = useRef<any>(null);
   const hotspotMarkersRef = useRef<any[]>([]);
   const circleRef = useRef<any>(null);
+  const hotspotCirclesRef = useRef<any[]>([]);
   const { isLoaded, loadError } = useGoogleMapsLoader(apiKey);
   const [geocoding, setGeocoding] = useState(false);
 
@@ -488,6 +489,9 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
     hotspotMarkersRef.current.forEach(m => m.setMap(null));
     hotspotMarkersRef.current = [];
 
+    hotspotCirclesRef.current.forEach(c => c.setMap(null));
+    hotspotCirclesRef.current = [];
+
     nearbyHotspots.forEach(hotspot => {
       if (selectedLocation && 
           Math.abs(hotspot.location.lat - selectedLocation.lat) < 0.0001 && 
@@ -495,21 +499,41 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
         return;
       }
 
+      // Generate dynamic HSL color matching category
+      const categoriesList = ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"];
+      const catIdx = categoriesList.indexOf(hotspot.category?.toLowerCase() || 'others');
+      const hue = catIdx !== -1 ? (catIdx * (360 / categoriesList.length)) % 360 : 200;
+      const circleColor = `hsl(${hue}, 80%, 55%)`;
+
       const marker = new google.maps.Marker({
         position: hotspot.location,
         map: mapInstanceRef.current,
-        title: `${hotspot.category.toUpperCase()}: ${hotspot.upvotes} upvotes`,
+        title: `${hotspot.category.toUpperCase()}: ${hotspot.upvotes} support votes`,
         icon: {
           url: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png'
         }
       });
 
+      // Add a circular hotspot region
+      const hotspotCircle = new google.maps.Circle({
+        strokeColor: circleColor,
+        strokeOpacity: 0.8,
+        strokeWeight: 1.5,
+        fillColor: circleColor,
+        fillOpacity: 0.18,
+        map: mapInstanceRef.current,
+        center: hotspot.location,
+        radius: Math.max(80, (hotspot.upvotes || 1) * 20) // radius based on upvotes
+      });
+
       const infoWindow = new google.maps.InfoWindow({
         content: `
-          <div style="color: #000; padding: 4px; font-family: sans-serif;">
-            <strong style="text-transform: capitalize; color: #ef4444;">⚠️ ${hotspot.category} Request</strong>
-            <p style="margin: 4px 0; font-size: 12px; font-weight: 500;">"${hotspot.items?.[0]?.content || hotspot.address}"</p>
-            <span style="font-size: 11px; color: #6366f1; font-weight: 600;">👍 Supported by ${hotspot.upvotes} Citizens</span>
+          <div style="color: #000; padding: 6px; font-family: sans-serif; min-width: 180px;">
+            <strong style="text-transform: capitalize; color: ${circleColor}; font-size: 13px; display: block; margin-bottom: 4px;">⚠️ ${hotspot.category} Sector Need</strong>
+            <div style="font-size: 11px; margin-bottom: 6px; line-height: 1.3; color: #333;"><strong>Location:</strong> ${hotspot.address || 'Constituency Landmark'}</div>
+            <div style="font-size: 11px; color: #4f46e5; font-weight: bold; background: rgba(79, 70, 229, 0.08); padding: 4px; border-radius: 4px; text-align: center;">
+              👍 Supported by ${hotspot.upvotes} Citizens
+            </div>
           </div>
         `
       });
@@ -519,6 +543,7 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
       });
 
       hotspotMarkersRef.current.push(marker);
+      hotspotCirclesRef.current.push(hotspotCircle);
     });
   }, [nearbyHotspots, isLoaded, selectedLocation]);
 
