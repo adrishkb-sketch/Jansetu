@@ -72,12 +72,12 @@ function MPApp() {
     }
   }, [isAuthenticated, selectedConstituency]);
 
-  // Load Action Plan whenever selection changes
+  // Load Action Plan whenever selection or search criteria changes
   useEffect(() => {
     if (isAuthenticated) {
       loadActionPlan();
     }
-  }, [isAuthenticated, selectedConstituency]);
+  }, [isAuthenticated, selectedConstituency, searchMode, searchIssueQuery]);
 
   const loadFundsConfig = async () => {
     const fundsData = await getMPFunds(selectedConstituency);
@@ -91,9 +91,22 @@ function MPApp() {
   };
 
   const loadActionPlan = async () => {
-    const plan = await getActionPlanByConstituency(selectedConstituency);
+    let planKey = '';
+    if (searchMode === 'constituency') {
+      planKey = selectedConstituency;
+    } else {
+      planKey = `category_${searchIssueQuery.toLowerCase()}`;
+    }
+
+    const plan = await getActionPlanByConstituency(planKey);
     if (plan && plan.isApproved) {
       setApprovedPlan(plan);
+      
+      const initialSteps: Record<number, boolean> = {};
+      (plan.detailedSteps || []).forEach((step: any, idx: number) => {
+        initialSteps[idx] = step.status === 'funded' || step.status === 'completed' || step.status === 'work_started';
+      });
+      setIncludedSteps(initialSteps);
     } else {
       setApprovedPlan(null);
     }
@@ -272,7 +285,8 @@ function MPApp() {
         ...step,
         status: step.status === 'proposed' ? 'raised' : step.status
       }));
-      await saveActionPlanByConstituency(selectedConstituency, updatedPlan);
+      const planKey = approvedPlan.id ? approvedPlan.id.replace(/^plan_/, '') : selectedConstituency;
+      await saveActionPlanByConstituency(planKey, updatedPlan);
       setApprovedPlan(updatedPlan);
     }
 
@@ -320,7 +334,8 @@ function MPApp() {
       updatedPlan.detailedSteps[idx].status = 'funded';
     });
     
-    await saveActionPlanByConstituency(selectedConstituency, updatedPlan);
+    const planKey = approvedPlan.id ? approvedPlan.id.replace(/^plan_/, '') : selectedConstituency;
+    await saveActionPlanByConstituency(planKey, updatedPlan);
     setApprovedPlan(updatedPlan);
 
     // Update associated citizen complaints in Firestore to 'funded'

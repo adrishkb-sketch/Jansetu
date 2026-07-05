@@ -86,6 +86,9 @@ function ManagerConsole() {
   });
   const [isClustering, setIsClustering] = useState(false);
   const [expandedClusters, setExpandedClusters] = useState<Record<number, boolean>>({});
+  const [aiClusterMode, setAiClusterMode] = useState<'constituency' | 'category'>('constituency');
+  const [aiClusterTargetConstituency, setAiClusterTargetConstituency] = useState<string>('Rampur');
+  const [aiClusterTargetCategory, setAiClusterTargetCategory] = useState<string>('water');
 
   // Constituency Plan & Proposal Builder States
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>(() => {
@@ -152,10 +155,22 @@ function ManagerConsole() {
   };
 
   const runThematicClustering = async () => {
+    let filteredDemands = [...demands];
+    if (aiClusterMode === 'constituency') {
+      filteredDemands = demands.filter(d => (d.constituency || 'Rampur').toLowerCase() === aiClusterTargetConstituency.toLowerCase());
+    } else {
+      filteredDemands = demands.filter(d => d.category.toLowerCase() === aiClusterTargetCategory.toLowerCase());
+    }
+
+    if (filteredDemands.length === 0) {
+      alert(`No active citizen complaints found matching the ${aiClusterMode} filter: "${aiClusterMode === 'constituency' ? aiClusterTargetConstituency : aiClusterTargetCategory}".`);
+      return;
+    }
+
     setIsClustering(true);
     const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
 
-    const submissionsForClustering = demands.map(d => ({
+    const submissionsForClustering = filteredDemands.map(d => ({
       id: d.id,
       ticketType: d.ticketType || 'complaint',
       category: d.category,
@@ -169,10 +184,10 @@ function ManagerConsole() {
       try {
         const prompt = `You are an AI data scientist specializing in civic technology and constituency development.
 We have a set of citizen submissions (both complaints and suggestions) containing categories, addresses, descriptions, and user upvotes.
-Please group these submissions into 3-5 high-level "Thematic Topic Clusters" (based on similar category OR similar geographical region, or both where applicable).
+Please group these submissions into 3-5 high-level "Thematic Topic Clusters" (grouped by issue topic / subcategory).
 For each cluster, you must produce:
-1. A concise, professional Title (e.g., "Drinking Water Quality & Drainage Gaps in Chamraua").
-2. A Summary/Rationale (e.g., "Multiple citizens reported pipe bursts near the main tank, combined with local school suggestions for water filters").
+1. A concise, professional Title (e.g., "Drinking Water Quality & Drainage Gaps").
+2. A Summary/Rationale explaining the issues and listing any specific addresses/landmarks/locations tagged or mentioned in the complaints (e.g., "Drinking water pipeline leakages near Howrah Junction and surrounding areas").
 3. A list of Ticket IDs that belong to this cluster.
 4. An estimated overall Priority Level (High/Moderate/Medium/Urgent).
 5. A Recommended Action (e.g., "Sanction a Jal Jeevan Mission maintenance crew to overhaul the main market feeder pipeline").
@@ -219,15 +234,13 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
       }
     }
 
-    // Mock fallback logic (smart clustering by grouping category + closest region)
+    // Mock fallback logic
     setTimeout(() => {
       const clustersMap: Record<string, { title: string; summary: string; ticketIds: string[]; priority: string; recommendedAction: string }> = {};
 
-      demands.forEach(d => {
-        const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
-        const regionName = segment.name.replace(" Assembly Segment", "");
+      filteredDemands.forEach(d => {
         const categoryKey = d.category.toLowerCase();
-        
+        const regionName = d.constituency || 'Rampur';
         let clusterKey = `${categoryKey}_${regionName.toLowerCase().replace(/\s+/g, '_')}`;
 
         if (!clustersMap[clusterKey]) {
@@ -238,28 +251,28 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
 
           if (categoryKey === 'water') {
             title = `💧 Potable Water & Pipe Network Deficits in ${regionName}`;
-            summary = `Multiple citizen grievances reporting water logging, tank leakages, and pipeline failures. Combined with citizen suggestions to construct overhead filtration tanks.`;
-            recommendedAction = `Authorize Jal Jeevan Mission funds to upgrade local feeder pipelines and install regional water filtration systems.`;
+            summary = `Multiple citizen grievances reporting water logging, tank leakages near ${d.address}, and pipeline failures.`;
+            recommendedAction = `Upgrade local feeder pipelines and install regional water filtration systems.`;
             priority = 'Urgent';
           } else if (categoryKey === 'roads') {
             title = `🛣️ Rural Road Connectivity & Pothole Upgrades in ${regionName}`;
-            summary = `Reports of extensive monsoonal potholes causing water accumulation, combined with road widening suggestions under PMGSY guidelines.`;
-            recommendedAction = `Sanction state public works funds to reconstruct key link roads and connect outlying habitations under PMGSY plain standards.`;
+            summary = `Reports of extensive monsoonal potholes at ${d.address} causing water accumulation, combined with road widening suggestions.`;
+            recommendedAction = `Sanction public works to reconstruct key link roads and connect outlying habitations.`;
             priority = 'High';
           } else if (categoryKey === 'health') {
             title = `🏥 Primary Health Proximity & Staff Saturation in ${regionName}`;
-            summary = `Submissions detailing high traveling distances (avg > 9km) to nearest health facilities, requesting additional PHC sub-centres and paramedic staff.`;
-            recommendedAction = `Establish a new Ayushman Bharat Health and Wellness Sub-Centre to bring emergency care within the 3km benchmark.`;
+            summary = `Submissions detailing high traveling distances (avg > 9km) to nearest health facilities from ${d.address}.`;
+            recommendedAction = `Establish a new Ayushman Bharat Health and Wellness Sub-Centre.`;
             priority = 'Urgent';
           } else if (categoryKey === 'education') {
             title = `🏫 School Infrastructure & RTE Alignment in ${regionName}`;
-            summary = `Suggestions for school repairs, solar setups, and public library spaces, alongside complaints of teacher-student ratio deficits.`;
-            recommendedAction = `Allocate local area development budgets to repair primary school classrooms and set up digital library facilities.`;
+            summary = `Suggestions for school repairs and solar setups at ${d.address}, alongside complaints of teacher-student ratio deficits.`;
+            recommendedAction = `Allocate local area development budgets to repair primary school classrooms.`;
             priority = 'Moderate';
           } else {
             title = `📁 General Infrastructure & Public Welfare in ${regionName}`;
-            summary = `Aggregated municipal needs, waste management complaints, and community lighting suggestions.`;
-            recommendedAction = `Direct municipal corporation workers to address street sanitation and local community lighting demands.`;
+            summary = `Aggregated municipal needs, waste management complaints near ${d.address}.`;
+            recommendedAction = `Direct municipal corporation workers to address street sanitation and community lighting.`;
             priority = 'Medium';
           }
 
@@ -691,7 +704,8 @@ Provide your response ONLY as a valid JSON object matching the following schema.
 
       return {
         id: `clubbed_${clubbingMode}_${key}`,
-        key,
+        key: clubbingMode === 'category' ? `category_${key}` : key,
+        clusterType: clubbingMode,
         name: displayName,
         demands: groupDemands,
         totalUpvotes,
@@ -2130,6 +2144,49 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                     Utilize Google Gemini to scan all incoming civic inputs and automatically group similar category or regional demands into actionable topic clusters.
                   </p>
                 </div>
+
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', background: 'rgba(0,0,0,0.2)', padding: '12px 18px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#c7d2fe', fontWeight: 'bold' }}>Cluster Mode</span>
+                    <select
+                      value={aiClusterMode}
+                      onChange={e => setAiClusterMode(e.target.value as any)}
+                      style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '6px 10px', borderRadius: '6px', fontSize: '12.5px' }}
+                    >
+                      <option value="constituency">By Constituency</option>
+                      <option value="category">By Topic Category (All India)</option>
+                    </select>
+                  </div>
+
+                  {aiClusterMode === 'constituency' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#c7d2fe', fontWeight: 'bold' }}>Target Constituency</span>
+                      <select
+                        value={aiClusterTargetConstituency}
+                        onChange={e => setAiClusterTargetConstituency(e.target.value)}
+                        style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '6px 10px', borderRadius: '6px', fontSize: '12.5px' }}
+                      >
+                        {Array.from(new Set(demands.map(d => d.constituency || 'Rampur'))).sort().map(cName => (
+                          <option key={cName} value={cName}>{cName}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '11px', color: '#c7d2fe', fontWeight: 'bold' }}>Target Category</span>
+                      <select
+                        value={aiClusterTargetCategory}
+                        onChange={e => setAiClusterTargetCategory(e.target.value)}
+                        style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '6px 10px', borderRadius: '6px', fontSize: '12.5px' }}
+                      >
+                        {Array.from(new Set(demands.map(d => d.category))).sort().map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   type="button"
                   onClick={runThematicClustering}
@@ -3205,7 +3262,8 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                         const updatedPlan = { ...selectedTrackingPlan };
                         updatedPlan.detailedSteps[idx].status = newStatus;
                         
-                        await saveActionPlanByConstituency(selectedTrackingPlan.constituency || 'general', updatedPlan);
+                        const planKey = selectedTrackingPlan.id.replace(/^plan_/, '');
+                        await saveActionPlanByConstituency(planKey, updatedPlan);
                         setSelectedTrackingPlan(updatedPlan);
                         
                         let complaintStatus = 'reviewed';
@@ -3398,6 +3456,7 @@ function ClubbedDetailPanel({ group, onClose, loadData }: ClubbedDetailPanelProp
       parsedPlan.associatedComplaintIds = group.demands.map((d: any) => d.id);
       parsedPlan.constituency = group.constituency;
       parsedPlan.category = group.category;
+      parsedPlan.planType = group.clusterType;
       parsedPlan.isApproved = false;
       
       setPlanDraft(parsedPlan);
@@ -3407,6 +3466,24 @@ function ClubbedDetailPanel({ group, onClose, loadData }: ClubbedDetailPanelProp
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleMoveStep = (idx: number, direction: 'up' | 'down') => {
+    if (!planDraft) return;
+    const steps = [...planDraft.detailedSteps];
+    if (direction === 'up' && idx > 0) {
+      const temp = steps[idx];
+      steps[idx] = steps[idx - 1];
+      steps[idx - 1] = temp;
+    } else if (direction === 'down' && idx < steps.length - 1) {
+      const temp = steps[idx];
+      steps[idx] = steps[idx + 1];
+      steps[idx + 1] = temp;
+    }
+    steps.forEach((step: any, i: number) => {
+      step.id = `STEP-${i + 1}`;
+    });
+    setPlanDraft({ ...planDraft, detailedSteps: steps });
   };
 
   const handleApprovePlan = async () => {
@@ -3530,7 +3607,7 @@ function ClubbedDetailPanel({ group, onClose, loadData }: ClubbedDetailPanelProp
               {planDraft.detailedSteps.map((step: any, idx: number) => (
                 <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 'bold', color: 'white', fontSize: '13px' }}>
+                    <span style={{ fontWeight: 'bold', color: 'white', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                       {step.id}: <input 
                         type="text" 
                         value={step.title} 
@@ -3542,6 +3619,26 @@ function ClubbedDetailPanel({ group, onClose, loadData }: ClubbedDetailPanelProp
                         }}
                         style={{ background: 'transparent', border: planDraft.isApproved ? 'none' : '1px solid var(--border-light)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '13px', width: '220px' }}
                       />
+                      {!planDraft.isApproved && (
+                        <span style={{ display: 'inline-flex', gap: '2px' }}>
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveStep(idx, 'up')}
+                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '1px 5px', borderRadius: '3px', cursor: idx === 0 ? 'not-allowed' : 'pointer', fontSize: '9px' }}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === planDraft.detailedSteps.length - 1}
+                            onClick={() => handleMoveStep(idx, 'down')}
+                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '1px 5px', borderRadius: '3px', cursor: idx === planDraft.detailedSteps.length - 1 ? 'not-allowed' : 'pointer', fontSize: '9px' }}
+                          >
+                            ▼
+                          </button>
+                        </span>
+                      )}
                     </span>
                     <span style={{ color: '#fbbf24', fontSize: '12.5px', fontWeight: 'bold' }}>
                       Est Cost: ₹
