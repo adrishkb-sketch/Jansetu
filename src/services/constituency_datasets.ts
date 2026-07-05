@@ -13,14 +13,15 @@ export interface MinistryStandard {
 
 export interface ConstituencyDemographics {
   name: string;
-  district: string;
-  centerCoords: { lat: number; lng: number };
+  district?: string;
+  state?: string;
+  centerCoords?: { lat: number; lng: number };
   population: number;
   sexRatio: number; // females per 1000 males
   literacyRate: number; // percentage
   urbanization: number; // percentage urban
   scStPercentage: number;
-  unemploymentRate: number; // percentage
+  unemploymentRate?: number; // percentage
   
   // Current coverage metrics corresponding to MinistryStandards
   waterCoverage: number; // Jal Jeevan Mission tap connections %
@@ -33,6 +34,10 @@ export interface ConstituencyDemographics {
   cropYieldIndex: number; // Quintals per hectare (major foodgrains - rice/wheat)
   soilHealthSaturation: number; // % farmers holding active soil health cards
 }
+
+import ALL_CONSTITUENCIES_DATA_RAW from './constituencies_543.json';
+
+export const ALL_CONSTITUENCIES_DATA: Record<string, ConstituencyDemographics> = (ALL_CONSTITUENCIES_DATA_RAW as unknown) as Record<string, ConstituencyDemographics>;
 
 export const MINISTRY_STANDARDS: Record<string, MinistryStandard> = {
   water: {
@@ -251,7 +256,7 @@ export function getClosestConstituencySegment(lat: number, lng: number): Constit
 
   Object.keys(RAMPUR_SEGMENTS_DATA).forEach(key => {
     const segment = RAMPUR_SEGMENTS_DATA[key];
-    const dist = getHaversineDistance(lat, lng, segment.centerCoords.lat, segment.centerCoords.lng);
+    const dist = getHaversineDistance(lat, lng, segment.centerCoords!.lat, segment.centerCoords!.lng);
     if (dist < minDistance) {
       minDistance = dist;
       closestKey = key;
@@ -265,14 +270,17 @@ export function getClosestConstituencySegment(lat: number, lng: number): Constit
  * Evaluates the specific category gap index based on coordinates.
  * Returns gap severity percentage (0 = compliant with Ministry standards, 100 = extreme deficit).
  */
-export function evaluateInfrastructureGap(lat: number, lng: number, category: string): {
+export function evaluateInfrastructureGap(lat: number, lng: number, category: string, constituencyName?: string): {
   gapPercentage: number;
   localMetric: string;
   benchmarkMetric: string;
   standard: MinistryStandard;
   assemblyName: string;
 } {
-  const segment = getClosestConstituencySegment(lat, lng);
+  // If a constituency name is provided, use the real 543 data. Otherwise fallback to geospatial Rampur lookup.
+  const segment = (constituencyName && ALL_CONSTITUENCIES_DATA[constituencyName]) 
+    ? ALL_CONSTITUENCIES_DATA[constituencyName] 
+    : getClosestConstituencySegment(lat, lng);
   const normalizedCategory = category.toLowerCase();
   
   let gapPercentage = 0;
@@ -383,7 +391,7 @@ export function evaluateInfrastructureGap(lat: number, lng: number, category: st
  * - Infrastructure Gap Score: evaluated percentage from ministry standards
  * - Demographic Vulnerability: derived from segment literacy, SC/ST, and rural levels
  */
-export function calculateCombinedPriorityIndex(d: any): number {
+export function calculateCombinedPriorityIndex(d: any, constituencyName?: string): number {
   // 1. Completeness Check (+25 points bonus if complete)
   const isNeedsInfo = d.status === 'needs_info' || d.needsMoreInfo;
   const firstItemContent = d.items?.[0]?.content || '';
@@ -402,12 +410,14 @@ export function calculateCombinedPriorityIndex(d: any): number {
   } else if (d.aiOverview?.priorityScore !== undefined) {
     basePriority = d.aiOverview.priorityScore;
   } else {
-    const gapResult = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category);
+    const gapResult = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category, constituencyName);
     basePriority = gapResult.gapPercentage;
   }
 
   // 4. Demographic Vulnerability Score
-  const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
+  const segment = (constituencyName && ALL_CONSTITUENCIES_DATA[constituencyName]) 
+    ? ALL_CONSTITUENCIES_DATA[constituencyName] 
+    : getClosestConstituencySegment(d.location.lat, d.location.lng);
   const literacyVuln = Math.max(0, 100 - segment.literacyRate);
   const scstVuln = segment.scStPercentage;
   const ruralVuln = 100 - segment.urbanization;
