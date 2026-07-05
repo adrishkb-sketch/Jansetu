@@ -989,6 +989,77 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
       ].join('\n');
     }
 
+    if (!activeKey || activeKey === 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
+      // Mock Fallback Analysis to allow testing/verification without API keys
+      setTimeout(() => {
+        const textLower = textToAnalyze.toLowerCase();
+        const categoryMatch = 
+          textLower.includes('water') || textLower.includes('drain') || textLower.includes('pipe') ? 'water' :
+          textLower.includes('road') || textLower.includes('pothole') || textLower.includes('street') ? 'roads' :
+          textLower.includes('school') || textLower.includes('education') || textLower.includes('teacher') ? 'education' :
+          textLower.includes('hospital') || textLower.includes('health') || textLower.includes('doctor') ? 'health' :
+          textLower.includes('electricity') || textLower.includes('power') || textLower.includes('light') ? 'power' : 'others';
+
+        const notesCount = textToAnalyze.split('User Text Note:').length - 1;
+        const voiceCount = textToAnalyze.split('User Voice Transcript:').length - 1;
+        const totalItemsCount = notesCount + voiceCount;
+
+        const hasSpecifics = textLower.length > 35 || totalItemsCount > 1 || textLower.includes('depth') || textLower.includes('broken') || textLower.includes('leaking') || textLower.includes('outage') || textLower.includes('pothole') || textLower.includes('near') || textLower.includes('behind');
+        
+        let requiresClarification = !hasSpecifics;
+        let clarificationQuestion = null;
+
+        if (requiresClarification) {
+          if (categoryMatch === 'water') {
+            clarificationQuestion = "We noticed local schools and PHCs are nearby. Could you please clarify the water leakage depth, color, or duration of the outage?";
+          } else if (categoryMatch === 'roads') {
+            clarificationQuestion = "Could you please specify the approximate pothole dimensions (depth/width) or the length of the road affected?";
+          } else {
+            clarificationQuestion = "Could you please provide more specific details about what is malfunctioning, broken, or missing?";
+          }
+        }
+
+        setCategory(categoryMatch);
+        setScope(textLower.includes('constituency') ? 'constituency' : textLower.includes('ward') ? 'ward' : 'street');
+        setAiPopulationAffected(120);
+        setUrgency('moderate');
+        setAssetType('others');
+        setFundingSource('municipality');
+        setAiOverview({
+          brief: `Mock audited summary of citizen ${categoryMatch} ticket.`,
+          priorityScore: 65,
+          priorityLabel: 'Medium Priority',
+          estimatedBudget: 'Medium Budget',
+          safetyRisk: 'Moderate'
+        });
+
+        if (requiresClarification) {
+          setAiClarificationQuestion(clarificationQuestion);
+          setAiUnderstood(false);
+        } else {
+          setAiClarificationQuestion(null);
+          setAiUnderstood(true);
+        }
+
+        setCircleData({
+          lat: location.lat,
+          lng: location.lng,
+          radius: 150
+        });
+
+        setShowAiAutoDetectSection(true);
+        setAiIndicator({
+          active: true,
+          message: requiresClarification 
+            ? '⚠️ AI Needs Clarification: Please read request below.'
+            : `✨ AI Auto-Synced (Demo Mode): Category is "${categoryMatch.toUpperCase()}"`
+        });
+        setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
+        setIsAiAnalyzing(false);
+      }, 1000);
+      return;
+    }
+
     try {
       const hotspotsList = nearbyHotspots.map(h => ({
         id: h.id,
@@ -1213,12 +1284,19 @@ JSON:`
             : `✨ AI Auto-Synced: Set Category to "${result.category.toUpperCase()}" & Scope to "${result.scope.toUpperCase()}"` 
         });
         setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
+      } else {
+        throw new Error(json.error?.message || "Invalid response format from Gemini API");
       }
       setIsAiAnalyzing(false);
     } catch (e) {
       console.error("Gemini AI extraction failed: ", e);
-      setAiIndicator({ active: false, message: '' });
+      setAiIndicator({ active: true, message: '❌ Gemini API call failed. Verify your key in API settings.' });
+      setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
       setIsAiAnalyzing(false);
+      
+      // Fallback behavior on invalid key to avoid system lockup
+      setAiClarificationQuestion(null);
+      setAiUnderstood(true);
     }
   };
 
