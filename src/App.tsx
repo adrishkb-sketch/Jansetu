@@ -13,7 +13,8 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
-  Info
+  Info,
+  MapPin
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand } from './services/db';
@@ -848,6 +849,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   };
 
   const runAIAttachmentAnalysis = async (textToAnalyze: string) => {
+    if (!location) return;
     const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
     if (!activeKey) return;
 
@@ -1098,6 +1100,7 @@ JSON:`
   };
 
   const triggerGlobalAIAnalysis = (currentItems: SubmissionItem[]) => {
+    if (!location) return;
     if (currentItems.length === 0) {
       setAiClarificationQuestion(null);
       setAiUnderstood(false);
@@ -2055,7 +2058,36 @@ JSON:`
             )}
 
             {/* Evidence inputs */}
-            <div className="evidence-inputs" style={{ marginTop: '16px' }}>
+            <div className="evidence-inputs" style={{ marginTop: '16px', position: 'relative' }}>
+              
+              {!location && (
+                <div style={{
+                  position: 'absolute',
+                  top: -8,
+                  left: -8,
+                  right: -8,
+                  bottom: -8,
+                  background: 'rgba(15, 23, 42, 0.9)',
+                  backdropFilter: 'blur(5px)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '24px',
+                  borderRadius: '12px',
+                  zIndex: 20,
+                  textAlign: 'center',
+                  border: '1px solid rgba(99, 102, 241, 0.2)'
+                }}>
+                  <div style={{ background: 'rgba(99, 102, 241, 0.2)', padding: '12px', borderRadius: '50%', marginBottom: '12px', color: '#818cf8' }}>
+                    <MapPin size={32} />
+                  </div>
+                  <strong style={{ color: '#c7d2fe', fontSize: '15px', display: 'block', marginBottom: '6px' }}>📍 Map Location Required</strong>
+                  <p style={{ color: '#a5b4fc', fontSize: '12.5px', margin: 0, lineHeight: '1.4' }}>
+                    Please select a point on the map in Section 2 first to unlock descriptions, attachments, and the AI verification engine.
+                  </p>
+                </div>
+              )}
               
               {/* Text Description Box */}
               <div className="input-box-sub">
