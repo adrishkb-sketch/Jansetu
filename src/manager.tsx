@@ -14,7 +14,8 @@ import {
   Mail,
   Phone,
   Calendar,
-  Award
+  Award,
+  Sliders
 } from 'lucide-react';
 import { getAllDemands, updateDemandStatus } from './services/db';
 import { LanguageSelector, getInitialLanguage, GoogleMapComponent } from './App';
@@ -32,6 +33,11 @@ function ManagerConsole() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterTicketType, setFilterTicketType] = useState('all');
   const [sortBy, setSortBy] = useState<string>('newest');
+  const [prioritySlider, setPrioritySlider] = useState<number>(0);
+  const [signatureSlider, setSignatureSlider] = useState<number>(0);
+  const [budgetScaleFilter, setBudgetScaleFilter] = useState<string>('all');
+  const [scopeSliderFilter, setScopeSliderFilter] = useState<string>('all');
+  const [hoveredChartBar, setHoveredChartBar] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('manager_auth') === 'true');
 
   // Load demands
@@ -79,13 +85,7 @@ function ManagerConsole() {
     setSelectedComplaint((prev: any) => prev && prev.id === id ? { ...prev, status: nextStatus } : prev);
   };
 
-  // Stats calculation
-  const totalCount = demands.length;
-  const pendingCount = demands.filter(d => d.status === 'pending').length;
-  const approvedCount = demands.filter(d => d.status === 'approved').length;
-  const totalVotes = demands.reduce((acc, curr) => acc + (curr.upvotes || 0), 0);
-
-  // Filtering
+  // Filtering with interactive sliders parameters
   const filteredDemands = demands.filter(d => {
     const matchesSearch = 
       d.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -98,8 +98,59 @@ function ManagerConsole() {
     const matchesCategory = filterCategory === 'all' || d.category === filterCategory;
     const matchesStatus = filterStatus === 'all' || d.status === filterStatus;
     const matchesTicketType = activeTab === 'registry' ? true : (filterTicketType === 'all' || (d.ticketType || 'complaint') === filterTicketType);
+
+    // Slide/Tuning threshold parameters
+    if (prioritySlider > 0) {
+      const score = d.aiOverview?.priorityScore || 0;
+      if (score < prioritySlider) return false;
+    }
+
+    const votes = d.upvotes || 1;
+    if (votes < signatureSlider) return false;
+
+    if (scopeSliderFilter !== 'all' && d.scope !== scopeSliderFilter) return false;
+
+    if (budgetScaleFilter !== 'all') {
+      const budgetStr = (d.aiOverview?.estimatedBudget || '').toLowerCase();
+      if (budgetScaleFilter === 'under_10k') {
+        if (!budgetStr.includes('under') && !budgetStr.includes('1,000') && !budgetStr.includes('5,000')) return false;
+      } else if (budgetScaleFilter === '10k_50k') {
+        if (!budgetStr.includes('10,000') && !budgetStr.includes('10k') && !budgetStr.includes('20,000') && !budgetStr.includes('50,000') && !budgetStr.includes('30,000')) return false;
+      } else if (budgetScaleFilter === 'over_50k') {
+        if (!budgetStr.includes('50,000+') && !budgetStr.includes('100k') && !budgetStr.includes('50k') && !budgetStr.includes('+')) return false;
+      }
+    }
+
     return matchesSearch && matchesCategory && matchesStatus && matchesTicketType;
   });
+
+  // Dynamic real-data calculations based on filters and sliders
+  const totalCount = filteredDemands.length;
+  const pendingCount = filteredDemands.filter(d => d.status === 'pending').length;
+  const approvedCount = filteredDemands.filter(d => d.status === 'approved').length;
+  const totalVotes = filteredDemands.reduce((acc, curr) => acc + (curr.upvotes || 0), 0);
+
+  // Red Alerts (Priority Score > 80)
+  const redAlertCount = filteredDemands.filter(d => (d.aiOverview?.priorityScore || 0) > 80).length;
+
+  // Capital Budget Outlay Estimates Summation
+  const estimatedBudgetSum = filteredDemands.reduce((acc, curr) => {
+    const budgetStr = (curr.aiOverview?.estimatedBudget || '').toLowerCase();
+    if (budgetStr.includes('under') || budgetStr.includes('5,000')) return acc + 8000;
+    if (budgetStr.includes('10,000') || budgetStr.includes('25,000') || budgetStr.includes('30,000')) return acc + 30000;
+    if (budgetStr.includes('50,000') || budgetStr.includes('100k') || budgetStr.includes('+')) return acc + 85000;
+    return acc + 10000; // default average
+  }, 0);
+
+  // Average Safety Risk Rating Index
+  const averageSafetyScore = filteredDemands.length > 0
+    ? (filteredDemands.reduce((acc, curr) => {
+        const risk = (curr.aiOverview?.safetyRisk || '').toLowerCase();
+        if (risk.includes('high')) return acc + 3;
+        if (risk.includes('med') || risk.includes('moderate')) return acc + 2;
+        return acc + 1; // low
+      }, 0) / filteredDemands.length).toFixed(1)
+    : '0.0';
 
   // Sort the filtered list
   const sortedDemands = [...filteredDemands].sort((a, b) => {
@@ -121,6 +172,40 @@ function ManagerConsole() {
     // Default newest
     return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
+
+  // Analytics calculations for graphs and tables
+  const categoryCounts = filteredDemands.reduce((acc: any, curr: any) => {
+    acc[curr.category] = (acc[curr.category] || 0) + 1;
+    return acc;
+  }, {});
+
+  const sortedCategories = Object.keys(categoryCounts).map(cat => ({
+    category: cat,
+    count: categoryCounts[cat]
+  })).sort((a, b) => b.count - a.count);
+
+  const statusCounts = {
+    pending: pendingCount,
+    approved: approvedCount,
+    needs_info: filteredDemands.filter(d => d.status === 'needs_info' || d.needsMoreInfo).length
+  };
+
+  const zones: any = {};
+  filteredDemands.forEach(d => {
+    const wardKey = `Ward Zone (${d.location.lat.toFixed(2)}, ${d.location.lng.toFixed(2)})`;
+    if (!zones[wardKey]) {
+      zones[wardKey] = { name: wardKey, address: d.address.split(',')[0], water: 0, roads: 0, education: 0, health: 0, power: 0, others: 0, total: 0 };
+    }
+    const cat = d.category;
+    if (['water', 'roads', 'education', 'health', 'power'].includes(cat)) {
+      zones[wardKey][cat]++;
+    } else {
+      zones[wardKey].others++;
+    }
+    zones[wardKey].total++;
+  });
+
+  const topZones = Object.values(zones).sort((a: any, b: any) => b.total - a.total).slice(0, 5);
 
   return (
     <>
@@ -216,34 +301,135 @@ function ManagerConsole() {
           </button>
         </div>
 
-        {/* Dashboard Stats row */}
-        <div className="role-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-          <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ fontSize: '2rem' }}>📁</div>
-            <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Submissions</span>
-              <h3 style={{ fontSize: '1.6rem', color: 'white', margin: 0 }}>{totalCount}</h3>
+        {/* Dynamic Parameter Tuning Controls */}
+        {activeTab === 'registry' && (
+          <div className="form-card" style={{ padding: '20px 24px', marginBottom: '24px', textAlign: 'left' }}>
+            <h4 style={{ color: '#2dd4bf', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 16px 0', fontSize: '1rem' }}>
+              <Sliders size={18} />
+              <span>Interactive Parameter Tuning & Simulation Controls</span>
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+              
+              {/* Priority slider */}
+              <div>
+                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#c5c7e6', marginBottom: '6px' }}>
+                  <span>Min Priority Score:</span>
+                  <strong style={{ color: '#ef4444' }}>{prioritySlider}+</strong>
+                </label>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  value={prioritySlider}
+                  onChange={e => setPrioritySlider(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#14b8a6', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '10px', color: '#8e90b3' }}>Filters out low importance concerns.</span>
+              </div>
+
+              {/* Signatures slider */}
+              <div>
+                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#c5c7e6', marginBottom: '6px' }}>
+                  <span>Min Support Signatures:</span>
+                  <strong style={{ color: '#34d399' }}>{signatureSlider}+</strong>
+                </label>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="50" 
+                  value={signatureSlider}
+                  onChange={e => setSignatureSlider(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#14b8a6', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '10px', color: '#8e90b3' }}>Filters out isolated single-user inputs.</span>
+              </div>
+
+              {/* Budget Scale selector */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#c5c7e6', marginBottom: '6px' }}>
+                  Filter Budget Scale:
+                </label>
+                <select
+                  value={budgetScaleFilter}
+                  onChange={e => setBudgetScaleFilter(e.target.value)}
+                  style={{ width: '100%', background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '6px 10px', borderRadius: '6px', fontSize: '12.5px' }}
+                >
+                  <option value="all">📁 All Budgets</option>
+                  <option value="under_10k">🟢 Minor Work (&lt;$10k)</option>
+                  <option value="10k_50k">🟡 Medium Work ($10k-$50k)</option>
+                  <option value="over_50k">🔴 Major Capital (&gt;$50k)</option>
+                </select>
+              </div>
+
+              {/* Scope filter */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', color: '#c5c7e6', marginBottom: '6px' }}>
+                  Filter Impact Scope:
+                </label>
+                <select
+                  value={scopeSliderFilter}
+                  onChange={e => setScopeSliderFilter(e.target.value)}
+                  style={{ width: '100%', background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '6px 10px', borderRadius: '6px', fontSize: '12.5px' }}
+                >
+                  <option value="all">🌎 All Scopes</option>
+                  <option value="household">🏠 Household Level</option>
+                  <option value="street">🛣️ Street Level</option>
+                  <option value="ward">🏡 Ward Level</option>
+                  <option value="constituency"> Constituency Level</option>
+                </select>
+              </div>
+
             </div>
           </div>
-          <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ fontSize: '2rem' }}>⏳</div>
+        )}
+
+        {/* Dashboard Stats row (6-Grid Advanced KPI indicators) */}
+        <div className="role-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+          <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+            <div style={{ fontSize: '1.8rem' }}>📁</div>
             <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Pending Review</span>
-              <h3 style={{ fontSize: '1.6rem', color: '#fbbf24', margin: 0 }}>{pendingCount}</h3>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Active Grievances</span>
+              <h3 style={{ fontSize: '1.4rem', color: 'white', margin: 0 }}>{totalCount}</h3>
             </div>
           </div>
-          <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ fontSize: '2rem' }}>✅</div>
+          
+          <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+            <div style={{ fontSize: '1.8rem' }}>🚨</div>
             <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Approved Needs</span>
-              <h3 style={{ fontSize: '1.6rem', color: '#34d399', margin: 0 }}>{approvedCount}</h3>
+              <span style={{ fontSize: '0.7rem', color: '#f87171', textTransform: 'uppercase', fontWeight: 'bold' }}>Red Alerts (&gt;80)</span>
+              <h3 style={{ fontSize: '1.4rem', color: '#f87171', margin: 0 }}>{redAlertCount}</h3>
             </div>
           </div>
-          <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ fontSize: '2rem' }}>👍</div>
+
+          <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+            <div style={{ fontSize: '1.8rem' }}>⏳</div>
             <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Citizen Votes</span>
-              <h3 style={{ fontSize: '1.6rem', color: '#6366f1', margin: 0 }}>{totalVotes}</h3>
+              <span style={{ fontSize: '0.7rem', color: '#fbbf24', textTransform: 'uppercase', fontWeight: 'bold' }}>Pending Audit</span>
+              <h3 style={{ fontSize: '1.4rem', color: '#fbbf24', margin: 0 }}>{pendingCount}</h3>
+            </div>
+          </div>
+
+          <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+            <div style={{ fontSize: '1.8rem' }}>👍</div>
+            <div>
+              <span style={{ fontSize: '0.7rem', color: '#6366f1', textTransform: 'uppercase', fontWeight: 'bold' }}>Citizen Votes</span>
+              <h3 style={{ fontSize: '1.4rem', color: '#818cf8', margin: 0 }}>{totalVotes}</h3>
+            </div>
+          </div>
+
+          <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+            <div style={{ fontSize: '1.8rem' }}>💰</div>
+            <div>
+              <span style={{ fontSize: '0.7rem', color: '#34d399', textTransform: 'uppercase', fontWeight: 'bold' }}>Est. Budget Outlay</span>
+              <h3 style={{ fontSize: '1.3rem', color: '#34d399', margin: 0 }}>₹{(estimatedBudgetSum * 85).toLocaleString('en-IN')}</h3>
+            </div>
+          </div>
+
+          <div className="form-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+            <div style={{ fontSize: '1.8rem' }}>🛡️</div>
+            <div>
+              <span style={{ fontSize: '0.7rem', color: '#a5b4fc', textTransform: 'uppercase', fontWeight: 'bold' }}>Avg Safety Risk</span>
+              <h3 style={{ fontSize: '1.4rem', color: '#a5b4fc', margin: 0 }}>{averageSafetyScore}/3.0</h3>
             </div>
           </div>
         </div>
@@ -340,6 +526,345 @@ function ManagerConsole() {
             )}
           </div>
         </div>
+
+        {/* Content Layout Grid */}
+        {activeTab === 'registry' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '32px' }}>
+            
+            {/* Top Analytics Panel: Map Heatzones & Top Categories Prevalence */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }} className="role-grid">
+              
+              {/* Map Heatzones */}
+              <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
+                <h4 style={{ color: '#2dd4bf', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
+                  <MapPin size={18} style={{ color: '#2dd4bf' }} />
+                  <span>Interactive Regional Hotspot Heat-Zones (Filtered System Data)</span>
+                </h4>
+                <div style={{ height: '320px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <GoogleMapComponent
+                    apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
+                    onLocationSelect={() => {}}
+                    selectedLocation={selectedDemand?.location || { lat: 28.803, lng: 79.025 }}
+                    nearbyHotspots={filteredDemands.map(fd => ({
+                      id: fd.id,
+                      location: fd.location,
+                      category: fd.category,
+                      upvotes: fd.upvotes || 1
+                    }))}
+                    focusedPlace={null}
+                    circleData={null}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '11px', color: '#8e90b3' }}>
+                  <span>⭕ Circle radius represents support signatures count</span>
+                  <span style={{ color: '#f87171' }}>● Roads (Red)</span>
+                  <span style={{ color: '#fbbf24' }}>● Water (Yellow)</span>
+                  <span style={{ color: '#38bdf8' }}>● Education (Blue)</span>
+                  <span style={{ color: '#a78bfa' }}>● Power (Purple)</span>
+                </div>
+              </div>
+
+              {/* Prevalence & Workflow share charts */}
+              <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
+                <h4 style={{ color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
+                  <Sparkles size={18} />
+                  <span>Category Prevalence & Resolution shares</span>
+                </h4>
+                
+                {/* SVG Bar Chart */}
+                <div style={{ flexGrow: 1, position: 'relative' }}>
+                  <span style={{ fontSize: '11.5px', color: 'var(--text-desc)', display: 'block', marginBottom: '8px' }}>
+                    📈 Incoming Prevalence counts (Hover for details):
+                  </span>
+                  {sortedCategories.length === 0 ? (
+                    <div style={{ height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8e90b3', fontSize: '12px' }}>
+                      No data to chart.
+                    </div>
+                  ) : (
+                    <svg viewBox={`0 0 400 130`} style={{ width: '100%', height: '130px', overflow: 'visible' }}>
+                      {sortedCategories.slice(0, 5).map((c, i) => {
+                        const barWidth = 40;
+                        const gapSize = 30;
+                        const x = 50 + i * (barWidth + gapSize);
+                        const maxVal = Math.max(...sortedCategories.map(item => item.count), 1);
+                        const height = (c.count / maxVal) * 80;
+                        const y = 100 - height;
+                        const isHovered = hoveredChartBar === c.category;
+
+                        return (
+                          <g 
+                            key={c.category} 
+                            onMouseEnter={() => setHoveredChartBar(c.category)}
+                            onMouseLeave={() => setHoveredChartBar(null)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {/* Bar Rect */}
+                            <rect 
+                              x={x} 
+                              y={y} 
+                              width={barWidth} 
+                              height={height} 
+                              rx={4} 
+                              fill={isHovered ? '#2dd4bf' : 'url(#barGrad)'} 
+                              style={{ transition: 'all 0.2s ease' }}
+                            />
+                            {/* Count label */}
+                            <text x={x + barWidth / 2} y={y - 6} textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">
+                              {c.count}
+                            </text>
+                            {/* X-axis Label */}
+                            <text x={x + barWidth / 2} y={115} textAnchor="middle" fill="#8e90b3" fontSize="9" fontWeight="600" style={{ textTransform: 'uppercase' }}>
+                              {c.category.substring(0, 6)}
+                            </text>
+                          </g>
+                        );
+                      })}
+                      {/* Gradients */}
+                      <defs>
+                        <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#818cf8" />
+                          <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.4" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  )}
+                  {hoveredChartBar && (
+                    <div style={{ position: 'absolute', top: 0, right: 0, background: 'rgba(9, 8, 26, 0.95)', border: '1px solid #14b8a6', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', color: 'white', zIndex: 10 }}>
+                      Category: <strong style={{ color: '#2dd4bf', textTransform: 'capitalize' }}>{hoveredChartBar}</strong>
+                      <br />
+                      Share: <strong>{((categoryCounts[hoveredChartBar] || 0) / (filteredDemands.length || 1) * 100).toFixed(0)}%</strong>
+                    </div>
+                  )}
+                </div>
+
+                {/* Donut progress status grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '6px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '9px', color: '#8e90b3', display: 'block' }}>⏳ PENDING</span>
+                    <strong style={{ fontSize: '12px', color: '#fbbf24' }}>
+                      {statusCounts.pending} ({totalCount > 0 ? (statusCounts.pending / totalCount * 100).toFixed(0) : 0}%)
+                    </strong>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '6px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '9px', color: '#8e90b3', display: 'block' }}>✅ APPROVED</span>
+                    <strong style={{ fontSize: '12px', color: '#34d399' }}>
+                      {statusCounts.approved} ({totalCount > 0 ? (statusCounts.approved / totalCount * 100).toFixed(0) : 0}%)
+                    </strong>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '6px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '9px', color: '#8e90b3', display: 'block' }}>🛠️ NEEDS INFO</span>
+                    <strong style={{ fontSize: '12px', color: '#ef4444' }}>
+                      {statusCounts.needs_info} ({totalCount > 0 ? (statusCounts.needs_info / totalCount * 100).toFixed(0) : 0}%)
+                    </strong>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Middle Analytics Panel: Urgency vs Impact & Velocity Trend */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }} className="role-grid">
+              
+              {/* Scatter bubble Plot */}
+              <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
+                <h4 style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
+                  <Award size={18} style={{ color: '#fbbf24' }} />
+                  <span>AI Priority Score vs Estimated Impact Population</span>
+                </h4>
+                <div style={{ flexGrow: 1, position: 'relative' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-desc)', display: 'block', marginBottom: '8px' }}>
+                    🔴 Target Quadrant: Top-Right (High Priority, High Population Impact, Requires Direct Constituency Funds)
+                  </span>
+                  {filteredDemands.length === 0 ? (
+                    <div style={{ height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8e90b3', fontSize: '12px' }}>
+                      No data to plot.
+                    </div>
+                  ) : (
+                    <svg viewBox="0 0 400 150" style={{ width: '100%', height: '150px', overflow: 'visible' }}>
+                      {/* Quadrant grid lines */}
+                      <line x1="200" y1="10" x2="200" y2="130" stroke="rgba(255,255,255,0.06)" strokeDasharray="3" />
+                      <line x1="30" y1="70" x2="380" y2="70" stroke="rgba(255,255,255,0.06)" strokeDasharray="3" />
+                      
+                      {/* Axes */}
+                      <line x1="30" y1="130" x2="380" y2="130" stroke="rgba(255,255,255,0.2)" />
+                      <line x1="30" y1="10" x2="30" y2="130" stroke="rgba(255,255,255,0.2)" />
+
+                      {/* Bubble points */}
+                      {filteredDemands.map((fd, i) => {
+                        const score = fd.aiOverview?.priorityScore || 50;
+                        const impact = Math.min(fd.estimatedImpact || 150, 10000);
+                        
+                        // Map score 0-100 to x 40-370
+                        const x = 40 + (score / 100) * 320;
+                        // Map impact 0-10000 to y 120-20
+                        const y = 120 - (Math.sqrt(impact) / 100) * 100;
+                        
+                        // Circle size based on upvotes
+                        const r = Math.min(4 + (fd.upvotes || 1) * 0.4, 16);
+
+                        let color = '#818cf8'; // power
+                        if (fd.category === 'roads') color = '#ef4444';
+                        if (fd.category === 'water') color = '#fbbf24';
+                        if (fd.category === 'education') color = '#38bdf8';
+                        if (fd.category === 'health') color = '#10b981';
+
+                        return (
+                          <circle 
+                            key={i}
+                            cx={x}
+                            cy={y}
+                            r={r}
+                            fill={color}
+                            fillOpacity="0.75"
+                            stroke="white"
+                            strokeWidth="0.5"
+                            style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                          >
+                            <title>
+                              {fd.category.toUpperCase()} Grievance\nPriority: {score}/100\nImpact: {impact} citizens\nSignatures: {fd.upvotes || 1}\nAddress: {fd.address}
+                            </title>
+                          </circle>
+                        );
+                      })}
+
+                      {/* Axes Labels */}
+                      <text x="380" y="142" textAnchor="end" fill="#8e90b3" fontSize="8">Priority Score ➔</text>
+                      <text x="10" y="20" textAnchor="start" fill="#8e90b3" fontSize="8" transform="rotate(-90 10 20)">Impact Pop. ➔</text>
+                    </svg>
+                  )}
+                </div>
+              </div>
+
+              {/* Velocity Line/Area Chart */}
+              <div className="form-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
+                <h4 style={{ color: '#2dd4bf', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, fontSize: '1rem' }}>
+                  <Calendar size={18} style={{ color: '#2dd4bf' }} />
+                  <span>Constituency Submission Velocity Velocity Trend</span>
+                </h4>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--text-desc)', display: 'block', marginBottom: '8px' }}>
+                    📈 Daily incoming submission volume (last 7 submission days):
+                  </span>
+                  {filteredDemands.length === 0 ? (
+                    <div style={{ height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8e90b3', fontSize: '12px' }}>
+                      No data to chart.
+                    </div>
+                  ) : (
+                    <svg viewBox="0 0 400 150" style={{ width: '100%', height: '150px', overflow: 'visible' }}>
+                      {/* Grid lines */}
+                      <line x1="30" y1="40" x2="380" y2="40" stroke="rgba(255,255,255,0.04)" />
+                      <line x1="30" y1="80" x2="380" y2="80" stroke="rgba(255,255,255,0.04)" />
+                      
+                      {/* Axes */}
+                      <line x1="30" y1="120" x2="380" y2="120" stroke="rgba(255,255,255,0.2)" />
+
+                      {/* Area polygon points */}
+                      {(() => {
+                        // Group by date
+                        const datesGroup: any = {};
+                        filteredDemands.forEach(d => {
+                          const dateStr = d.createdAt ? new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'N/A';
+                          datesGroup[dateStr] = (datesGroup[dateStr] || 0) + 1;
+                        });
+                        const sortedDates = Object.keys(datesGroup).map(k => ({ date: k, count: datesGroup[k] })).slice(-7);
+                        if (sortedDates.length === 0) return null;
+                        
+                        const maxCount = Math.max(...sortedDates.map(d => d.count), 1);
+                        const points = sortedDates.map((sd, i) => {
+                          const x = 40 + i * (330 / Math.max(sortedDates.length - 1, 1));
+                          const y = 120 - (sd.count / maxCount) * 80;
+                          return { x, y, ...sd };
+                        });
+
+                        const pathDef = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+                        const areaDef = `${pathDef} L ${points[points.length - 1].x} 120 L ${points[0].x} 120 Z`;
+
+                        return (
+                          <g>
+                            {/* Area fill */}
+                            <path d={areaDef} fill="url(#areaFillGrad)" />
+                            {/* Line path */}
+                            <path d={pathDef} fill="none" stroke="#2dd4bf" strokeWidth="2.5" />
+                            {/* Circle dots */}
+                            {points.map((p, idx) => (
+                              <g key={idx}>
+                                <circle cx={p.x} cy={p.y} r="4" fill="white" stroke="#2dd4bf" strokeWidth="1.5" />
+                                <text x={p.x} y={135} textAnchor="middle" fill="#8e90b3" fontSize="8" fontWeight="bold">
+                                  {p.date}
+                                </text>
+                                <text x={p.x} y={p.y - 8} textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">
+                                  {p.count}
+                                </text>
+                              </g>
+                            ))}
+                            <defs>
+                              <linearGradient id="areaFillGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.4" />
+                                <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0.0" />
+                              </linearGradient>
+                            </defs>
+                          </g>
+                        );
+                      })()}
+                    </svg>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Bottom Analytics Panel: Ward Gap Matrix Grid */}
+            <div className="form-card" style={{ padding: '20px', textAlign: 'left' }}>
+              <h4 style={{ color: '#c7d2fe', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 16px 0', fontSize: '1rem' }}>
+                <Database size={18} />
+                <span>Geospatial Ward Infrastructure Gaps Matrix Table</span>
+              </h4>
+              <p style={{ fontSize: '12px', color: 'var(--text-desc)', margin: '0 0 16px 0' }}>
+                Rounded coordinate clusters (approx. 1km² zones) representing local wards. Compares infrastructure deficits across categories.
+              </p>
+              {topZones.length === 0 ? (
+                <div style={{ color: '#8e90b3', fontStyle: 'italic', fontSize: '13px', padding: '20px', textAlign: 'center' }}>
+                  No regional data clusters matching filters.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontWeight: 'bold' }}>
+                        <th style={{ padding: '10px 14px', textAlign: 'left' }}>Local Neighborhood (Approx. Grid)</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>🚰 Water</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>🛣️ Roads</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>🏫 Education</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>🏥 Health</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>⚡ Power</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>📁 Other</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center', color: '#2dd4bf' }}>Total Deficit Index</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topZones.map((z: any, idx: number) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
+                          <td style={{ padding: '12px 14px', fontWeight: 'bold' }}>
+                            📍 {z.address || 'Constituency Outer Boundary'}
+                            <span style={{ display: 'block', fontSize: '10px', color: '#8e90b3', fontWeight: 'normal' }}>{z.name}</span>
+                          </td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center', color: z.water > 0 ? '#fbbf24' : '#8e90b3', fontWeight: z.water > 0 ? 'bold' : 'normal' }}>{z.water}</td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center', color: z.roads > 0 ? '#ef4444' : '#8e90b3', fontWeight: z.roads > 0 ? 'bold' : 'normal' }}>{z.roads}</td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center', color: z.education > 0 ? '#38bdf8' : '#8e90b3', fontWeight: z.education > 0 ? 'bold' : 'normal' }}>{z.education}</td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center', color: z.health > 0 ? '#10b981' : '#8e90b3', fontWeight: z.health > 0 ? 'bold' : 'normal' }}>{z.health}</td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center', color: z.power > 0 ? '#a78bfa' : '#8e90b3', fontWeight: z.power > 0 ? 'bold' : 'normal' }}>{z.power}</td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center', color: '#8e90b3' }}>{z.others}</td>
+                          <td style={{ padding: '12px 14px', textAlign: 'center', color: '#2dd4bf', fontWeight: 'bold', background: 'rgba(20, 184, 166, 0.05)' }}>{z.total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
 
         {/* Content Layout Grid */}
         {activeTab === 'registry' ? (
