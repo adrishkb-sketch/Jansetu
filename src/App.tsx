@@ -766,6 +766,15 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     setIsLoggedIn(true);
   };
 
+  const [upvotedHotspotIds, setUpvotedHotspotIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('jansetu_upvoted_ids');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [petitionId, setPetitionId] = useState<string | null>(null);
   const [petitionTicket, setPetitionTicket] = useState<any | null>(null);
 
@@ -787,6 +796,10 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
 
   const handlePetitionUpvote = async () => {
     if (!petitionTicket) return;
+    if (upvotedHotspotIds.includes(petitionTicket.id)) {
+      alert("⚠️ You have already signed/upvoted this petition!");
+      return;
+    }
     if (!location) {
       alert("📍 Map Location Required: Please select your coordinates on the map in Section 2 first to verify you live near this issue.");
       return;
@@ -799,6 +812,9 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     const updatedVotes = await upvoteDemand(petitionTicket.id);
     alert("🎉 Thank you! Your community signature has been added to this petition.");
     setPetitionTicket((prev: any) => prev ? { ...prev, upvotes: updatedVotes } : null);
+    const nextVoted = [...upvotedHotspotIds, petitionTicket.id];
+    setUpvotedHotspotIds(nextVoted);
+    localStorage.setItem('jansetu_upvoted_ids', JSON.stringify(nextVoted));
   };
 
   // Query hotspots when location changes
@@ -856,6 +872,10 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   };
 
   const handleUpvote = async (id: string) => {
+    if (upvotedHotspotIds.includes(id)) {
+      alert("⚠️ You have already upvoted/supported this ticket!");
+      return;
+    }
     const target = nearbyHotspots.find(h => h.id === id);
     if (target) {
       if (!location) {
@@ -870,6 +890,9 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     }
     const updatedVotes = await upvoteDemand(id);
     setNearbyHotspots(prev => prev.map(h => h.id === id ? { ...h, upvotes: updatedVotes } : h));
+    const nextVoted = [...upvotedHotspotIds, id];
+    setUpvotedHotspotIds(nextVoted);
+    localStorage.setItem('jansetu_upvoted_ids', JSON.stringify(nextVoted));
   };
 
   const handleLandmarkSearch = () => {
@@ -1633,7 +1656,15 @@ JSON:`
     if (contributingIssue) {
       const extraData = {
         status: !isIncomplete ? 'pending' : 'needs_info',
-        needsMoreInfo: isIncomplete
+        needsMoreInfo: isIncomplete,
+        category,
+        scope,
+        estimatedImpact: aiPopulationAffected,
+        urgency,
+        assetType,
+        fundingSource,
+        aiOverview: aiOverview || undefined,
+        circleData: circleData || undefined
       };
       await contributeToDemand(contributingIssue.id, itemsMapped, extraData);
       setTicketId(contributingIssue.id);
@@ -1707,55 +1738,90 @@ JSON:`
           {isDashboardView ? "✍️ Switch to Form Submission" : "🏆 Switch to Profile Login"}
         </button>
       </div>
-      {petitionTicket && !isDashboardView && (
-        <div className="form-card" style={{ marginBottom: '24px', padding: '20px', border: '1px solid #10b981', background: 'rgba(16,185,129,0.08)', borderRadius: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px', textAlign: 'left' }}>
-          <div>
-            <strong style={{ color: '#10b981', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-              📢 Community Petition (Ref: {petitionId}): {petitionTicket.ticketType === 'suggestion' ? '💡 Suggestion' : '⚠️ Complaint'}
-            </strong>
-            <h4 style={{ margin: '0 0 6px', color: 'white' }}>"{petitionTicket.aiOverview?.brief || petitionTicket.category}"</h4>
-            <span style={{ fontSize: '12px', color: '#8e90b3' }}>📍 Address: {petitionTicket.address}</span>
-            <span style={{ display: 'block', fontSize: '12px', color: '#a5b4fc', marginTop: '4px' }}>
-              Current Signatures: <strong>{petitionTicket.upvotes || 1} residents</strong>
+      {petitionTicket && !isDashboardView ? (
+        <div className="form-card" style={{ maxWidth: '800px', margin: '40px auto', padding: '32px', textAlign: 'left' }}>
+          <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px', marginBottom: '20px' }}>
+            <span style={{ fontSize: '11px', background: '#10b981', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+              📢 ACTIVE COMMUNITY PETITION (Ref: {petitionId})
             </span>
+            <h3 style={{ marginTop: '12px', color: 'white' }}>"{petitionTicket.aiOverview?.brief || petitionTicket.category}"</h3>
+            <p style={{ fontSize: '13px', color: '#c5c7e6', margin: '6px 0 0' }}>📍 Address: {petitionTicket.address}</p>
+            <p style={{ fontSize: '13px', color: '#a5b4fc', margin: '4px 0 0' }}>
+              Current Signatures: <strong>{petitionTicket.upvotes || 1} local residents</strong>
+            </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <strong style={{ display: 'block', fontSize: '14.5px', marginBottom: '10px', color: '#c7d2fe' }}>
+              Step 1: Click the map to verify your local coordinates (Must be within 2.0 km of the issue to prevent spam)
+            </strong>
+            <div style={{ height: '380px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <GoogleMapComponent
+                apiKey={apiKey}
+                onLocationSelect={(loc, addr) => {
+                  setLocation(loc);
+                  setAddress(addr);
+                }}
+                selectedLocation={location}
+                nearbyHotspots={[]}
+                focusedPlace={petitionTicket.location}
+                circleData={{ lat: petitionTicket.location.lat, lng: petitionTicket.location.lng, radius: 200 }}
+              />
+            </div>
+            {location && (
+              <span style={{ fontSize: '12.5px', color: '#34d399', display: 'block', marginTop: '10px' }}>
+                📍 Coordinates Verified: {location.lat.toFixed(5)}, {location.lng.toFixed(5)} ({address})
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '16px' }}>
             <button
               type="button"
               style={{
-                padding: '10px 20px',
+                flex: 1,
+                padding: '14px',
                 background: '#10b981',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
                 fontWeight: 'bold',
+                fontSize: '14px',
                 cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
+                textAlign: 'center',
+                boxShadow: '0 4px 12px rgba(16,185,129,0.2)'
               }}
               onClick={handlePetitionUpvote}
             >
-              👍 Sign & Upvote Petition
+              👍 Agree & Sign Petition
             </button>
+            
             <button
               type="button"
-              className="btn-toggle-settings"
-              style={{ padding: '10px 14px', color: '#ef4444', borderColor: '#ef4444' }}
+              style={{
+                flex: 1,
+                padding: '14px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                color: '#ef4444',
+                border: '1px solid #ef4444',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                fontSize: '14px',
+                cursor: 'pointer',
+                textAlign: 'center'
+              }}
               onClick={() => {
+                alert("You declined to sign this petition.");
                 setPetitionTicket(null);
                 setPetitionId(null);
                 window.history.replaceState({}, document.title, window.location.pathname);
               }}
             >
-              Cancel
+              👎 Decline
             </button>
           </div>
         </div>
-      )}
-
-      {isDashboardView ? (
+      ) : isDashboardView ? (
         <div style={{ marginTop: '24px' }}>
           {!isLoggedIn ? (
             <div className="form-card" style={{ maxWidth: '480px', margin: '40px auto', padding: '32px' }}>
@@ -2329,12 +2395,20 @@ JSON:`
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
                         <button 
-                          type="button" 
-                          className="btn-upvote" 
+                          type="button"
+                          className="btn-upvote"
+                          disabled={upvotedHotspotIds.includes(hotspot.id)}
                           onClick={() => handleUpvote(hotspot.id)}
-                          style={{ padding: '6px 10px', fontSize: '12px', borderColor: isSuggestion ? '#10b981' : '#f59e0b', color: isSuggestion ? '#6ee7b7' : '#fde68a' }}
+                          style={{ 
+                            padding: '6px 10px', 
+                            fontSize: '12px', 
+                            borderColor: upvotedHotspotIds.includes(hotspot.id) ? 'rgba(255,255,255,0.1)' : isSuggestion ? '#10b981' : '#f59e0b', 
+                            color: upvotedHotspotIds.includes(hotspot.id) ? '#8e90b3' : isSuggestion ? '#6ee7b7' : '#fde68a',
+                            background: upvotedHotspotIds.includes(hotspot.id) ? 'rgba(255,255,255,0.05)' : 'transparent',
+                            cursor: upvotedHotspotIds.includes(hotspot.id) ? 'not-allowed' : 'pointer'
+                          }}
                         >
-                          {isSuggestion ? '👍 Agree' : '👍 Support'} ({hotspot.upvotes})
+                          {upvotedHotspotIds.includes(hotspot.id) ? '👍 Supported' : isSuggestion ? '👍 Agree' : '👍 Support'} ({hotspot.upvotes})
                         </button>
                         {isIncomplete && (
                           <button 
@@ -2713,14 +2787,20 @@ JSON:`
                   <button 
                     type="button" 
                     className="btn-add-action" 
-                    style={{ background: '#22c55e', color: 'white', flex: 1 }}
+                    style={{ 
+                      background: upvotedHotspotIds.includes(correlatedHotspot.id) ? 'rgba(255,255,255,0.05)' : '#22c55e', 
+                      color: upvotedHotspotIds.includes(correlatedHotspot.id) ? '#8e90b3' : 'white', 
+                      flex: 1,
+                      cursor: upvotedHotspotIds.includes(correlatedHotspot.id) ? 'not-allowed' : 'pointer'
+                    }}
+                    disabled={upvotedHotspotIds.includes(correlatedHotspot.id)}
                     onClick={() => {
                       handleUpvote(correlatedHotspot.id);
                       alert("Successfully supported the existing issue. Upvote registered!");
                       setCorrelatedHotspot(null);
                     }}
                   >
-                    👍 Just Support/Upvote Existing
+                    {upvotedHotspotIds.includes(correlatedHotspot.id) ? '👍 Already Supported' : '👍 Just Support/Upvote Existing'}
                   </button>
                   <button 
                     type="button" 
