@@ -17,7 +17,7 @@ import {
   MapPin
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
-import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand } from './services/db';
+import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
 
 // ISO 639-1 / Google Translate codes for the 22 Scheduled Indian Languages + English
 const INDIAN_LANGUAGES = [
@@ -652,6 +652,7 @@ interface SubmissionItem {
   processing?: boolean;
   ocrText?: string;
   speechTranscript?: string;
+  boundingBoxes?: Array<{ label: string; x: number; y: number; width: number; height: number; severity: string }>;
 }
 
 interface ComplainantPortalProps {
@@ -745,6 +746,61 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   const [submittedAsIncomplete, setSubmittedAsIncomplete] = useState<boolean>(false);
   const [ticketType, setTicketType] = useState<'complaint' | 'suggestion'>('complaint');
 
+  const [isDashboardView, setIsDashboardView] = useState<boolean>(false);
+  const [loginEmail, setLoginEmail] = useState<string>('');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [citizenDemands, setCitizenDemands] = useState<any[]>([]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('login') === 'true') {
+      setIsDashboardView(true);
+    }
+  }, []);
+
+  const handleLogin = async () => {
+    if (!loginEmail.trim()) return;
+    const all = await getAllDemands();
+    const filtered = all.filter(d => d.email && d.email.trim().toLowerCase() === loginEmail.trim().toLowerCase());
+    setCitizenDemands(filtered);
+    setIsLoggedIn(true);
+  };
+
+  const [petitionId, setPetitionId] = useState<string | null>(null);
+  const [petitionTicket, setPetitionTicket] = useState<any | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pid = params.get('petitionId');
+    if (pid) {
+      setPetitionId(pid);
+      getAllDemands().then(all => {
+        const found = all.find(d => d.id === pid);
+        if (found) {
+          setPetitionTicket(found);
+        } else {
+          alert("Could not load the specified petition.");
+        }
+      });
+    }
+  }, []);
+
+  const handlePetitionUpvote = async () => {
+    if (!petitionTicket) return;
+    if (!location) {
+      alert("📍 Map Location Required: Please select your coordinates on the map in Section 2 first to verify you live near this issue.");
+      return;
+    }
+    const dist = getHaversineDistance(location, petitionTicket.location);
+    if (dist > 2.0) {
+      alert(`⛔ Access Denied: You are located ${dist.toFixed(2)} km away. Petition signing/upvoting is restricted to local residents residing within 2.0 km of the issue to prevent spam.`);
+      return;
+    }
+    const updatedVotes = await upvoteDemand(petitionTicket.id);
+    alert("🎉 Thank you! Your community signature has been added to this petition.");
+    setPetitionTicket((prev: any) => prev ? { ...prev, upvotes: updatedVotes } : null);
+  };
+
   // Query hotspots when location changes
   useEffect(() => {
     if (location) {
@@ -800,6 +856,18 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   };
 
   const handleUpvote = async (id: string) => {
+    const target = nearbyHotspots.find(h => h.id === id);
+    if (target) {
+      if (!location) {
+        alert("📍 Map Location Required: Please select your location on the map in Section 2 first to verify you reside nearby.");
+        return;
+      }
+      const dist = getHaversineDistance(location, target.location);
+      if (dist > 2.0) {
+        alert(`⛔ Access Denied: You are located ${dist.toFixed(2)} km away from the issue coordinates. Upvoting is restricted to local residents residing within 2.0 km of the issue location to prevent spam.`);
+        return;
+      }
+    }
     const updatedVotes = await upvoteDemand(id);
     setNearbyHotspots(prev => prev.map(h => h.id === id ? { ...h, upvotes: updatedVotes } : h));
   };
@@ -897,7 +965,7 @@ Verify the user's ${ticketType} against the Ground Truth Local Infrastructure li
 ${insightsText}
 
 You must:
-1. Translate it to English if it is in another Indian language. Provide the English translation in the 'translatedText' field.
+1. Translate it to English if it is in another Indian language or written in regional mixed dialects (such as Hinglish, Banglish, or other languages mixed with English terms, local slang, or local spelling variations). Normalise all local slang and abbreviations into standard English. Provide this standard English translation in the 'translatedText' field.
 2. Determine the category: Choose exactly one from: ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"].
 3. Determine the impact scope: Choose exactly one from: ["household", "street", "ward", "constituency"].
 4. Estimate the population affected: Return a numerical estimate of how many citizens are affected (e.g. 5, 150, 2000, etc.) in the 'estimatedPopulation' field.
@@ -1309,7 +1377,7 @@ JSON:`
     setIsRecording(false);
   };
 
-  const runGeminiImageAnalysis = async (base64Data: string, mimeType: string): Promise<{ description: string; requiresMoreContext: boolean } | null> => {
+  const runGeminiImageAnalysis = async (base64Data: string, mimeType: string): Promise<{ description: string; requiresMoreContext: boolean; boundingBoxes?: any[] } | null> => {
     const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
     if (!activeKey) return null;
 
@@ -1331,7 +1399,7 @@ JSON:`
                 }
               },
               {
-                text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight), output a detailed description of the problem in English. If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false }`
+                text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight, blocked drainage), output a detailed description of the problem in English. In addition, localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`
               }
             ]
           }],
@@ -1422,6 +1490,7 @@ JSON:`
                   return {
                     ...item,
                     content: geminiResult.description,
+                    boundingBoxes: geminiResult.boundingBoxes,
                     processing: false
                   };
                 }
@@ -1612,18 +1681,300 @@ JSON:`
   return (
     <div className="complainant-portal container">
       {/* Title block with back action */}
-      <div className="portal-header">
-        <button type="button" className="btn-back" onClick={onBack}>
-          <ArrowLeft size={18} />
-          <span>Back to Roles</span>
+      <div className="portal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <button type="button" className="btn-back" onClick={onBack}>
+            <ArrowLeft size={18} />
+            <span>Back to Roles</span>
+          </button>
+          <h2>{isDashboardView ? "Citizen Profile & Gamification Space" : "Citizen Complainant Portal"}</h2>
+          <p className="portal-subtitle">
+            {isDashboardView 
+              ? "Track your submitted complaints/suggestions, claim achievements, and view civic points" 
+              : "Submit infrastructure and developmental demands directly into the constituency registry"}
+          </p>
+        </div>
+        <button 
+          type="button" 
+          className="btn-toggle-settings" 
+          onClick={() => {
+            setIsDashboardView(!isDashboardView);
+            setIsLoggedIn(false);
+            setLoginEmail('');
+          }}
+          style={{ padding: '8px 16px', fontSize: '13px', background: isDashboardView ? 'rgba(99,102,241,0.2)' : 'rgba(16,185,129,0.2)', color: isDashboardView ? '#a5b4fc' : '#6ee7b7', borderColor: isDashboardView ? '#6366f1' : '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          {isDashboardView ? "✍️ Switch to Form Submission" : "🏆 Switch to Profile Login"}
         </button>
-        <h2>Citizen Complainant Portal</h2>
-        <p className="portal-subtitle">Submit infrastructure and developmental demands directly into the constituency registry</p>
       </div>
+      {petitionTicket && !isDashboardView && (
+        <div className="form-card" style={{ marginBottom: '24px', padding: '20px', border: '1px solid #10b981', background: 'rgba(16,185,129,0.08)', borderRadius: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px', textAlign: 'left' }}>
+          <div>
+            <strong style={{ color: '#10b981', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+              📢 Community Petition (Ref: {petitionId}): {petitionTicket.ticketType === 'suggestion' ? '💡 Suggestion' : '⚠️ Complaint'}
+            </strong>
+            <h4 style={{ margin: '0 0 6px', color: 'white' }}>"{petitionTicket.aiOverview?.brief || petitionTicket.category}"</h4>
+            <span style={{ fontSize: '12px', color: '#8e90b3' }}>📍 Address: {petitionTicket.address}</span>
+            <span style={{ display: 'block', fontSize: '12px', color: '#a5b4fc', marginTop: '4px' }}>
+              Current Signatures: <strong>{petitionTicket.upvotes || 1} residents</strong>
+            </span>
+          </div>
 
-      <div className="portal-grid">
-        {/* Left Column: Contact, Location, Insights, and Duplicates */}
-        <div className="portal-col">
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              style={{
+                padding: '10px 20px',
+                background: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+              onClick={handlePetitionUpvote}
+            >
+              👍 Sign & Upvote Petition
+            </button>
+            <button
+              type="button"
+              className="btn-toggle-settings"
+              style={{ padding: '10px 14px', color: '#ef4444', borderColor: '#ef4444' }}
+              onClick={() => {
+                setPetitionTicket(null);
+                setPetitionId(null);
+                window.history.replaceState({}, document.title, window.location.pathname);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isDashboardView ? (
+        <div style={{ marginTop: '24px' }}>
+          {!isLoggedIn ? (
+            <div className="form-card" style={{ maxWidth: '480px', margin: '40px auto', padding: '32px' }}>
+              <div style={{ background: 'rgba(99, 102, 241, 0.1)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#818cf8' }}>
+                <Award size={32} />
+              </div>
+              <h3 style={{ textAlign: 'center', margin: '0 0 8px' }}>Complainant Login</h3>
+              <p style={{ textAlign: 'center', fontSize: '13px', color: '#8e90b3', margin: '0 0 24px' }}>
+                Access your profile using your email address. No password or OTP required.
+              </p>
+              
+              <div className="input-group">
+                <label>Email Address</label>
+                <input
+                  type="email"
+                  placeholder="citizen@domain.com"
+                  value={loginEmail}
+                  onChange={e => setLoginEmail(e.target.value)}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
+                />
+              </div>
+
+              <button 
+                type="button" 
+                className="btn-add-action" 
+                onClick={handleLogin}
+                disabled={!loginEmail.trim()}
+                style={{ width: '100%', marginTop: '20px', padding: '12px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                Access Citizen Space
+              </button>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'left' }}>
+              {/* Profile Card Header */}
+              <div className="form-card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(79, 70, 229, 0.08))', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 4px', color: '#c7d2fe' }}>👤 Citizen: {loginEmail}</h3>
+                  <span style={{ fontSize: '13px', color: '#a5b4fc' }}>
+                    Rank status: <strong>{(() => {
+                      const demandsCount = citizenDemands.length;
+                      const totalUpvotes = citizenDemands.reduce((sum, d) => sum + (d.upvotes || 0), 0);
+                      const score = demandsCount * 100 + totalUpvotes * 10;
+                      if (score >= 1000) return '🏆 Level 4: Constituency Champion';
+                      if (score >= 400) return '🛡️ Level 3: Ward Guardian';
+                      if (score >= 100) return '🎖️ Level 2: Community Sentinel';
+                      return '🌱 Level 1: Civic Observer';
+                    })()}</strong>
+                  </span>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', minWidth: '100px', textAlign: 'center' }}>
+                    <span style={{ display: 'block', fontSize: '10px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 'bold' }}>Civic Score</span>
+                    <strong style={{ fontSize: '20px', color: '#6366f1' }}>{(() => {
+                      const demandsCount = citizenDemands.length;
+                      const totalUpvotes = citizenDemands.reduce((sum, d) => sum + (d.upvotes || 0), 0);
+                      return demandsCount * 100 + totalUpvotes * 10;
+                    })()} pts</strong>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', minWidth: '100px', textAlign: 'center' }}>
+                    <span style={{ display: 'block', fontSize: '10px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 'bold' }}>Submissions</span>
+                    <strong style={{ fontSize: '20px', color: '#10b981' }}>{citizenDemands.length}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Achievement Badges grid */}
+              <div className="form-card" style={{ marginTop: '20px', padding: '20px' }}>
+                <h4 style={{ margin: '0 0 12px', color: '#a5b4fc' }}>🎖️ Claimed Achievement Badges</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                  {/* Scribe Badge */}
+                  <div style={{ 
+                    background: 'rgba(0,0,0,0.2)', 
+                    border: '1px solid', 
+                    borderColor: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'text')) ? '#6366f1' : 'rgba(255,255,255,0.05)', 
+                    opacity: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'text')) ? 1 : 0.4,
+                    padding: '12px', 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px' 
+                  }}>
+                    <span style={{ fontSize: '24px' }}>✍️</span>
+                    <div>
+                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Scribe Badge</strong>
+                      <span style={{ fontSize: '10px', color: '#a5b4fc' }}>Submitted text description</span>
+                    </div>
+                  </div>
+
+                  {/* Speaker Badge */}
+                  <div style={{ 
+                    background: 'rgba(0,0,0,0.2)', 
+                    border: '1px solid', 
+                    borderColor: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'audio')) ? '#10b981' : 'rgba(255,255,255,0.05)', 
+                    opacity: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'audio')) ? 1 : 0.4,
+                    padding: '12px', 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px' 
+                  }}>
+                    <span style={{ fontSize: '24px' }}>🎤</span>
+                    <div>
+                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Speaker Badge</strong>
+                      <span style={{ fontSize: '10px', color: '#6ee7b7' }}>Submitted voice notes</span>
+                    </div>
+                  </div>
+
+                  {/* Inspector Badge */}
+                  <div style={{ 
+                    background: 'rgba(0,0,0,0.2)', 
+                    border: '1px solid', 
+                    borderColor: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'photo')) ? '#fbbf24' : 'rgba(255,255,255,0.05)', 
+                    opacity: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'photo')) ? 1 : 0.4,
+                    padding: '12px', 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px' 
+                  }}>
+                    <span style={{ fontSize: '24px' }}>📸</span>
+                    <div>
+                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Inspector Badge</strong>
+                      <span style={{ fontSize: '10px', color: '#fde68a' }}>Submitted photo evidence</span>
+                    </div>
+                  </div>
+
+                  {/* Collaborator Badge */}
+                  <div style={{ 
+                    background: 'rgba(0,0,0,0.2)', 
+                    border: '1px solid', 
+                    borderColor: citizenDemands.some(d => d.items?.length > 1) ? '#ec4899' : 'rgba(255,255,255,0.05)', 
+                    opacity: citizenDemands.some(d => d.items?.length > 1) ? 1 : 0.4,
+                    padding: '12px', 
+                    borderRadius: '8px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px' 
+                  }}>
+                    <span style={{ fontSize: '24px' }}>🤝</span>
+                    <div>
+                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Collaborator Badge</strong>
+                      <span style={{ fontSize: '10px', color: '#fbcfe8' }}>Contributed details/updates</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Your Registered Items */}
+              <div style={{ marginTop: '24px' }}>
+                <h4 style={{ margin: '0 0 12px', color: '#c7d2fe' }}>📋 Your Submitted Issues & Suggestions</h4>
+                
+                {citizenDemands.length === 0 ? (
+                  <div className="form-card" style={{ padding: '32px', textAlign: 'center', color: '#8e90b3' }}>
+                    No registered tickets found for this email address. Switch back to Form view to submit your first suggestion!
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                    {citizenDemands.map(demand => {
+                      const isSug = demand.ticketType === 'suggestion';
+                      return (
+                        <div key={demand.id} className="form-card" style={{ padding: '20px', borderLeft: isSug ? '4px solid #10b981' : '4px solid #f59e0b' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                                <span style={{ fontSize: '10px', background: isSug ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSug ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                  {isSug ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
+                                </span>
+                                <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.08)', color: '#c7d2fe', padding: '1px 6px', borderRadius: '4px', textTransform: 'capitalize' }}>
+                                  {demand.category}
+                                </span>
+                              </div>
+                              <strong style={{ fontSize: '14px', color: 'white', display: 'block' }}>Ticket ID: {demand.id}</strong>
+                              <span style={{ fontSize: '12px', color: '#8e90b3' }}>📍 Address: {demand.address}</span>
+                            </div>
+                            
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ 
+                                fontSize: '11px', 
+                                padding: '3px 8px', 
+                                borderRadius: '4px', 
+                                fontWeight: 'bold',
+                                color: 'white',
+                                background: demand.status === 'approved' ? '#10b981' : demand.status === 'needs_info' ? '#ef4444' : '#f59e0b'
+                              }}>
+                                {demand.status === 'approved' ? 'Approved by MLA Workspace' : demand.status === 'needs_info' ? 'Needs More Info' : 'Pending Verification'}
+                              </span>
+                              <span style={{ display: 'block', fontSize: '11px', color: '#a5b4fc', marginTop: '6px' }}>
+                                👍 {demand.upvotes || 1} Agreements
+                              </span>
+                            </div>
+                          </div>
+
+                          {demand.aiOverview?.brief && (
+                            <p style={{ margin: '12px 0 0', fontSize: '13px', color: '#c7d2fe', background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px' }}>
+                              <strong>AI Summary:</strong> {demand.aiOverview.brief}
+                            </p>
+                          )}
+
+                          {/* Render Attachments count */}
+                          <div style={{ marginTop: '12px', display: 'flex', gap: '12px', fontSize: '11px', color: '#8e90b3' }}>
+                            <span>✍️ {demand.items?.filter((i: any) => i.type === 'text').length || 0} Text notes</span>
+                            <span>🔊 {demand.items?.filter((i: any) => i.type === 'audio').length || 0} Voice recordings</span>
+                            <span>🖼️ {demand.items?.filter((i: any) => i.type === 'photo').length || 0} Images</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="portal-grid">
+          {/* Left Column: Contact, Location, Insights, and Duplicates */}
+          <div className="portal-col">
           
           {/* Submission Mode Selector (Complaint vs Suggestion) */}
           <div className="form-card" style={{ marginBottom: '24px', padding: '16px', display: 'flex', gap: '12px', alignItems: 'center', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(79, 70, 229, 0.15))', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
@@ -1675,7 +2026,7 @@ JSON:`
           {/* Section 1: Contact details */}
           <div className="form-card">
             <h3>1. Contact Details (Optional)</h3>
-            <p className="section-help">Provide details if you wish to receive progress updates on your suggestion.</p>
+            <p className="section-help">Provide details to receive updates. Submit your email to earn Civic Points and unlock profile badges.</p>
             
             <div className="input-group">
               <label>Email Address</label>
@@ -2274,9 +2625,44 @@ JSON:`
                         )}
 
                         {item.type === 'photo' && (
-                          <div className="photo-item-wrapper">
-                            <img src={item.fileUrl} alt={item.fileName} className="photo-preview-thumbnail" />
-                            <div className="photo-details">
+                          <div className="photo-item-wrapper" style={{ position: 'relative' }}>
+                            <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                              <img src={item.fileUrl} alt={item.fileName} className="photo-preview-thumbnail" style={{ display: 'block', width: '100%', borderRadius: '6px' }} />
+                              {item.boundingBoxes && item.boundingBoxes.map((box, idx) => (
+                                <div
+                                  key={idx}
+                                  style={{
+                                    position: 'absolute',
+                                    border: '2px solid #ef4444',
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    left: `${box.x}%`,
+                                    top: `${box.y}%`,
+                                    width: `${box.width}%`,
+                                    height: `${box.height}%`,
+                                    zIndex: 10,
+                                    pointerEvents: 'none',
+                                    boxShadow: '0 0 8px rgba(239, 68, 68, 0.5)'
+                                  }}
+                                >
+                                  <span style={{
+                                    position: 'absolute',
+                                    top: '-18px',
+                                    left: '-2px',
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '9px',
+                                    padding: '1px 4px',
+                                    borderRadius: '2px',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                                  }}>
+                                    {box.label} ({box.severity})
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="photo-details" style={{ marginTop: '12px' }}>
                               <span className="photo-name">{item.fileName}</span>
                               {item.processing ? (
                                 <div className="ocr-processing">
@@ -2308,7 +2694,24 @@ JSON:`
                 <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#fca5a5' }}>
                   Our AI engine has matched your complaint description with an existing issue in the region:
                 </p>
-                <div className="matched-hotspot-preview" style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px' }}>
+                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', background: 'rgba(239, 68, 68, 0.15)', padding: '8px 12px', borderRadius: '6px' }}>
+                  <span style={{ fontSize: '11px', color: '#fca5a5', fontWeight: 'bold' }}>🤖 AI Similarity Score:</span>
+                  <span style={{ fontSize: '12px', color: '#ffffff', fontWeight: '900', background: '#ef4444', padding: '2px 6px', borderRadius: '4px' }}>92% Match</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', margin: '8px 0 12px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', padding: '8px', borderRadius: '6px', fontSize: '11px', textAlign: 'left' }}>
+                    <span style={{ color: '#8e90b3', display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Your Input:</span>
+                    <span style={{ color: '#c7d2fe' }}>"{items[0]?.content || 'Empty'}"</span>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', padding: '8px', borderRadius: '6px', fontSize: '11px', textAlign: 'left' }}>
+                    <span style={{ color: '#8e90b3', display: 'block', fontWeight: 'bold', marginBottom: '4px' }}>Existing Record:</span>
+                    <span style={{ color: '#c7d2fe' }}>"{correlatedHotspot.items?.[0]?.content || correlatedHotspot.address}"</span>
+                  </div>
+                </div>
+
+                <div className="matched-hotspot-preview" style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '14px', textAlign: 'left' }}>
                   <strong>Category:</strong> <span style={{ textTransform: 'capitalize' }}>{correlatedHotspot.category}</span><br />
                   <strong>Detail:</strong> "{correlatedHotspot.items?.[0]?.content || correlatedHotspot.address}"<br />
                   <strong>Current upvotes:</strong> {correlatedHotspot.upvotes}
@@ -2508,9 +2911,11 @@ JSON:`
           </div>
         </div>
       </div>
+      )}
 
       {/* Submit verification bar */}
-      <div className="submit-bar">
+      {!isDashboardView && (
+        <div className="submit-bar">
         <div className="checklist">
           <div className={'checklist-item ' + (location ? 'checked' : '')}>
             <span className="checkbox"></span>
@@ -2536,6 +2941,7 @@ JSON:`
           <ArrowRight size={18} />
         </button>
       </div>
+      )}
 
       {/* Submission Success Modal */}
       {showSuccess && (
@@ -2615,6 +3021,41 @@ JSON:`
                   style={{ width: '120px', height: '120px', borderRadius: '8px', border: '1px solid #4f46e5' }}
                 />
                 <span style={{ fontSize: '11px', color: '#8e90b3', fontWeight: '600' }}>Scan to track status on WhatsApp API</span>
+              </div>
+
+              <div className="whatsapp-petition-card" style={{ marginTop: '20px', border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', borderRadius: '8px', padding: '14px', textAlign: 'left' }}>
+                <strong style={{ color: '#4ade80', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  📢 WhatsApp Petition Generator
+                </strong>
+                <span style={{ fontSize: '12px', color: '#a7f3d0', lineHeight: '1.4', display: 'block', marginBottom: '10px' }}>
+                  Generate a shareable petition link. Neighbors must select their map location nearby to upvote/agree.
+                </span>
+                
+                <button
+                  type="button"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: '#22c55e',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '12.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                  onClick={() => {
+                    const text = `Hi neighbors! I have raised a ${ticketType === 'suggestion' ? 'proposal' : 'complaint'} on Jansetu regarding "${aiOverview?.brief || category}". We need community signatures to draw local MLA attention. Please upvote this petition here (must be within 2.0 km of the map location): ${window.location.origin}/complainant.html?petitionId=${ticketId}`;
+                    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+                    window.open(whatsappUrl, '_blank');
+                  }}
+                >
+                  💬 Share Petition on WhatsApp Groups
+                </button>
               </div>
             </div>
 
@@ -2750,6 +3191,26 @@ function App() {
               <div className="card-action">
                 <button className="role-btn" onClick={(e) => { e.stopPropagation(); window.location.href = '/complainant.html'; }}>
                   <span>Complainant</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Portal 1b: Complainant Profile Login */}
+            <div className="role-card card-citizen" id="portal-citizen-login" onClick={() => window.location.href = '/complainant.html?login=true'} style={{ borderLeft: '4px solid #818cf8' }}>
+              <div className="card-content">
+                <div className="icon-box" style={{ background: 'rgba(129, 140, 248, 0.1)', color: '#818cf8' }}>
+                  <Award size={28} />
+                </div>
+                <span className="role-label">Citizen Space</span>
+                <h3 className="role-title">Complainant Login</h3>
+                <p className="role-desc">
+                  Access your profile, track status of submitted complaints/suggestions, view your civic score, and view active badges.
+                </p>
+              </div>
+              <div className="card-action">
+                <button className="role-btn" onClick={(e) => { e.stopPropagation(); window.location.href = '/complainant.html?login=true'; }} style={{ background: '#818cf8', color: '#1e1b4b' }}>
+                  <span>Profile Login</span>
                   <ArrowRight size={16} />
                 </button>
               </div>
