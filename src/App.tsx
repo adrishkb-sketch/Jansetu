@@ -757,6 +757,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [aiClarificationQuestion, setAiClarificationQuestion] = useState<string | null>(null);
   const [aiUnderstood, setAiUnderstood] = useState<boolean>(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
   const [landmarkSearchQuery, setLandmarkSearchQuery] = useState('');
   const [searchResultPlaces, setSearchResultPlaces] = useState<any[]>([]);
@@ -888,6 +889,14 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   };
 
   const handleSaveApiKeys = () => {
+    if (tempGeminiKey && tempGeminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg' && !tempGeminiKey.startsWith('AIzaSy')) {
+      alert("⚠️ Error: The Google Gemini API key must start with 'AIzaSy' (standard Google AI Studio format). Keys starting with 'AQ.' or other prefixes are invalid for Google AI Studio API developer access.");
+      return;
+    }
+    if (tempApiKey && tempApiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg' && !tempApiKey.startsWith('AIzaSy')) {
+      alert("⚠️ Error: The Google Maps API key must start with 'AIzaSy'. Please verify your credentials.");
+      return;
+    }
     localStorage.setItem('jansetu_gmaps_key', tempApiKey);
     localStorage.setItem('jansetu_gemini_key', tempGeminiKey);
     setApiKey(tempApiKey);
@@ -969,6 +978,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
     if (!activeKey) return;
 
+    setAiError(null);
     setAiIndicator({ active: true, message: 'AI identifying problem details & checking correlations...' });
     setIsAiAnalyzing(true);
 
@@ -1098,6 +1108,9 @@ JSON:`
       });
 
       const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json.error?.message || `API error ${response.status}: ${response.statusText}`);
+      }
       const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) {
         const result = JSON.parse(text);
@@ -1208,10 +1221,12 @@ JSON:`
         setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
       }
       setIsAiAnalyzing(false);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Gemini AI extraction failed: ", e);
       setAiIndicator({ active: false, message: '' });
       setIsAiAnalyzing(false);
+      setAiError(e.message || "Failed to analyze with Gemini API");
+      setAiUnderstood(false);
     }
   };
 
@@ -2687,11 +2702,39 @@ JSON:`
               </div>
             )}
 
-            {!aiUnderstood && items.length > 0 && !aiClarificationQuestion && (
+            {!aiUnderstood && items.length > 0 && !aiClarificationQuestion && !aiError && (
               <div className="ai-status-pending-card" style={{ marginTop: '16px', border: '1px dashed rgba(99, 102, 241, 0.4)', padding: '12px', borderRadius: '8px', background: 'rgba(99,102,241,0.04)' }}>
                 <p style={{ margin: 0, fontSize: '13px', color: '#c7d2fe' }}>
                   ⏳ AI is currently analyzing your inputs. Submission will unlock once classification and verification are complete.
                 </p>
+              </div>
+            )}
+
+            {aiError && (
+              <div className="ai-error-card" style={{ marginTop: '16px', border: '1px solid #ef4444', padding: '14px', borderRadius: '8px', background: 'rgba(239,68,68,0.1)', textAlign: 'left' }}>
+                <strong style={{ display: 'block', fontSize: '13px', color: '#fca5a5', marginBottom: '6px' }}>❌ Gemini AI Verification Failed</strong>
+                <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#fca5a5', lineHeight: '1.4' }}>
+                  {aiError}
+                </p>
+                <div style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <p style={{ margin: 0, fontSize: '11.5px', color: '#fbcfe8', lineHeight: '1.5' }}>
+                    💡 <strong>Quick Fix:</strong> Your Gemini API key must start with <strong>AIzaSy</strong> (standard developer key from Google AI Studio). The key you entered starts with another prefix which is invalid for direct API developer endpoints. Please click <strong>API Settings</strong> under Section 2 to verify your key.
+                  </p>
+                </div>
+                <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button" 
+                    className="btn-toggle-settings" 
+                    style={{ fontSize: '11px', padding: '6px 12px', border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.1)', color: '#fbbf24', cursor: 'pointer', borderRadius: '4px' }}
+                    onClick={() => {
+                      setClarificationRefusals(2);
+                      setAiUnderstood(true);
+                      setAiError(null);
+                    }}
+                  >
+                    ⚠️ Submit Anyway (Bypass AI Verification)
+                  </button>
+                </div>
               </div>
             )}
 
