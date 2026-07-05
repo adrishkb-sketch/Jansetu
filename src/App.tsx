@@ -978,7 +978,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     if (insights) {
       const serializeGroup = (label: string, list?: PlaceDetail[]) => {
         if (!list || list.length === 0) return `${label}: None found within 5km`;
-        return `${label}: ${list.map(p => `${p.name} (${p.distance.toFixed(2)} km away)`).join(', ')}`;
+        return `${label}: ${list.map(p => `${p.name} (dist: ${p.distance.toFixed(2)} km, lat: ${p.lat}, lng: ${p.lng})`).join(', ')}`;
       };
       insightsText = [
         serializeGroup("Schools", insights.schools),
@@ -1052,7 +1052,7 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
   If these details are missing, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these suggestion details.
 - If the user's input is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem/suggestion in a full sentence.
 - If the input is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
-7. Mentioned Landmark Identification: Check if the user's transcript explicitly mentions any of the landmark names (or partial name matches) in the Ground Truth list above. If they mention one, return its exact name in 'mentionedLandmarkName'. If they don't mention any nearby landmarks, return null.
+7. Mentioned Landmark Identification: Check if the user's transcript mentions, refers to, or describes an issue happening near any of the landmarks, schools, hospitals, police stations, parks, or transit stations in the Ground Truth list above. Even if they do not type the exact name, if they mention "primary school" and "Swar Primary School" is in the Ground Truth list, or if they mention a general area and there is a prominent nearby infrastructure facility from the list that is highly relevant, you must return that landmark's exact name from the Ground Truth list in 'mentionedLandmarkName'. If no landmarks are mentioned or relevant, return null.
 8. Extra Classifications:
 - Determine urgency: Choose exactly one from: ["immediate", "moderate", "long_term"]
 - Determine assetType: Choose exactly one from: ["roadway", "drainage", "building", "electrical_grid", "waste_management", "public_safety_asset", "social_facility", "others"]
