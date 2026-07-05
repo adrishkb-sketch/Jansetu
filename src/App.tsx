@@ -1004,7 +1004,12 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
         const voiceCount = textToAnalyze.split('User Voice Transcript:').length - 1;
         const totalItemsCount = notesCount + voiceCount;
 
-        const hasSpecifics = textLower.length > 35 || totalItemsCount > 1 || textLower.includes('depth') || textLower.includes('broken') || textLower.includes('leaking') || textLower.includes('outage') || textLower.includes('pothole') || textLower.includes('near') || textLower.includes('behind');
+        const hasSpecifics = 
+          (totalItemsCount > 1) || 
+          (
+            (textLower.includes('near') || textLower.includes('behind') || textLower.includes('opposite') || textLower.includes('street') || textLower.includes('road') || textLower.includes('market') || textLower.includes('school') || textLower.includes('hospital') || textLower.includes('station') || textLower.includes('gate') || textLower.includes('village') || textLower.includes('block') || textLower.includes('tehsil') || textLower.includes('sector')) && 
+            (textLower.length > 70)
+          );
         
         let requiresClarification = !hasSpecifics;
         let clarificationQuestion = null;
@@ -1014,8 +1019,14 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
             clarificationQuestion = "We noticed local schools and PHCs are nearby. Could you please clarify the water leakage depth, color, or duration of the outage?";
           } else if (categoryMatch === 'roads') {
             clarificationQuestion = "Could you please specify the approximate pothole dimensions (depth/width) or the length of the road affected?";
+          } else if (categoryMatch === 'education') {
+            clarificationQuestion = "Could you please specify the school name, sub-district block, or missing facilities you are reporting?";
+          } else if (categoryMatch === 'health') {
+            clarificationQuestion = "Could you please specify the hospital name, block, or missing medicine details you are reporting?";
+          } else if (categoryMatch === 'power') {
+            clarificationQuestion = "Could you please specify the daily power cut duration, transformer location, or street light IDs?";
           } else {
-            clarificationQuestion = "Could you please provide more specific details about what is malfunctioning, broken, or missing?";
+            clarificationQuestion = "Could you please specify the street name, block, or nearby landmark where this issue is occurring?";
           }
         }
 
