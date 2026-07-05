@@ -256,6 +256,30 @@ function MPApp() {
     }
   };
 
+  const handleRaiseInParliament = async () => {
+    if (matchingDemands.length === 0) {
+      alert("No matching citizen complaints found to raise in parliament.");
+      return;
+    }
+
+    for (const d of matchingDemands) {
+      await updateDemandStatus(d.id, 'approved');
+    }
+
+    if (approvedPlan) {
+      const updatedPlan = { ...approvedPlan };
+      updatedPlan.detailedSteps = updatedPlan.detailedSteps.map((step: any) => ({
+        ...step,
+        status: step.status === 'proposed' ? 'raised' : step.status
+      }));
+      await saveActionPlanByConstituency(selectedConstituency, updatedPlan);
+      setApprovedPlan(updatedPlan);
+    }
+
+    alert(`Successfully raised the issues in Parliament! Marked ${matchingDemands.length} complaints as "Speech Raised".`);
+    loadData();
+  };
+
   // Fund Approved Plan Steps
   const handleFundSelectedSteps = async () => {
     if (!approvedPlan) return;
@@ -570,29 +594,39 @@ function MPApp() {
               </div>
 
               {speechDraft && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '16px' }}>
-                  <div style={{ background: '#0e0d24', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)', fontSize: '13px', lineHeight: '1.6', color: 'white', maxHeight: '240px', overflowY: 'auto' }}>
-                    <strong style={{ display: 'block', marginBottom: '6px', color: '#818cf8' }}>🎤 Speech Script Draft:</strong>
-                    <p style={{ margin: 0, fontStyle: 'serif', whiteSpace: 'pre-line' }}>{speechDraft}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '16px' }}>
+                    <div style={{ background: '#0e0d24', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)', fontSize: '13px', lineHeight: '1.6', color: 'white', maxHeight: '240px', overflowY: 'auto' }}>
+                      <strong style={{ display: 'block', marginBottom: '6px', color: '#818cf8' }}>🎤 Speech Script Draft:</strong>
+                      <p style={{ margin: 0, fontStyle: 'serif', whiteSpace: 'pre-line' }}>{speechDraft}</p>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <strong style={{ color: '#60a5fa', fontSize: '12px' }}>📊 Parliamentary Deck Slides:</strong>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {speechSlides.map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setActiveSpeechSlide(idx)}
+                            style={{ flex: 1, padding: '4px', background: activeSpeechSlide === idx ? '#60a5fa' : 'rgba(255,255,255,0.05)', color: activeSpeechSlide === idx ? 'black' : 'white', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: 'bold' }}
+                          >
+                            S{idx+1}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '12px', borderRadius: '6px', fontSize: '11px', flexGrow: 1, minHeight: '100px' }}>
+                        {speechSlides[activeSpeechSlide] || "No slide content generated."}
+                      </div>
+                    </div>
                   </div>
                   
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <strong style={{ color: '#60a5fa', fontSize: '12px' }}>📊 Parliamentary Deck Slides:</strong>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {speechSlides.map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setActiveSpeechSlide(idx)}
-                          style={{ flex: 1, padding: '4px', background: activeSpeechSlide === idx ? '#60a5fa' : 'rgba(255,255,255,0.05)', color: activeSpeechSlide === idx ? 'black' : 'white', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', fontWeight: 'bold' }}
-                        >
-                          S{idx+1}
-                        </button>
-                      ))}
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '12px', borderRadius: '6px', fontSize: '11px', flexGrow: 1, minHeight: '100px' }}>
-                      {speechSlides[activeSpeechSlide] || "No slide content generated."}
-                    </div>
-                  </div>
+                  <button
+                    onClick={handleRaiseInParliament}
+                    style={{ background: '#818cf8', border: 'none', color: 'white', fontWeight: 'bold', padding: '12px 24px', borderRadius: '8px', fontSize: '13.5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', alignSelf: 'flex-start' }}
+                  >
+                    <Volume2 size={16} />
+                    <span>📢 Raise in Parliament (Mark as Speech Raised)</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -657,16 +691,22 @@ function MPApp() {
                   <span style={{ fontSize: '12px', color: '#c7d2fe', fontWeight: 'bold' }}>
                     📦 Budget Allocation Checklist (Include/Exclude Projects)
                   </span>
-                  <button
-                    onClick={handleFundSelectedSteps}
-                    style={{ background: '#10b981', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <CheckCircle size={14} />
-                    <span>Allocate Funds for Selected Steps</span>
-                  </button>
+                  {searchMode === 'constituency' ? (
+                    <button
+                      onClick={handleFundSelectedSteps}
+                      style={{ background: '#10b981', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <CheckCircle size={14} />
+                      <span>Allocate Funds for Selected Steps</span>
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: '12px', color: '#f87171', fontWeight: 'bold' }}>
+                      ⚠️ Funding disabled in Topic Search mode. Issues can only be raised in Parliament.
+                    </span>
+                  )}
                 </div>
 
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', opacity: searchMode === 'constituency' ? 1 : 0.5, pointerEvents: searchMode === 'constituency' ? 'auto' : 'none' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontWeight: 'bold' }}>

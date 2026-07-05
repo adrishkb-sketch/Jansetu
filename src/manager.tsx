@@ -136,7 +136,7 @@ function ManagerConsole() {
     if (isAuthenticated) {
       loadData();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, activeTab]);
 
   const loadData = async () => {
     const data = await getAllDemands();
