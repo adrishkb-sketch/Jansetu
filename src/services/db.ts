@@ -75,6 +75,7 @@ try {
 */
 
 export interface SubmissionData {
+  ticketType?: 'complaint' | 'suggestion';
   category: string;
   scope: string;
   location: { lat: number; lng: number };
@@ -100,6 +101,7 @@ const getLocalEmulatorData = (): any[] => {
   const defaultData = [
     {
       id: 'hotspot_1',
+      ticketType: 'complaint',
       category: 'water',
       scope: 'street',
       location: { lat: 28.803, lng: 79.025 },
@@ -110,6 +112,7 @@ const getLocalEmulatorData = (): any[] => {
     },
     {
       id: 'hotspot_2',
+      ticketType: 'complaint',
       category: 'roads',
       scope: 'ward',
       location: { lat: 28.812, lng: 79.032 },
@@ -120,11 +123,12 @@ const getLocalEmulatorData = (): any[] => {
     },
     {
       id: 'hotspot_3',
-      category: 'health',
+      ticketType: 'suggestion',
+      category: 'education',
       scope: 'constituency',
       location: { lat: 28.795, lng: 79.012 },
       address: 'Kosi River Road, Rampur Outer Bypass',
-      items: [{ type: 'text', content: 'No primary health sub-center available within 8 kilometers.' }],
+      items: [{ type: 'text', content: 'Suggestion to set up a library at the Government School building.' }],
       createdAt: new Date().toISOString(),
       upvotes: 156
     }

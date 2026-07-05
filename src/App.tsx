@@ -742,6 +742,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   const [clarificationRefusals, setClarificationRefusals] = useState<number>(0);
   const [contributingIssue, setContributingIssue] = useState<any | null>(null);
   const [submittedAsIncomplete, setSubmittedAsIncomplete] = useState<boolean>(false);
+  const [ticketType, setTicketType] = useState<'complaint' | 'suggestion'>('complaint');
 
   // Query hotspots when location changes
   useEffect(() => {
@@ -885,12 +886,12 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are the AI engine of Jansetu Citizen Complainant Portal. 
-Analyze the following transcript of a citizen's complaint (which may be submitted natively in Hindi, Bengali, Tamil, Telugu, Marathi, or any other regional Indian language).
+              text: `You are the AI engine of Jansetu Citizen Complainant & Suggestion Portal. 
+Analyze the following transcript of a citizen's contribution (which is submitted as a ${ticketType.toUpperCase()}).
 
 Current selected map pin coordinates: Lat: ${location?.lat || 28.6139}, Lng: ${location?.lng || 77.2090}
 
-Verify the user's complaint against the Ground Truth Local Infrastructure list:
+Verify the user's ${ticketType} against the Ground Truth Local Infrastructure list:
 ${insightsText}
 
 You must:
@@ -922,9 +923,15 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
   * women: Ask about dark lanes lacking streetlights, transport safety issues, or security patrols.
   * consumer: Ask about adulterated food, overpricing, or false weighing scales.
   * others: Ask for a clear explanation of what is malfunctioning, broken, or missing.
-  If these key details are missing from the input transcript, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these specifics.
-- If the user's complaint is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem in a full sentence.
-- If the complaint is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
+- Auditing suggestions: If the ticketType is SUGGESTION, check if the input includes key details for proposed new infrastructure:
+  * water suggestion: proposed pipeline route, purification tech, or tank capacity.
+  * roads suggestion: bypass paths, pedestrian crossings, or lane count expansions.
+  * education/health suggestion: mobile health clinic hours, smart classroom assets, library size.
+  * power suggestion: solar panels square footage, LED streetlight locations.
+  * other suggestions: proposed execution timeline, community benefits, target group.
+  If these details are missing, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these suggestion details.
+- If the user's input is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem/suggestion in a full sentence.
+- If the input is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
 7. Mentioned Landmark Identification: Check if the user's transcript explicitly mentions any of the landmark names (or partial name matches) in the Ground Truth list above. If they mention one, return its exact name in 'mentionedLandmarkName'. If they don't mention any nearby landmarks, return null.
 8. Extra Classifications:
 - Determine urgency: Choose exactly one from: ["immediate", "moderate", "long_term"]
@@ -1532,6 +1539,7 @@ JSON:`
     setSubmittedAsIncomplete(isIncomplete);
 
     const submissionData = {
+      ticketType,
       category,
       scope,
       location: location || { lat: 0, lng: 0 },
@@ -1614,6 +1622,53 @@ JSON:`
         {/* Left Column: Contact, Location, Insights, and Duplicates */}
         <div className="portal-col">
           
+          {/* Submission Mode Selector (Complaint vs Suggestion) */}
+          <div className="form-card" style={{ marginBottom: '24px', padding: '16px', display: 'flex', gap: '12px', alignItems: 'center', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(79, 70, 229, 0.15))', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#c7d2fe', textTransform: 'uppercase', flexShrink: 0 }}>Ticket Type:</span>
+            <button
+              type="button"
+              onClick={() => {
+                setTicketType('complaint');
+                setItems([]);
+              }}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid',
+                borderColor: ticketType === 'complaint' ? '#6366f1' : 'rgba(255,255,255,0.1)',
+                background: ticketType === 'complaint' ? 'rgba(99,102,241,0.2)' : 'rgba(0,0,0,0.2)',
+                color: ticketType === 'complaint' ? '#a5b4fc' : '#8e90b3',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              ⚠️ Complaint (Broken Infrastructure)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTicketType('suggestion');
+                setItems([]);
+              }}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid',
+                borderColor: ticketType === 'suggestion' ? '#10b981' : 'rgba(255,255,255,0.1)',
+                background: ticketType === 'suggestion' ? 'rgba(16,185,129,0.2)' : 'rgba(0,0,0,0.2)',
+                color: ticketType === 'suggestion' ? '#6ee7b7' : '#8e90b3',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              💡 Suggestion (New Proposals)
+            </button>
+          </div>
+
           {/* Section 1: Contact details */}
           <div className="form-card">
             <h3>1. Contact Details (Optional)</h3>
@@ -1848,7 +1903,7 @@ JSON:`
 
                 {associatedPlace && (
                   <div className="associated-place-alert">
-                    <span>📌 Complaint target landmark: <strong>{associatedPlace.name}</strong> ({associatedPlace.type})</span>
+                    <span>📌 {ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'} target landmark: <strong>{associatedPlace.name}</strong> ({associatedPlace.type})</span>
                     <button type="button" className="btn-remove-assoc" onClick={() => setAssociatedPlace(null)}>✕</button>
                   </div>
                 )}
@@ -1883,62 +1938,72 @@ JSON:`
           {/* Section 4: Nearby hotspots overlay votes */}
           {nearbyHotspots.length > 0 && (
             <div className="hotspots-card">
-              <h4>⚠️ Existing Active Issues in this Area ({nearbyHotspots.length})</h4>
-              <p className="hotspots-help">To prevent duplicate entries, you can support an existing complaint below:</p>
+              <h4>⚠️ Existing Active Submissions in this Area ({nearbyHotspots.length})</h4>
+              <p className="hotspots-help">To prevent duplicate entries, you can support or agree to an active submission below:</p>
               <div className="hotspots-list">
-                {nearbyHotspots.map(hotspot => (
-                  <div key={hotspot.id} className="hotspot-item">
-                    <div className="hotspot-info">
-                      <span className="hotspot-badge" style={{ textTransform: 'capitalize' }}>
-                        {hotspot.category === 'water' && '🚰'}
-                        {hotspot.category === 'roads' && '🛣️'}
-                        {hotspot.category === 'education' && '🏫'}
-                        {hotspot.category === 'health' && '🏥'}
-                        {hotspot.category === 'power' && '⚡'}
-                        {hotspot.category === 'agriculture' && '🌾'}
-                        {hotspot.category === 'safety' && '🚓'}
-                        {hotspot.category === 'environment' && '🌳'}
-                        {hotspot.category === 'welfare' && '🤝'}
-                        {hotspot.category === 'housing' && '🏗️'}
-                        {hotspot.category === 'others' && '📁'}
-                        {hotspot.category}
-                      </span>
-                      <p className="hotspot-text">{"\"" + (hotspot.items[0]?.content || hotspot.address) + "\""}</p>
-                      {isHotspotIncomplete(hotspot) && (
-                        <span style={{ fontSize: '10px', background: 'rgba(239,68,68,0.2)', color: '#f87171', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block', marginTop: '4px' }}>
-                          ⚠️ Needs Details / Evidence
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
-                      <button 
-                        type="button" 
-                        className="btn-upvote" 
-                        onClick={() => handleUpvote(hotspot.id)}
-                        style={{ padding: '6px 10px', fontSize: '12px' }}
-                      >
-                        👍 Support ({hotspot.upvotes})
-                      </button>
-                      {isHotspotIncomplete(hotspot) && (
+                {nearbyHotspots.map(hotspot => {
+                  const isSuggestion = hotspot.ticketType === 'suggestion';
+                  const isIncomplete = isHotspotIncomplete(hotspot);
+                  return (
+                    <div key={hotspot.id} className="hotspot-item" style={{ borderLeft: isSuggestion ? '4px solid #10b981' : '4px solid #f59e0b' }}>
+                      <div className="hotspot-info">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '10px', background: isSuggestion ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSuggestion ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                            {isSuggestion ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
+                          </span>
+                          <span className="hotspot-badge" style={{ textTransform: 'capitalize', margin: 0 }}>
+                            {hotspot.category === 'water' && '🚰'}
+                            {hotspot.category === 'roads' && '🛣️'}
+                            {hotspot.category === 'education' && '🏫'}
+                            {hotspot.category === 'health' && '🏥'}
+                            {hotspot.category === 'power' && '⚡'}
+                            {hotspot.category === 'agriculture' && '🌾'}
+                            {hotspot.category === 'safety' && '🚓'}
+                            {hotspot.category === 'environment' && '🌳'}
+                            {hotspot.category === 'welfare' && '🤝'}
+                            {hotspot.category === 'housing' && '🏗️'}
+                            {hotspot.category === 'others' && '📁'}
+                            {hotspot.category}
+                          </span>
+                        </div>
+                        <p className="hotspot-text">{"\"" + (hotspot.items[0]?.content || hotspot.address) + "\""}</p>
+                        {isIncomplete && (
+                          <span style={{ fontSize: '10px', background: 'rgba(239,68,68,0.2)', color: '#f87171', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block', marginTop: '4px' }}>
+                            ⚠️ Needs Details / {isSuggestion ? 'Crowdfunding Info' : 'Evidence'}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
                         <button 
                           type="button" 
-                          className="btn-add-action" 
-                          onClick={() => {
-                            setContributingIssue(hotspot);
-                            setLocation({ lat: hotspot.location.lat, lng: hotspot.location.lng });
-                            setAddress(hotspot.address);
-                            setCategory(hotspot.category);
-                            setScope(hotspot.scope);
-                            document.querySelector('.portal-col')?.scrollIntoView({ behavior: 'smooth' });
-                          }}
-                          style={{ fontSize: '10.5px', padding: '4px 8px', background: '#e11d48', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                          className="btn-upvote" 
+                          onClick={() => handleUpvote(hotspot.id)}
+                          style={{ padding: '6px 10px', fontSize: '12px', borderColor: isSuggestion ? '#10b981' : '#f59e0b', color: isSuggestion ? '#6ee7b7' : '#fde68a' }}
                         >
-                          📝 Contribute Info
+                          {isSuggestion ? '👍 Agree' : '👍 Support'} ({hotspot.upvotes})
                         </button>
-                      )}
+                        {isIncomplete && (
+                          <button 
+                            type="button" 
+                            className="btn-add-action" 
+                            onClick={() => {
+                              setContributingIssue(hotspot);
+                              setTicketType(hotspot.ticketType || 'complaint');
+                              setLocation({ lat: hotspot.location.lat, lng: hotspot.location.lng });
+                              setAddress(hotspot.address);
+                              setCategory(hotspot.category);
+                              setScope(hotspot.scope);
+                              document.querySelector('.portal-col')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            style={{ fontSize: '10.5px', padding: '4px 8px', background: isSuggestion ? '#10b981' : '#e11d48', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            {isSuggestion ? '🪙 Crowdfund Info' : '📝 Contribute Info'}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1948,14 +2013,14 @@ JSON:`
         {/* Right Column: Evidence, attachments list, and AI auto-detect overrides */}
         <div className="portal-col">
           <div className="form-card h-full">
-            <h3>3. Add Suggestion Details & Attach Evidence</h3>
+            <h3>3. Add {ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'} Details & Attach {ticketType === 'suggestion' ? 'Proposals / Details' : 'Evidence'}</h3>
             <p className="section-help">You can attach multiple entries. At least one attachment is required.</p>
 
             {contributingIssue && (
-              <div className="contributing-banner" style={{ border: '1px solid #e11d48', background: 'rgba(225,29,72,0.1)', padding: '12px 14px', borderRadius: '8px', marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="contributing-banner" style={{ border: '1px solid #10b981', background: 'rgba(16,185,129,0.1)', padding: '12px 14px', borderRadius: '8px', marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ textAlign: 'left' }}>
-                  <strong style={{ color: '#fb7185', fontSize: '13px', display: 'block' }}>📝 Mode: Contributing Info to Existing Issue</strong>
-                  <span style={{ fontSize: '11px', color: '#fda4af' }}>Your inputs will be appended to the active complaint ticket: <strong>"{contributingIssue.items?.[0]?.content || contributingIssue.address}"</strong></span>
+                  <strong style={{ color: '#34d399', fontSize: '13px', display: 'block' }}>📝 Mode: Contributing Info to Existing {contributingIssue.ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'}</strong>
+                  <span style={{ fontSize: '11px', color: '#6ee7b7' }}>Your inputs will be appended to the active {contributingIssue.ticketType || 'complaint'} ticket: <strong>"{contributingIssue.items?.[0]?.content || contributingIssue.address}"</strong></span>
                 </div>
                 <button 
                   type="button" 
@@ -2435,7 +2500,7 @@ JSON:`
           disabled={isSubmitDisabled}
           onClick={handleSubmit}
         >
-          <span>Submit Suggestion to Registry</span>
+          <span>Submit {ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'} to Registry</span>
           <ArrowRight size={18} />
         </button>
       </div>
@@ -2447,9 +2512,9 @@ JSON:`
             <div className="modal-success-icon">
               <CheckCircle size={64} />
             </div>
-            <h3>Demands Registered Successfully!</h3>
+            <h3>{ticketType === 'suggestion' ? 'Suggestion Registered Successfully!' : 'Complaint Registered Successfully!'}</h3>
             <p className="modal-desc">
-              Your suggestion has been logged. AI Engine will index, cluster, and present this to constituency officials.
+              Your {ticketType} has been logged. The AI Engine will index, cluster, and present this to constituency officials.
             </p>
 
             {submittedAsIncomplete && (
@@ -2459,7 +2524,7 @@ JSON:`
                   <span>Awaiting Community Contribution</span>
                 </strong>
                 <span style={{ fontSize: '12px', color: '#fde68a', lineHeight: '1.4', display: 'block' }}>
-                  This complaint has been registered with incomplete details. It is marked as <strong>"Needs More Info"</strong> and will be processed once additional evidence or descriptions are contributed by other citizens.
+                  This {ticketType} has been registered with incomplete details. It is marked as <strong>"Needs More Info"</strong> and will be processed once additional evidence, suggestions, or descriptions are contributed by other citizens.
                 </span>
               </div>
             )}
