@@ -252,7 +252,7 @@ interface GoogleMapComponentProps {
   circleData: { lat: number; lng: number; radius: number } | null;
 }
 
-function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearbyHotspots, focusedPlace, circleData }: GoogleMapComponentProps) {
+export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearbyHotspots, focusedPlace, circleData }: GoogleMapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -1623,12 +1623,31 @@ JSON:`
   const handleSubmit = async () => {
     if (isSubmitDisabled) return;
 
-    const itemsMapped = items.map(item => ({
-      type: item.type,
-      content: item.content,
-      fileUrl: item.fileUrl || '',
-      speechTranscript: item.speechTranscript || ''
-    }));
+    const itemsMapped = items.map(item => {
+      if (item.type === 'audio') {
+        return {
+          type: item.type,
+          content: item.content,
+          fileUrl: '', // Discard audio recording, store transcript only
+          speechTranscript: item.speechTranscript || ''
+        };
+      }
+      if (item.type === 'photo' && item.content.startsWith('Image uploaded.')) {
+        return {
+          type: item.type,
+          content: item.content,
+          fileUrl: '', // Discard image since Gemini deemed it unnecessary / insufficient on its own
+          speechTranscript: ''
+        };
+      }
+      return {
+        type: item.type,
+        content: item.content,
+        fileUrl: item.fileUrl || '',
+        speechTranscript: item.speechTranscript || '',
+        boundingBoxes: item.boundingBoxes || undefined
+      };
+    });
 
     const isIncomplete = !!(aiClarificationQuestion || !aiUnderstood);
     setSubmittedAsIncomplete(isIncomplete);
