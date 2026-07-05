@@ -102,6 +102,8 @@ function ManagerConsole() {
   const [actionPlan, setActionPlan] = useState<any | null>(null);
   const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
+  const [isAuditingProgress, setIsAuditingProgress] = useState(false);
+  const [progressAuditResult, setProgressAuditResult] = useState<string>('');
   const [customPlanName, setCustomPlanName] = useState(() => localStorage.getItem('jansetu_plan_name') || 'Rampur Lok Sabha Constituency Action Plan');
 
   // Load Action Plan from online database / local storage on mount
@@ -288,6 +290,50 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
       setClusteringResults(results);
       setIsClustering(false);
     }, 1200);
+  };
+
+  const runAIProgressAudit = async (plan: any) => {
+    if (!plan) return;
+    setIsAuditingProgress(true);
+    setProgressAuditResult('Evaluating MP parliamentary activity and dedicated funds...');
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+
+    const planSummary = `
+      Plan Name: ${plan.planName}
+      Constituency: ${plan.constituency}
+      Steps & Statuses:
+      ${(plan.detailedSteps || []).map((s: any, i: number) => 
+        `Step #${i+1}: ${s.title} (Cost: ₹${s.cost || 0}, Status: ${s.status || 'proposed'}, Responsible Agency: ${s.agency || 'N/A'})`
+      ).join('\n')}
+    `;
+
+    const prompt = `
+      You are an expert parliamentary progress monitoring officer.
+      Analyze the following development action plan status for a Lok Sabha constituency:
+      ${planSummary}
+      
+      Provide a concise 2-3 sentence executive audit report. Detail:
+      1. What has been raised in Parliament vs funded vs pending?
+      2. If all steps are funded/started, praise the MP's execution speed.
+      Keep it professional, direct, and non-technical. Do not use markdown code blocks.
+    `;
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+
+      if (!response.ok) throw new Error("API error");
+      const resData = await response.json();
+      const text = resData.candidates?.[0]?.content?.parts?.[0]?.text || 'No response from Gemini';
+      setProgressAuditResult(text.trim());
+    } catch (err: any) {
+      setProgressAuditResult(`Failed to run progress audit: ${err.message}`);
+    } finally {
+      setIsAuditingProgress(false);
+    }
   };
 
   const runGeminiGrievanceAudit = async (complaint: any) => {
@@ -3237,7 +3283,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                   style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '10px 14px', borderRadius: '8px', fontWeight: '600', maxWidth: '400px' }}
                 >
                   <option value="">-- Choose an Approved Action Plan --</option>
-                  {allActionPlans.map(p => (
+                  {allActionPlans.filter((p, idx, self) => self.findIndex(pl => pl.id === p.id) === idx).map(p => (
                     <option key={p.id} value={p.id}>{p.planName || p.id} ({p.constituency})</option>
                   ))}
                 </select>
@@ -3262,6 +3308,25 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                       <h4 style={{ fontSize: '1.25rem', color: 'white', margin: 0 }}>{selectedTrackingPlan.planName}</h4>
                       <p style={{ fontSize: '13px', color: 'var(--text-desc)', margin: '6px 0 0 0' }}>{selectedTrackingPlan.summary}</p>
                       <p style={{ fontSize: '11px', color: '#8e90b3', margin: '4px 0 0 0' }}>Target Constituency: <strong>{selectedTrackingPlan.constituency}</strong> | Last Updated: {new Date(selectedTrackingPlan.updatedAt || '').toLocaleString()}</p>
+                      
+                      <div style={{ marginTop: '12px' }}>
+                        <button
+                          onClick={() => runAIProgressAudit(selectedTrackingPlan)}
+                          disabled={isAuditingProgress}
+                          style={{
+                            background: 'rgba(45, 212, 191, 0.15)', border: '1px solid rgba(45, 212, 191, 0.4)', color: '#2dd4bf',
+                            padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '11.5px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px'
+                          }}
+                        >
+                          {isAuditingProgress ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                          <span>Run AI Implementation Audit</span>
+                        </button>
+                        {progressAuditResult && (
+                          <div style={{ marginTop: '8px', background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-light)', padding: '10px 14px', borderRadius: '6px', fontSize: '12px', color: '#c7d2fe', lineHeight: '1.4' }}>
+                            <strong>🤖 Gemini Progress Insight:</strong> {progressAuditResult}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block' }}>TOTAL BUDGET LEDGER</span>

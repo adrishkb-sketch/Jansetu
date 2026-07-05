@@ -60,9 +60,6 @@ function MPApp() {
 
   // Action Plan from Manager
   const [approvedPlan, setApprovedPlan] = useState<any | null>(null);
-  const [includedSteps, setIncludedSteps] = useState<Record<number, boolean>>({
-    0: true, 1: true, 2: true, 3: true
-  });
 
   // Load MP Funds & Demands
   useEffect(() => {
@@ -101,12 +98,6 @@ function MPApp() {
     const plan = await getActionPlanByConstituency(planKey);
     if (plan && plan.isApproved) {
       setApprovedPlan(plan);
-      
-      const initialSteps: Record<number, boolean> = {};
-      (plan.detailedSteps || []).forEach((step: any, idx: number) => {
-        initialSteps[idx] = step.status === 'funded' || step.status === 'completed' || step.status === 'work_started';
-      });
-      setIncludedSteps(initialSteps);
     } else {
       setApprovedPlan(null);
     }
@@ -281,56 +272,52 @@ function MPApp() {
 
     if (approvedPlan) {
       const updatedPlan = { ...approvedPlan };
-      updatedPlan.detailedSteps = updatedPlan.detailedSteps.map((step: any) => ({
+      updatedPlan.detailedSteps = (updatedPlan.detailedSteps || []).map((step: any) => ({
         ...step,
-        status: step.status === 'proposed' ? 'raised' : step.status
+        status: 'approved'
       }));
       const planKey = approvedPlan.id ? approvedPlan.id.replace(/^plan_/, '') : selectedConstituency;
       await saveActionPlanByConstituency(planKey, updatedPlan);
       setApprovedPlan(updatedPlan);
     }
 
-    alert(`Successfully raised the issues in Parliament! Marked ${matchingDemands.length} complaints as "Speech Raised".`);
+    alert(`Successfully raised the issues in Parliament! Marked all plan steps and ${matchingDemands.length} citizen complaints as "Speech Raised".`);
     loadData();
   };
 
-  // Fund Approved Plan Steps
-  const handleFundSelectedSteps = async () => {
+  // Fund Approved Plan Entirely
+  const handleFundEntireProject = async () => {
     if (!approvedPlan) return;
     
     let totalCostToFund = 0;
-    const stepsToFund: number[] = [];
-    
-    approvedPlan.detailedSteps.forEach((step: any, idx: number) => {
-      if (includedSteps[idx] && step.status !== 'funded' && step.status !== 'completed') {
+    const stepsToFundIndices: number[] = [];
+    (approvedPlan.detailedSteps || []).forEach((step: any, idx: number) => {
+      if (step.status !== 'funded' && step.status !== 'completed' && step.status !== 'work_started') {
         totalCostToFund += step.cost || 0;
-        stepsToFund.push(idx);
+        stepsToFundIndices.push(idx);
       }
     });
 
-    if (stepsToFund.length === 0) {
-      alert("No unfunded steps selected to allocate budget.");
+    if (stepsToFundIndices.length === 0) {
+      alert("All steps of this project have already been funded!");
       return;
     }
 
     if (mpladsFunds < totalCostToFund) {
-      alert(`Insufficient funds! Selected steps require ₹${totalCostToFund.toLocaleString()} but only ₹${mpladsFunds.toLocaleString()} is available.`);
+      alert(`Insufficient funds! The project requires ₹${totalCostToFund.toLocaleString()} but only ₹${mpladsFunds.toLocaleString()} is available in your MPLADS ledger.`);
       return;
     }
 
-    // Subtract from available funds
     const remainingFunds = mpladsFunds - totalCostToFund;
     setMpladsFunds(remainingFunds);
     
-    // Save updated funds in DB
     await saveMPFunds(selectedConstituency, {
       totalFunds: remainingFunds,
       resetFrequency
     });
 
-    // Update Action Plan steps to 'funded'
     const updatedPlan = { ...approvedPlan };
-    stepsToFund.forEach(idx => {
+    stepsToFundIndices.forEach(idx => {
       updatedPlan.detailedSteps[idx].status = 'funded';
     });
     
@@ -338,12 +325,11 @@ function MPApp() {
     await saveActionPlanByConstituency(planKey, updatedPlan);
     setApprovedPlan(updatedPlan);
 
-    // Update associated citizen complaints in Firestore to 'funded'
     for (const complaintId of approvedPlan.associatedComplaintIds || []) {
       await updateDemandStatus(complaintId, 'funded');
     }
 
-    alert(`Successfully allocated ₹${totalCostToFund.toLocaleString()}! Funded ${stepsToFund.length} steps. Associated citizen complaints updated to "funded".`);
+    alert(`Successfully allocated ₹${totalCostToFund.toLocaleString()}! Entire project has been funded and authorized!`);
     loadData();
   };
 
@@ -703,17 +689,23 @@ function MPApp() {
               {/* Interactive Funding Table */}
               <div>
                 <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '12px', color: '#c7d2fe', fontWeight: 'bold' }}>
-                    📦 Budget Allocation Checklist (Include/Exclude Projects)
+                  <span style={{ fontSize: '13px', color: '#c7d2fe', fontWeight: 'bold' }}>
+                    💼 Total Project Cost: ₹{( (approvedPlan.detailedSteps || []).reduce((acc: any, s: any) => acc + (s.cost || 0), 0) ).toLocaleString()}
                   </span>
                   {searchMode === 'constituency' ? (
-                    <button
-                      onClick={handleFundSelectedSteps}
-                      style={{ background: '#10b981', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <CheckCircle size={14} />
-                      <span>Allocate Funds for Selected Steps</span>
-                    </button>
+                    (approvedPlan.detailedSteps || []).every((s: any) => s.status === 'funded' || s.status === 'work_started' || s.status === 'completed') ? (
+                      <span style={{ fontSize: '12px', background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '6px 12px', borderRadius: '6px', fontWeight: 'bold' }}>
+                        ✓ Entire Project Fully Funded
+                      </span>
+                    ) : (
+                      <button
+                        onClick={handleFundEntireProject}
+                        style={{ background: '#10b981', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <CheckCircle size={14} />
+                        <span>Fund & Authorize Entire Project</span>
+                      </button>
+                    )
                   ) : (
                     <span style={{ fontSize: '12px', color: '#f87171', fontWeight: 'bold' }}>
                       ⚠️ Funding disabled in Topic Search mode. Issues can only be raised in Parliament.
@@ -725,8 +717,7 @@ function MPApp() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontWeight: 'bold' }}>
-                        <th style={{ padding: '8px 10px', textAlign: 'center', width: '50px' }}>Include</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'left' }}>Step ID</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'left', width: '80px' }}>Step ID</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left' }}>Action Step Title</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left' }}>Details</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left' }}>Responsible Agency</th>
@@ -740,15 +731,6 @@ function MPApp() {
                         const isFunded = status === 'funded' || status === 'completed' || status === 'work_started';
                         return (
                           <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
-                            <td style={{ padding: '10px', textAlign: 'center' }}>
-                              <input
-                                type="checkbox"
-                                disabled={isFunded}
-                                checked={!!includedSteps[idx]}
-                                onChange={e => setIncludedSteps({ ...includedSteps, [idx]: e.target.checked })}
-                                style={{ width: '16px', height: '16px', cursor: isFunded ? 'not-allowed' : 'pointer' }}
-                              />
-                            </td>
                             <td style={{ padding: '10px', fontWeight: 'bold' }}>{step.id}</td>
                             <td style={{ padding: '10px', fontWeight: 'bold' }}>{step.title}</td>
                             <td style={{ padding: '10px', color: 'var(--text-desc)' }}>{step.description}</td>
