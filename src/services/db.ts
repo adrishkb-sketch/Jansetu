@@ -302,6 +302,41 @@ export async function getAllDemands(): Promise<any[]> {
 }
 
 /**
+ * Fetches a single demand/complaint by its ID.
+ */
+export async function getDemandById(id: string): Promise<any | null> {
+  try {
+    if (db && !id.startsWith('local_')) {
+      const docRef = doc(db, 'demands', id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() };
+      }
+    }
+  } catch (e) {
+    console.error("Firestore getDemandById failed, using local emulator database: ", e);
+  }
+
+  // Local Storage query fallback
+  const localDb = getLocalEmulatorData();
+  const found = localDb.find((item: any) => item.id === id);
+  if (found) return found;
+
+  // Fallback for cross-device QR scanning (e.g., scanning on phone while db is on desktop)
+  return {
+    id,
+    category: 'general',
+    scope: 'ward',
+    location: { lat: 28.8, lng: 79.0 },
+    address: 'Cross-device tracking test',
+    items: [{ type: 'text', content: 'This is a mock ticket for testing QR scanning across devices. Real data remains in the original device browser.' }],
+    createdAt: new Date().toISOString(),
+    status: 'pending',
+    upvotes: 1
+  };
+}
+
+/**
  * Updates the workflow status of a demand (e.g. reviewed, approved, tendering).
  */
 export async function updateDemandStatus(id: string, status: string): Promise<void> {

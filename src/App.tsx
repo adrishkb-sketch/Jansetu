@@ -2513,11 +2513,11 @@ JSON:`
               
               <div className="qr-container" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                 <img 
-                  src={"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" + encodeURIComponent("https://jansetu.org/track/" + ticketId)}
+                  src={"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" + encodeURIComponent(`${window.location.origin}/track.html?id=${ticketId}`)}
                   alt="Track Ticket QR" 
                   style={{ width: '120px', height: '120px', borderRadius: '8px', border: '1px solid #4f46e5' }}
                 />
-                <span style={{ fontSize: '11px', color: '#8e90b3', fontWeight: '600' }}>Scan to track status on WhatsApp API</span>
+                <span style={{ fontSize: '11px', color: '#8e90b3', fontWeight: '600' }}>Scan to track status live</span>
               </div>
             </div>
 
