@@ -384,17 +384,30 @@ export function evaluateInfrastructureGap(lat: number, lng: number, category: st
  * - Demographic Vulnerability: derived from segment literacy, SC/ST, and rural levels
  */
 export function calculateCombinedPriorityIndex(d: any): number {
-  // 1. Vote Score (normalized upvotes, capped at 50 upvotes = 100 score)
+  // 1. Completeness Check (+25 points bonus if complete)
+  const isNeedsInfo = d.status === 'needs_info' || d.needsMoreInfo;
+  const firstItemContent = d.items?.[0]?.content || '';
+  const hasPhoto = d.items?.some((i: any) => i.type === 'photo');
+  const isComplete = !isNeedsInfo && (firstItemContent.length >= 35 || hasPhoto);
+  const completenessBonus = isComplete ? 25 : 0;
+
+  // 2. Vote Score (normalized upvotes, capped at 50 upvotes = 100 score)
   const votes = d.upvotes || 1;
   const voteScore = Math.min(100, (votes / 50) * 100);
 
-  // 2. Infrastructure Gap Score
-  const gapResult = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category);
-  const gapScore = gapResult.gapPercentage;
+  // 3. Base Priority Score (from Gemini audited overview if present, otherwise from local infrastructure gap)
+  let basePriority = 50; // default middle
+  if (d.overview?.priorityScore !== undefined) {
+    basePriority = d.overview.priorityScore;
+  } else if (d.aiOverview?.priorityScore !== undefined) {
+    basePriority = d.aiOverview.priorityScore;
+  } else {
+    const gapResult = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category);
+    basePriority = gapResult.gapPercentage;
+  }
 
-  // 3. Demographic Vulnerability Score
+  // 4. Demographic Vulnerability Score
   const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
-  // Vulnerability increases with: low literacy (50% max weight), high SC/ST (30% weight), low urbanization/rurality (20% weight)
   const literacyVuln = Math.max(0, 100 - segment.literacyRate);
   const scstVuln = segment.scStPercentage;
   const ruralVuln = 100 - segment.urbanization;
@@ -402,8 +415,8 @@ export function calculateCombinedPriorityIndex(d: any): number {
   const demographicVulnerability = (literacyVuln * 0.5) + (scstVuln * 2.0) + (ruralVuln * 0.3);
   const normDemographicVuln = Math.min(100, demographicVulnerability);
 
-  // 4. Combined Weighting Formula
-  const cpi = (voteScore * 0.4) + (gapScore * 0.4) + (normDemographicVuln * 0.2);
+  // 5. Combined Weighting Formula (Base Priority: 45%, Vote Score: 35%, Demographics: 20%) + completeness bonus
+  const cpi = (basePriority * 0.45) + (voteScore * 0.35) + (normDemographicVuln * 0.2) + completenessBonus;
   
   return Math.min(100, Math.round(cpi * 10) / 10);
 }

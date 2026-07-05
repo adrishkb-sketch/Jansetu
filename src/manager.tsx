@@ -58,7 +58,7 @@ function ManagerConsole() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterTicketType, setFilterTicketType] = useState('all');
   const [filterTime, setFilterTime] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('newest');
+  const [sortBy, setSortBy] = useState<string>('cpi');
   const [prioritySlider, setPrioritySlider] = useState<number>(0);
   const [signatureSlider, setSignatureSlider] = useState<number>(0);
   const [budgetScaleFilter, setBudgetScaleFilter] = useState<string>('all');
@@ -656,6 +656,11 @@ Provide your response ONLY as a valid JSON object matching the following schema.
 
   // Sort the filtered list
   const sortedDemands = [...filteredDemands].sort((a, b) => {
+    if (sortBy === 'cpi') {
+      const scoreA = calculateCombinedPriorityIndex(a);
+      const scoreB = calculateCombinedPriorityIndex(b);
+      return scoreB - scoreA;
+    }
     if (sortBy === 'priority') {
       const scoreA = a.aiOverview?.priorityScore || 0;
       const scoreB = b.aiOverview?.priorityScore || 0;
@@ -1142,6 +1147,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                 onChange={e => setSortBy(e.target.value)}
                 style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: '600' }}
               >
+                <option value="cpi">🎯 Sort by: Priority Index (CPI)</option>
                 <option value="newest">📅 Sort by: Newest First</option>
                 <option value="priority">🔥 Sort by: Priority Score</option>
                 <option value="upvotes">👍 Sort by: Signatures</option>
