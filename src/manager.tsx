@@ -564,6 +564,19 @@ Provide your response ONLY as a valid JSON object matching the following schema.
     setSelectedComplaint((prev: any) => prev && prev.id === id ? { ...prev, status: nextStatus } : prev);
   };
 
+  const handleApproveAllPending = async () => {
+    const pendingDemands = demands.filter(d => d.status === 'pending');
+    if (pendingDemands.length === 0) {
+      alert("No pending complaints found to verify.");
+      return;
+    }
+    for (const d of pendingDemands) {
+      await updateDemandStatus(d.id, 'approved');
+    }
+    await loadData();
+    alert(`Marked ${pendingDemands.length} pending issues as verified/approved!`);
+  };
+
   // Filtering with interactive sliders parameters
   const filteredDemands = demands.filter(d => {
     const matchesSearch = 
@@ -798,18 +811,29 @@ Provide your response ONLY as a valid JSON object matching the following schema.
               <span style={{ color: '#2dd4bf' }}>Database Connected</span>
             </div>
             {isAuthenticated && (
-              <button 
-                onClick={() => {
-                  sessionStorage.removeItem('manager_auth');
-                  setIsAuthenticated(false);
-                }}
-                style={{
-                  background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: 'white',
-                  padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px'
-                }}
-              >
-                Logout
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  onClick={handleApproveAllPending}
+                  style={{
+                    background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.4)', color: '#fbbf24',
+                    padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
+                  }}
+                >
+                  [DEV] Mark All Verified
+                </button>
+                <button 
+                  onClick={() => {
+                    sessionStorage.removeItem('manager_auth');
+                    setIsAuthenticated(false);
+                  }}
+                  style={{
+                    background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: 'white',
+                    padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px'
+                  }}
+                >
+                  Logout
+                </button>
+              </div>
             )}
           </div>
         </div>
