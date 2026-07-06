@@ -51,6 +51,129 @@ import {
 } from './services/constituency_datasets';
 import './index.css';
 
+const renderFormattedDescription = (descText: string) => {
+  if (!descText) return null;
+
+  // 1. Split into Intro and Implementation Steps
+  let introPart = descText;
+  let stepsPart = '';
+  
+  const stepsIndex = descText.indexOf('**Implementation Steps:**');
+  const stepsIndexAlt = descText.indexOf('Implementation Steps:');
+  const indexToUse = stepsIndex !== -1 ? stepsIndex : stepsIndexAlt;
+
+  if (indexToUse !== -1) {
+    introPart = descText.substring(0, indexToUse).trim();
+    stepsPart = descText.substring(indexToUse).trim();
+  }
+
+  // 2. Split intro sentences
+  const introSentences = introPart
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 5);
+
+  // 3. Parse numbered list steps
+  const stepItems: { num: string; title: string; content: string }[] = [];
+  if (stepsPart) {
+    const stepRegex = /(\d+)\.\s+\*\*(.*?)\*\*:(.*?)(?=\s*\d+\.\s+\*\*|$)/gs;
+    let match;
+    while ((match = stepRegex.exec(stepsPart)) !== null) {
+      stepItems.push({
+        num: match[1],
+        title: match[2].trim(),
+        content: match[3].trim()
+      });
+    }
+    if (stepItems.length === 0) {
+      const fallbackRegex = /(\d+)\.\s+(.*?)(?=\s*\d+\.\s+|$)/gs;
+      let fbMatch;
+      while ((fbMatch = fallbackRegex.exec(stepsPart)) !== null) {
+        stepItems.push({
+          num: fbMatch[1],
+          title: `Phase ${fbMatch[1]}`,
+          content: fbMatch[2].trim()
+        });
+      }
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', margin: '14px 0 16px 0' }}>
+      {/* Intro section styled as key insights */}
+      {introSentences.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
+          {introSentences.map((sentence, sIdx) => {
+            let icon = '📌';
+            let label = 'Project Context';
+            if (sIdx === 0) { icon = '🎯'; label = 'Strategic Objective'; }
+            else if (sentence.toLowerCase().includes('deficit') || sentence.toLowerCase().includes('gap') || sentence.toLowerCase().includes('exceed') || sentence.toLowerCase().includes('lack')) { icon = '🚨'; label = 'Accessibility Deficit'; }
+            else if (sentence.toLowerCase().includes('require') || sentence.toLowerCase().includes('need')) { icon = '⚡'; label = 'Action Requirement'; }
+            
+            return (
+              <div key={sIdx} style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.04)',
+                borderRadius: '8px',
+                padding: '12px',
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'flex-start'
+              }}>
+                <span style={{ fontSize: '16px', lineHeight: 1 }}>{icon}</span>
+                <div>
+                  <strong style={{ fontSize: '10px', color: '#a5b4fc', display: 'block', textTransform: 'uppercase', marginBottom: '2px', letterSpacing: '0.04em' }}>{label}</strong>
+                  <span style={{ fontSize: '12px', color: '#94a3b8', lineHeight: '1.4' }}>{sentence}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Sequential sub-step timeline design */}
+      {stepItems.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
+          <strong style={{ fontSize: '10px', color: '#34d399', textTransform: 'uppercase', display: 'block', fontWeight: 'bold', letterSpacing: '0.05em' }}>
+            📋 Sequential Project Phases
+          </strong>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+            {stepItems.map((item, idx) => (
+              <div key={idx} style={{
+                background: 'rgba(52, 211, 153, 0.02)',
+                border: '1px solid rgba(52, 211, 153, 0.08)',
+                borderRadius: '8px',
+                padding: '12px',
+                position: 'relative'
+              }}>
+                <span style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '8px',
+                  fontSize: '8px',
+                  background: 'rgba(52, 211, 153, 0.12)',
+                  color: '#34d399',
+                  padding: '1px 5px',
+                  borderRadius: '3px',
+                  fontWeight: 'bold'
+                }}>
+                  {item.num}
+                </span>
+                <strong style={{ fontSize: '12px', color: 'white', display: 'block', marginBottom: '4px', paddingRight: '20px' }}>
+                  {item.title}
+                </strong>
+                <span style={{ fontSize: '11px', color: '#64748b', lineHeight: '1.4' }}>
+                  {item.content}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const getCategoryColor = (category: string) => {
   const categoriesList = ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"];
   const idx = categoriesList.indexOf(category.toLowerCase());
@@ -4034,9 +4157,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                               </div>
 
                               {/* Description Box */}
-                              <p style={{ fontSize: '13px', color: 'var(--text-desc)', lineHeight: '1.6', margin: '14px 0 16px 0', padding: '10px 14px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '8px' }}>
-                                {step.description}
-                              </p>
+                              {renderFormattedDescription(step.description)}
 
                               {/* Progress Status Bar (Sliding Pill-button Control) */}
                               <div>
