@@ -237,9 +237,48 @@ const T = {
   option4: "🗳️ Upvote Local Gaps",
   promptMedia: "Please submit your detail: You can type text, send a photo of the issue, or record a voice note.",
   processing: "⏳ Jansetu AI is processing your input...",
-  promptTrackId: "Please enter your Ticket Reference ID:",
-  noTicket: "❌ No ticket found with that reference ID.",
-  ticketStatusMsg: (id, category, status) => `📌 *Ticket details:* \nID: ${id}\nCategory: ${category}\nStatus: *${status}*`,
+  promptTrackId: "🔍 *Track Your Complaint*\n\nPlease enter your full Complaint Reference ID (e.g., `JS-HOW-2026-X8D2K`):",
+  noTicket: "❌ No complaint found with that ID. Please check the ID and try again.",
+  ticketStatusMsg: (d, id) => {
+    const STATUS_META = {
+      pending:      { label: 'Submitted — Pending Review', icon: '📥' },
+      needs_info:   { label: 'Needs More Information', icon: '❓' },
+      approved:     { label: 'Manager Approved ✅', icon: '✅' },
+      reviewed:     { label: 'Under Active Review', icon: '🔍' },
+      raised:       { label: 'Raised in Parliament 🏛️', icon: '🏛️' },
+      funded:       { label: 'Funds Released 💰', icon: '💰' },
+      work_started: { label: 'Work Started 🔧', icon: '🔧' },
+      completed:    { label: 'Completed 🎉', icon: '🎉' },
+      solved:       { label: 'Fully Resolved 🎯', icon: '🎯' },
+    };
+    const statusOrder = ['pending','needs_info','approved','reviewed','raised','funded','work_started','completed','solved'];
+    const s = STATUS_META[d.status] || STATUS_META['pending'];
+    const idx = statusOrder.indexOf(d.status || 'pending');
+    const check = (n) => idx >= statusOrder.indexOf(n) ? '✅' : '⬜';
+    const trackUrl = `https://jansetu-ef57d.web.app/track.html?id=${id}`;
+    return [
+      `🗳️ *Jansetu Complaint Status*`,
+      ``,
+      `*Complaint ID:* \`${id}\``,
+      `*Status:* ${s.icon} ${s.label}`,
+      `*Category:* ${(d.category || 'general').toUpperCase()}  |  *Scope:* ${(d.scope || 'ward').toUpperCase()}`,
+      `*Constituency:* ${d.constituency || 'N/A'}`,
+      `*Submitted:* ${d.createdAt ? new Date(d.createdAt).toLocaleDateString('en-IN') : 'N/A'}`,
+      ``,
+      `📊 *Milestone Progress:*`,
+      `${check('pending')} Complaint Submitted`,
+      `${d.aiOverview?.brief ? '✅' : '⬜'} AI Verified & Classified`,
+      `${check('approved')} Manager Approved`,
+      `${d.linkedPlan ? '✅' : '⬜'} Grouped in AI Action Plan`,
+      `${check('raised')} Raised in Parliament`,
+      `${check('funded')} Funds Released`,
+      `${check('work_started')} Work Started On-site`,
+      `${['completed','solved'].includes(d.status) ? '✅' : '⬜'} Issue Resolved`,
+      ``,
+      `🔗 *Full detailed tracking page:*`,
+      `${trackUrl}`,
+    ].join('\n');
+  },
   upvoteListTitle: "Select a local grievance to support/upvote:",
   noIssues: "No active verified grievances found in your constituency.",
   upvoteDone: "👍 Upvoted successfully! Thank you for your support."
@@ -494,19 +533,26 @@ bot.on('message', async (msg) => {
 
   // Awaiting status track query
   if (session.step === 'TRACK') {
+    const ticketId = userText.trim();
     try {
-      const docRef = doc(db, 'demands', userText.trim());
+      const docRef = doc(db, 'demands', ticketId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const d = docSnap.data();
-        const detailMsg = T.ticketStatusMsg(docSnap.id, d.category, d.status);
+        const detailMsg = T.ticketStatusMsg(d, docSnap.id);
         const translatedDetail = await translateBotText(detailMsg, lang);
         await bot.sendMessage(chatId, translatedDetail, { parse_mode: 'Markdown' });
+        // Also send QR code for tracking page
+        const trackUrl = `https://jansetu-ef57d.web.app/track.html?id=${docSnap.id}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(trackUrl)}`;
+        const qrCaption = await translateBotText(`📱 Scan this QR code to view the full complaint tracking page with timeline, AI clustering status, parliamentary history, and funding details.`, lang);
+        await bot.sendPhoto(chatId, qrUrl, { caption: qrCaption });
       } else {
         const noTicketMsg = await translateBotText(T.noTicket, lang);
         await bot.sendMessage(chatId, noTicketMsg);
       }
-    } catch {
+    } catch (err) {
+      console.error('Track lookup error:', err);
       const noTicketMsg = await translateBotText(T.noTicket, lang);
       await bot.sendMessage(chatId, noTicketMsg);
     }
@@ -538,7 +584,8 @@ async function runBotInputAnalysis(chatId, session) {
 
   const analysisPrompt = `
     Analyze this citizen suggestion/complaint details: "${englishContent}".
-    Verify the issue and classify it. Output strictly a JSON object matching this schema:
+    Verify the issue and classify it. Also detect any specific location names, landmarks, streets, institutions, or place names mentioned in the text.
+    Output strictly a JSON object matching this schema:
     {
       "category": "Choose exactly one from: water, roads, education, health, power, agriculture, safety, environment, welfare, housing, anticorruption, digital, disaster, women, justice, economy, consumer, taxes, tourism, youth, innovation, rural, security, cyber, climate, space, foreign, others",
       "scope": "Choose exactly one from: household, street, ward, constituency",
@@ -551,6 +598,8 @@ async function runBotInputAnalysis(chatId, session) {
       "safetyRisk": "⚠️ High Threat / Hazard" | "Medium Risk" | "Low Risk",
       "estimatedBudget": "Mega Project" | "High Budget" | "🪙 Medium Budget" | "Low Budget",
       "problemBrief": "A 2-3 sentence clear summary outlining the infrastructure deficits, risks, and impact.",
+      "detectedLocationName": "The specific landmark, institution, street, or place name mentioned in the text, or null if none found",
+      "detectedLocationType": "school | hospital | police_station | road | market | park | temple | bus_stand | colony | other | null",
       "requiresClarification": boolean (true if details are vague, missing outage duration, street markers, or dimensions),
       "clarificationQuestion": "A clear question asking for the missing parameter, or null if requiresClarification is false"
     }
@@ -575,6 +624,12 @@ async function runBotInputAnalysis(chatId, session) {
     session.tempSubmission.estimatedBudget = result.estimatedBudget || 'Medium Budget';
     session.tempSubmission.aiSummary = result.problemBrief || '';
 
+    // Save detected location name for optional tagging
+    if (result.detectedLocationName && result.detectedLocationName !== 'null') {
+      session.tempSubmission.detectedLocationName = result.detectedLocationName;
+      session.tempSubmission.detectedLocationType = result.detectedLocationType || 'other';
+    }
+
     // Handle clarification questions unless user requested "Submit As Is"
     if (result.requiresClarification && !session.tempSubmission.submittedAsIs) {
       session.step = 'COMPLAINT_CLARIFY';
@@ -587,6 +642,27 @@ async function runBotInputAnalysis(chatId, session) {
         reply_markup: {
           inline_keyboard: [
             [{ text: `⚠️ ${submitAsIsText}`, callback_data: 'submit_as_is' }]
+          ]
+        }
+      });
+    } else if (result.detectedLocationName && result.detectedLocationName !== 'null' && !session.tempSubmission.locationTagged) {
+      // Offer location tagging
+      session.step = 'LOCATION_TAG_CONFIRM';
+      userState.set(chatId, session);
+      const tagMsg = await translateBotText(
+        `📌 I detected a location mentioned in your complaint: *${result.detectedLocationName}* (${result.detectedLocationType || 'place'}).\n\nWould you like to tag this as the target landmark for your complaint? This helps managers locate the exact issue.`,
+        lang
+      );
+      const tagYesText = await translateBotText('✅ Yes, tag this location', lang);
+      const tagNoText = await translateBotText('⏭️ Skip, continue', lang);
+      await bot.sendMessage(chatId, tagMsg, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: tagYesText, callback_data: 'tag_location_yes' },
+              { text: tagNoText, callback_data: 'tag_location_no' }
+            ]
           ]
         }
       });
@@ -699,6 +775,7 @@ async function submitFinalComplaint(chatId, session) {
     location: session.location || { lat: 28.803, lng: 79.025 },
     address: 'Submitted via JanSetuBot',
     constituency: session.constituency || 'Rampur',
+    associatedPlace: sub.associatedPlace || undefined,
     items: [{
       type: sub.photoFileId ? 'photo' : 'text',
       content: sub.inputText || '',
@@ -856,6 +933,24 @@ bot.on('callback_query', async (queryData) => {
       await sendPreSubmissionDashboard(chatId, session);
     }
     bot.answerCallbackQuery(queryData.id);
+  }
+
+  if (data === 'tag_location_yes') {
+    if (session.tempSubmission?.detectedLocationName) {
+      session.tempSubmission.associatedPlace = {
+        name: session.tempSubmission.detectedLocationName,
+        type: session.tempSubmission.detectedLocationType || 'other'
+      };
+      session.tempSubmission.locationTagged = true;
+    }
+    bot.answerCallbackQuery(queryData.id);
+    await sendPreSubmissionDashboard(chatId, session);
+  }
+
+  if (data === 'tag_location_no') {
+    if (session.tempSubmission) session.tempSubmission.locationTagged = true;
+    bot.answerCallbackQuery(queryData.id);
+    await sendPreSubmissionDashboard(chatId, session);
   }
 
   if (data === 'override_category') {
