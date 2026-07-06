@@ -823,6 +823,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   const audioChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
   const liveTranscriptRef = useRef('');
+  const aiDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Success modal
   const [showSuccess, setShowSuccess] = useState(false);
@@ -1363,6 +1364,11 @@ JSON:`
   };
 
   const triggerGlobalAIAnalysis = (currentItems: SubmissionItem[]) => {
+    // Clear any pending debounced call
+    if (aiDebounceTimerRef.current) {
+      clearTimeout(aiDebounceTimerRef.current);
+    }
+
     if (!location) return;
     if (currentItems.length === 0) {
       setAiClarificationQuestion(null);
@@ -1370,19 +1376,24 @@ JSON:`
       setShowAiAutoDetectSection(false);
       return;
     }
-    const combinedText = currentItems
-      .map(item => {
-        if (item.type === 'text') return `User Text Note: ${item.content}`;
-        if (item.type === 'audio') return `User Voice Transcript: ${item.speechTranscript || item.content}`;
-        if (item.type === 'photo') return `AI Image Description: ${item.content || item.ocrText}`;
-        return '';
-      })
-      .filter(Boolean)
-      .join('\n');
 
-    if (combinedText.trim()) {
-      runAIAttachmentAnalysis(combinedText, currentItems);
-    }
+    // Wait 2.5s after the LAST item change before firing Gemini
+    setAiIndicator({ active: true, message: '⏳ Queuing AI analysis...' });
+    aiDebounceTimerRef.current = setTimeout(() => {
+      const combinedText = currentItems
+        .map(item => {
+          if (item.type === 'text') return `User Text Note: ${item.content}`;
+          if (item.type === 'audio') return `User Voice Transcript: ${item.speechTranscript || item.content}`;
+          if (item.type === 'photo') return `AI Image Description: ${item.content || item.ocrText}`;
+          return '';
+        })
+        .filter(Boolean)
+        .join('\n');
+
+      if (combinedText.trim()) {
+        runAIAttachmentAnalysis(combinedText, currentItems);
+      }
+    }, 2500);
   };
 
   const handleAddText = () => {
