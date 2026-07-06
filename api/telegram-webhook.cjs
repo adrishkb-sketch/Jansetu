@@ -1122,7 +1122,21 @@ function generateComplaintNumber(constituency) {
 async function submitFinalComplaint(chatId, session) {
   const sub = session.tempSubmission;
   const lang = session.lang || "en";
-  const ticketId = generateComplaintNumber(session.constituency || sub.constituency);
+
+  // Guard: location MUST be set from user's shared GPS — never default to Rampur
+  if (!session.location?.lat || !session.location?.lng) {
+    const noLocMsg = await translateBotText(
+      "⚠️ Your location has not been set. Please go back to the Main Menu and share your GPS location first before submitting a complaint.",
+      lang
+    );
+    await bot.sendMessage(chatId, noLocMsg);
+    session.step = "MENU";
+    await saveUserSession(chatId, session);
+    await sendMainMenu(chatId, lang);
+    return;
+  }
+
+  const ticketId = generateComplaintNumber(session.constituency || "GEN");
   
   const docData = {
     id: ticketId,
@@ -1130,9 +1144,9 @@ async function submitFinalComplaint(chatId, session) {
     category: sub.category || "others",
     scope: sub.scope || "ward",
     source: "telegram",
-    location: session.location || { lat: 28.803, lng: 79.025 },
-    address: "Submitted via JanSetuBot",
-    constituency: session.constituency || "Rampur",
+    location: session.location,
+    address: session.constituency ? `Submitted via JanSetuBot — ${session.constituency} Constituency` : "Submitted via JanSetuBot",
+    constituency: session.constituency || "Unknown",
     associatedPlace: sub.associatedPlace || undefined,
     items: [{
       type: sub.photoFileId ? "photo" : "text",
@@ -1597,6 +1611,28 @@ async function sendMainMenu(chatId, lang) {
 
 // Vercel Entrypoint
 module.exports = async (req, res) => {
+  // One-time admin patch: fix mislabelled Rampur→Howrah complaints
+  if (req.method === "GET" && req.query?.admin === "fix-howrah-2026") {
+    try {
+      const howrahLoc = { lat: 22.5958, lng: 88.2636 };
+      const ids = ["JS-RAM-2026-KWQAK", "JS-RAM-2026-WBWXG", "JS-RAM-2026-47YKV"];
+      const results = [];
+      for (const id of ids) {
+        try {
+          await updateDoc(doc(db, "demands", id), {
+            location: howrahLoc,
+            constituency: "Howrah",
+            address: "Submitted via JanSetuBot — Howrah Constituency"
+          });
+          results.push(`✅ ${id} updated`);
+        } catch(e) { results.push(`❌ ${id}: ${e.message}`); }
+      }
+      return res.status(200).send(results.join("\n"));
+    } catch(e) {
+      return res.status(500).send("Error: " + e.message);
+    }
+  }
+
   if (req.method !== "POST") {
     return res.status(200).send("Jansetu Bot Webhook is active!");
   }
