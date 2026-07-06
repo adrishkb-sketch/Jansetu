@@ -76,7 +76,6 @@ function ManagerConsole() {
   const [sortBy, setSortBy] = useState<string>('cpi');
   const [prioritySlider, setPrioritySlider] = useState<number>(0);
   const [signatureSlider, setSignatureSlider] = useState<number>(0);
-  const [budgetScaleFilter, setBudgetScaleFilter] = useState<string>('all');
   const [scopeSliderFilter, setScopeSliderFilter] = useState<string>('all');
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('manager_auth') === 'true');
   const [selectedGlobalConstituency, setSelectedGlobalConstituency] = useState<string>('Rampur');
@@ -101,6 +100,8 @@ function ManagerConsole() {
   const [aiClusterTargetCategory, setAiClusterTargetCategory] = useState<string>('water');
   const [aiClusterConstituencySearchQuery, setAiClusterConstituencySearchQuery] = useState('Rampur');
   const [showAiClusterConstituencyDropdown, setShowAiClusterConstituencyDropdown] = useState(false);
+  const [aiClusterStartDate, setAiClusterStartDate] = useState<string>('');
+  const [aiClusterEndDate, setAiClusterEndDate] = useState<string>('');
 
   // Constituency Plan & Proposal Builder States
   const [selectedConstituencyPlanIds, setSelectedConstituencyPlanIds] = useState<string[]>(() => {
@@ -240,15 +241,30 @@ function ManagerConsole() {
   };
 
   const runThematicClustering = async () => {
-    let filteredDemands = [...demands];
+    // 1. Only verified complaints are eligible for AI clustering
+    let filteredDemands = demands.filter(d => d.status === 'verified');
+
+    // 2. Apply constituency or category filter
     if (aiClusterMode === 'constituency') {
-      filteredDemands = demands.filter(d => (d.constituency || 'Rampur').toLowerCase() === aiClusterTargetConstituency.toLowerCase());
+      filteredDemands = filteredDemands.filter(d => (d.constituency || 'Rampur').toLowerCase() === aiClusterTargetConstituency.toLowerCase());
     } else {
-      filteredDemands = demands.filter(d => d.category.toLowerCase() === aiClusterTargetCategory.toLowerCase());
+      filteredDemands = filteredDemands.filter(d => d.category.toLowerCase() === aiClusterTargetCategory.toLowerCase());
+    }
+
+    // 3. Apply date range filter
+    if (aiClusterStartDate) {
+      const start = new Date(aiClusterStartDate);
+      start.setHours(0, 0, 0, 0);
+      filteredDemands = filteredDemands.filter(d => new Date(d.createdAt) >= start);
+    }
+    if (aiClusterEndDate) {
+      const end = new Date(aiClusterEndDate);
+      end.setHours(23, 59, 59, 999);
+      filteredDemands = filteredDemands.filter(d => new Date(d.createdAt) <= end);
     }
 
     if (filteredDemands.length === 0) {
-      alert(`No active citizen complaints found matching the ${aiClusterMode} filter: "${aiClusterMode === 'constituency' ? aiClusterTargetConstituency : aiClusterTargetCategory}".`);
+      alert(`No verified complaints found matching your filters.\n\nOnly complaints marked as "Verified" by a manager are eligible for AI clustering.\n\nCheck the Complaint Registry tab to verify complaints first.`);
       return;
     }
 
@@ -923,16 +939,6 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
 
     if (scopeSliderFilter !== 'all' && d.scope !== scopeSliderFilter) return false;
 
-    if (budgetScaleFilter !== 'all') {
-      const budgetStr = (d.aiOverview?.estimatedBudget || '').toLowerCase();
-      if (budgetScaleFilter === 'under_10k') {
-        if (!budgetStr.includes('under') && !budgetStr.includes('1,000') && !budgetStr.includes('5,000')) return false;
-      } else if (budgetScaleFilter === '10k_50k') {
-        if (!budgetStr.includes('10,000') && !budgetStr.includes('10k') && !budgetStr.includes('20,000') && !budgetStr.includes('50,000') && !budgetStr.includes('30,000')) return false;
-      } else if (budgetScaleFilter === 'over_50k') {
-        if (!budgetStr.includes('50,000+') && !budgetStr.includes('100k') && !budgetStr.includes('50k') && !budgetStr.includes('+')) return false;
-      }
-    }
 
     const matchesConstituency = filterConstituency === 'all' || (d.constituency || 'Rampur') === filterConstituency;
 
@@ -1392,22 +1398,6 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                 <span style={{ fontSize: '10px', color: '#8e90b3' }}>Filters out isolated single-user inputs.</span>
               </div>
 
-              {/* Budget Scale selector */}
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#c5c7e6', marginBottom: '6px' }}>
-                  Filter Budget Scale:
-                </label>
-                <select
-                  value={budgetScaleFilter}
-                  onChange={e => setBudgetScaleFilter(e.target.value)}
-                  style={{ width: '100%', background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '6px 10px', borderRadius: '6px', fontSize: '12.5px' }}
-                >
-                  <option value="all">📁 All Budgets</option>
-                  <option value="under_10k">🟢 Minor Work (&lt;$10k)</option>
-                  <option value="10k_50k">🟡 Medium Work ($10k-$50k)</option>
-                  <option value="over_50k">🔴 Major Capital (&gt;$50k)</option>
-                </select>
-              </div>
 
               {/* Scope filter */}
               <div>
@@ -2147,20 +2137,36 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                       </h3>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {selectedComplaint.status !== 'verified' && selectedComplaint.status !== 'approved' && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(selectedComplaint.id, 'verified')}
+                          style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.4)', color: '#34d399', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                        >
+                          <CheckCircle size={16} />
+                          <span>Mark Verified</span>
+                        </button>
+                      )}
+                      {selectedComplaint.status === 'verified' && (
+                        <span style={{ color: '#34d399', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', padding: '8px 12px', background: 'rgba(52,211,153,0.1)', borderRadius: '8px', border: '1px solid rgba(52,211,153,0.3)' }}>
+                          <CheckCircle size={16} />
+                          <span>Verified</span>
+                        </span>
+                      )}
                       {selectedComplaint.status !== 'approved' ? (
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => handleUpdateStatus(selectedComplaint.id, 'approved')}
                           style={{ background: 'var(--manager-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
                         >
                           <Check size={16} />
-                          <span>Approve & Hotspot</span>
+                          <span>Approve &amp; Hotspot</span>
                         </button>
                       ) : (
                         <span style={{ color: '#34d399', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
                           <CheckCircle size={18} />
-                          <span>Approved & Active</span>
+                          <span>Approved &amp; Active</span>
                         </span>
                       )}
                       {selectedComplaint.status !== 'pending' && (
@@ -2173,6 +2179,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                         </button>
                       )}
                     </div>
+
                   </div>
 
                   {/* Interactive Map Coordinates Block */}
@@ -2551,6 +2558,58 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                       </select>
                     </div>
                   )}
+
+                  {/* Date Range Filter */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#c7d2fe', fontWeight: 'bold' }}>Start Date</span>
+                    <input
+                      type="date"
+                      value={aiClusterStartDate}
+                      onChange={e => setAiClusterStartDate(e.target.value)}
+                      style={{
+                        background: '#0e0d24',
+                        border: '1px solid var(--border-light)',
+                        color: 'white',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12.5px',
+                        colorScheme: 'dark'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#c7d2fe', fontWeight: 'bold' }}>End Date</span>
+                    <input
+                      type="date"
+                      value={aiClusterEndDate}
+                      onChange={e => setAiClusterEndDate(e.target.value)}
+                      style={{
+                        background: '#0e0d24',
+                        border: '1px solid var(--border-light)',
+                        color: 'white',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12.5px',
+                        colorScheme: 'dark'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Verified-only notice */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: 'rgba(52,211,153,0.07)',
+                  border: '1px solid rgba(52,211,153,0.25)',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  fontSize: '12px',
+                  color: '#6ee7b7'
+                }}>
+                  <CheckCircle size={14} style={{ flexShrink: 0 }} />
+                  <span>Only complaints marked <strong>Verified</strong> in the Registry are eligible for clustering.</span>
                 </div>
 
                 <button
