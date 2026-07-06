@@ -1,5 +1,5 @@
 /**
- * Jansetu Live Telegram Chatbot Gateway - UPGRADED MULTILINGUAL VERSION
+ * Jansetu Live Telegram Chatbot Gateway - SYNCHRONIZED VERSION
  * Run this bot locally or host it. It polls @JanSetuBot, transcribes audio,
  * analyzes photos via Gemini, geolocates constituencies, and writes directly
  * to the shared Firestore database.
@@ -51,7 +51,6 @@ const BOT_TOKEN = "8724667418:AAFSz9FkGQd0DlyCf6TnrsVKdke-4xnx1Aw";
 // Load backup/custom key config
 let geminiKeys = ['AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw'];
 try {
-  // Try loading from localStorage equivalent or environment/settings
   const keyEnv = process.env.JANSETU_GEMINI_KEY || '';
   if (keyEnv) {
     geminiKeys = keyEnv.split(/[\n,;]+/).map(k => k.trim()).filter(Boolean);
@@ -74,12 +73,6 @@ async function fetchGeminiWithFallback(contents, customSystemPrompt = '') {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const key = getActiveGeminiKey();
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-    
-    let parts = [];
-    if (customSystemPrompt) {
-      // Flash 2.5 can ingest prompt instruction
-      parts.push({ text: customSystemPrompt });
-    }
     
     try {
       const payload = { contents };
@@ -129,6 +122,46 @@ const LANGUAGES = [
   { name: 'कश्मीरी (Kashmiri)', code: 'ks' }
 ];
 
+// All 28 Category Mappings matching the Complainant website tag overrides
+const CATEGORY_MAP = {
+  water: { label: "Water & Sanitation", emoji: "🚰" },
+  roads: { label: "Roads & Transport", emoji: "🛣️" },
+  education: { label: "Education & Schools", emoji: "🏫" },
+  health: { label: "Healthcare Clinics", emoji: "🏥" },
+  power: { label: "Power & Electricity", emoji: "⚡" },
+  agriculture: { label: "Agriculture & Irrigation", emoji: "🌾" },
+  safety: { label: "Public Safety & Police", emoji: "🚓" },
+  environment: { label: "Environment & Parks", emoji: "🌳" },
+  welfare: { label: "Social Welfare & Pensions", emoji: "🤝" },
+  housing: { label: "Housing & Urban Dev", emoji: "🏗️" },
+  anticorruption: { label: "Anti-Corruption & Vigilance", emoji: "🛡️" },
+  digital: { label: "Digital Infrastructure", emoji: "💻" },
+  disaster: { label: "Disaster Management", emoji: "🚨" },
+  women: { label: "Women & Child Development", emoji: "👩👧" },
+  justice: { label: "Justice & Law Enforcement", emoji: "⚖️" },
+  economy: { label: "Job Creation & Economy", emoji: "📈" },
+  consumer: { label: "Consumer Rights", emoji: "🛒" },
+  taxes: { label: "Taxes, Revenue & Land", emoji: "📜" },
+  tourism: { label: "Arts, Culture & Tourism", emoji: "🎭" },
+  youth: { label: "Youth Affairs & Sports", emoji: "⚽" },
+  innovation: { label: "Science & Innovation", emoji: "🚀" },
+  rural: { label: "Rural Development", emoji: "🏡" },
+  security: { label: "National Security & Defense", emoji: "🪖" },
+  cyber: { label: "AI & Cyber Security", emoji: "🤖" },
+  climate: { label: "Climate & Sustainability", emoji: "🌱" },
+  space: { label: "Space & Advanced Tech", emoji: "🛰️" },
+  foreign: { label: "International Relations", emoji: "🌍" },
+  others: { label: "Others / General", emoji: "📁" }
+};
+
+// Scope mappings matching user sliders
+const SCOPE_MAP = {
+  household: { label: "Household (1-10)", defaultPopulation: 5 },
+  street: { label: "Street (~150)", defaultPopulation: 150 },
+  ward: { label: "Ward (~5k)", defaultPopulation: 5000 },
+  constituency: { label: "Constituency (10k+)", defaultPopulation: 10000 }
+};
+
 // Load 543 constituencies dataset for geolocation matching
 let constituenciesData = {};
 try {
@@ -173,7 +206,7 @@ function getConstituencyFromCoords(lat, lng) {
 // In-Memory state management for user conversation flow
 const userState = new Map();
 
-// Helper translations dictionary (Base templates in English)
+// Helper translations templates
 const T = {
   welcome: "Welcome to Jansetu Bot! Please choose your preferred language:",
   locationRequest: "Please share your current location (GPS) by tapping the button below so we can find your parliamentary constituency.",
@@ -206,6 +239,7 @@ async function translateBotText(text, targetLang) {
     return translationCache[cacheKey];
   }
 
+  // Use Google Translate Single Endpoint
   try {
     const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`);
     if (res.ok) {
@@ -217,7 +251,7 @@ async function translateBotText(text, targetLang) {
       }
     }
   } catch (err) {
-    console.warn("Google Translate failed on chatbot, falling back to Gemini:", err);
+    console.warn("Google Translate failed on chatbot translation helper, falling back to Gemini:", err);
   }
 
   // Find language name
@@ -242,7 +276,7 @@ Text: "${text}"`;
 
 // Initialize Bot API
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-console.log("Jansetu Telegram Bot is long-polling (23 languages support enabled)...");
+console.log("Jansetu Telegram Bot is long-polling (Google Translate synchronized sync)...");
 
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
@@ -297,15 +331,60 @@ bot.on('message', async (msg) => {
     return;
   }
 
+  // Handle population input override state
+  if (session.step === 'OVERRIDE_POP_INPUT') {
+    const pop = parseInt(userText.trim(), 10);
+    if (!isNaN(pop) && pop > 0) {
+      session.tempSubmission.population = pop;
+      await sendPreSubmissionDashboard(chatId, session);
+    } else {
+      const errorMsg = await translateBotText("Please enter a valid positive number for population:", lang);
+      await bot.sendMessage(chatId, errorMsg);
+    }
+    return;
+  }
+
+  // Handle clarification response message
+  if (session.step === 'COMPLAINT_CLARIFY') {
+    session.tempSubmission.inputText += `\nAdditional user clarification: ${userText}`;
+    userState.set(chatId, session);
+    
+    const procText = await translateBotText(T.processing, lang);
+    await bot.sendMessage(chatId, procText);
+    
+    await runBotInputAnalysis(chatId, session);
+    return;
+  }
+
   // Awaiting Media (Complaint or Suggestion)
   if (session.step === 'COMPLAINT_MEDIA' || session.step === 'SUGGESTION_MEDIA') {
     const type = session.step === 'COMPLAINT_MEDIA' ? 'complaint' : 'suggestion';
     
+    // Initialize temporary submission parameters
+    session.tempSubmission = {
+      type: type,
+      inputText: '',
+      category: 'others',
+      scope: 'ward',
+      population: 5000,
+      urgency: '🚨 Immediate Attention',
+      fundingSource: '🏦 Municipality Budget',
+      assetType: '🪠 Sanitation & Drainage',
+      priorityScore: 50,
+      priorityLabel: 'Medium Priority',
+      safetyRisk: 'Low Risk',
+      estimatedBudget: 'Medium Budget',
+      aiSummary: '',
+      boundingBoxes: [],
+      photoFileId: null,
+      photoUrl: '',
+      submittedAsIs: false
+    };
+
     let content = userText;
     let voiceFileId = msg.voice ? msg.voice.file_id : null;
     let photoFileId = msg.photo ? msg.photo[msg.photo.length - 1].file_id : null;
     
-    let mediaType = 'text';
     let fileBase64 = '';
 
     const processText = await translateBotText(T.processing, lang);
@@ -313,15 +392,13 @@ bot.on('message', async (msg) => {
 
     // Handle Voice notes
     if (voiceFileId) {
-      mediaType = 'audio';
       try {
         const directLink = await bot.getFileLink(voiceFileId);
-        // Using allorigins CORS bypass to read file buffer safely
-        const fileRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(directLink)}`);
+        const fileRes = await fetch(directLink);
         const buffer = await fileRes.arrayBuffer();
         fileBase64 = Buffer.from(buffer).toString('base64');
         
-        // Transcribe voice
+        // Transcribe voice verbatim in spoken language
         const geminiRes = await fetchGeminiWithFallback([
           { inlineData: { mimeType: 'audio/ogg', data: fileBase64 } },
           { text: "You are the voice transcriber for Jansetu. Please transcribe this audio file verbatim. The speaker may speak in any of the 22 Indian languages or English. Output ONLY the plain transcription in the spoken language. Do not add any greeting or meta-text." }
@@ -335,114 +412,65 @@ bot.on('message', async (msg) => {
     } 
     // Handle Photo uploads
     else if (photoFileId) {
-      mediaType = 'photo';
       try {
         const directLink = await bot.getFileLink(photoFileId);
-        const fileRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(directLink)}`);
+        session.tempSubmission.photoUrl = directLink;
+        session.tempSubmission.photoFileId = photoFileId;
+
+        const fileRes = await fetch(directLink);
         const buffer = await fileRes.arrayBuffer();
         fileBase64 = Buffer.from(buffer).toString('base64');
 
-        // Describe photo
+        // Gemini Visual Analysis & Bounding Box estimates
+        const imgPrompt = `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. Output a detailed description of the problem in English. Localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). Output strictly in JSON format: { "description": "...", "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
+
         const geminiRes = await fetchGeminiWithFallback([
           { inlineData: { mimeType: 'image/jpeg', data: fileBase64 } },
-          { text: "You are the visual analyzer for Jansetu. Describe the civic/infrastructure problem shown in this image in detail (e.g. pothole, garbage piles). Output ONLY the description." }
+          { text: imgPrompt }
         ]);
         const data = await geminiRes.json();
-        content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Photo input received.";
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
+        const imgResult = JSON.parse(rawText.replace(/```json|```/g, ''));
+        
+        content = imgResult.description || "Photo input received.";
+        const boundingBoxes = imgResult.boundingBoxes || [];
+        session.tempSubmission.boundingBoxes = boundingBoxes;
+
+        // Overlay boxes and send to user
+        if (boundingBoxes.length > 0) {
+          const tempInputPath = path.join(__dirname, `temp_input_${chatId}.jpg`);
+          const tempOutputPath = path.join(__dirname, `temp_output_${chatId}.jpg`);
+          fs.writeFileSync(tempInputPath, Buffer.from(buffer));
+          
+          await new Promise((resolve) => {
+            const boxesJson = JSON.stringify(boundingBoxes);
+            const { exec } = require('child_process');
+            exec(`python3 draw_boxes.py "${tempInputPath}" "${tempOutputPath}" '${boxesJson.replace(/'/g, "'\\''")}'`, async (error) => {
+              if (!error) {
+                try {
+                  const drawInfo = await translateBotText("AI visual detection: anomalies highlighted in red.", lang);
+                  await bot.sendPhoto(chatId, tempOutputPath, { caption: drawInfo });
+                } catch (e) {
+                  console.error("Failed to send annotated photo:", e);
+                }
+              }
+              try { fs.unlinkSync(tempInputPath); } catch (e) {}
+              try { fs.unlinkSync(tempOutputPath); } catch (e) {}
+              resolve();
+            });
+          });
+        }
       } catch (err) {
-        console.error(err);
+        console.error("Photo processing error:", err);
         content = "Photo attachment received (Analysis failed).";
       }
     }
 
-    // Translate input to English before sending to classification loop
-    let englishContent = content;
-    try {
-      const translationPrompt = `You are a professional translator for Jansetu. Translate the following citizen suggestion/complaint to English. Keep the tone exact and professional. Output ONLY the English translation:\n"${content}"`;
-      const transRes = await fetchGeminiWithFallback([{ parts: [{ text: translationPrompt }] }]);
-      const transData = await transRes.json();
-      const transText = transData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (transText) {
-        englishContent = transText;
-      }
-    } catch (err) {
-      console.warn("Incoming translation failed, using original transcript:", err);
-    }
-
-    // Classify category, scope, and priority using Gemini (with English text)
-    let category = 'others';
-    let scope = 'ward';
-    let aiOverview = null;
-
-    try {
-      const classificationPrompt = `
-        Analyze this citizen feedback text: "${englishContent}".
-        Classify it into one of these categories: "water", "roads", "health", "education", "power", "others".
-        Also classify its scope: "household", "street", "ward", "constituency".
-        Finally, suggest a priority score from 0 to 100, and a 1-sentence response.
-        Output ONLY a JSON object:
-        {
-          "category": "category_name",
-          "scope": "scope_name",
-          "priorityScore": number,
-          "urgency": "Normal" | "High" | "Critical",
-          "fundingSource": "MPLADS Fund",
-          "brief": "One sentence summary brief in standard English"
-        }
-      `;
-      const classRes = await fetchGeminiWithFallback([{ parts: [{ text: classificationPrompt }] }]);
-      const data = await classRes.json();
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
-      aiOverview = JSON.parse(rawText.replace(/```json|```/g, ''));
-      if (aiOverview) {
-        category = aiOverview.category || 'others';
-        scope = aiOverview.scope || 'ward';
-      }
-    } catch {}
-
-    // Save to Firestore 'demands' collection
-    const docData = {
-      ticketType: type,
-      category,
-      scope,
-      location: session.location || { lat: 28.803, lng: 79.025 },
-      address: 'Submitted via JanSetuBot',
-      constituency: session.constituency || 'Rampur',
-      items: [{
-        type: mediaType,
-        content: content, // Keep raw spoken transcript in original language
-        createdAt: new Date().toISOString()
-      }],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'pending',
-      upvotes: 1,
-      aiOverview: aiOverview || {
-        brief: englishContent,
-        priorityScore: 55,
-        safetyRisk: 'Moderate',
-        urgency: 'Normal',
-        fundingSource: 'MPLADS Fund',
-        citizenResponse: `Thank you for sharing your feedback. We have queued it for review.`
-      }
-    };
-
-    try {
-      const docRef = await addDoc(collection(db, 'demands'), docData);
-      
-      const briefToShow = docData.aiOverview.brief || englishContent;
-      const rawSuccessText = `✅ *Grievance Registered Successfully!*\n\nTicket Reference ID:\n\`${docRef.id}\`\n\nCategory: ${category.toUpperCase()}\nScope: ${scope.toUpperCase()}\n\nAI Analysis: "${briefToShow}"`;
-      const successMsg = await translateBotText(rawSuccessText, lang);
-
-      await bot.sendMessage(chatId, successMsg, { parse_mode: 'Markdown' });
-    } catch (dbErr) {
-      console.error(dbErr);
-      await bot.sendMessage(chatId, "Failed to write database. Please try again.");
-    }
-
-    session.step = 'MENU';
+    session.tempSubmission.inputText = content;
     userState.set(chatId, session);
-    sendMainMenu(chatId, lang);
+
+    // Call classification & overview loop
+    await runBotInputAnalysis(chatId, session);
     return;
   }
 
@@ -472,22 +500,219 @@ bot.on('message', async (msg) => {
   }
 });
 
+// Run AI analysis prompt equivalent to website checks
+async function runBotInputAnalysis(chatId, session) {
+  const text = session.tempSubmission.inputText;
+  const lang = session.lang || 'en';
+
+  // Translate input to English first for classification pipeline
+  let englishContent = text;
+  try {
+    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`);
+    if (res.ok) {
+      const json = await res.json();
+      const translated = json[0].map(x => x[0]).join('');
+      if (translated) englishContent = translated.trim();
+    }
+  } catch (err) {
+    console.warn("Input translation failed, falling back to raw text:", err);
+  }
+
+  const analysisPrompt = `
+    Analyze this citizen suggestion/complaint details: "${englishContent}".
+    Verify the issue and classify it. Output strictly a JSON object matching this schema:
+    {
+      "category": "Choose exactly one from: water, roads, education, health, power, agriculture, safety, environment, welfare, housing, anticorruption, digital, disaster, women, justice, economy, consumer, taxes, tourism, youth, innovation, rural, security, cyber, climate, space, foreign, others",
+      "scope": "Choose exactly one from: household, street, ward, constituency",
+      "estimatedPopulation": number (e.g. 5, 150, 5000, 10000),
+      "urgency": "🚨 Immediate Attention" | "🔔 Normal Attention",
+      "fundingSource": "🏦 Municipality Budget" | "MPLADS Fund" | "State Government Fund",
+      "assetType": "🪠 Sanitation & Drainage" | "Roadway Infrastructure" | "Building Facility" | "Public Safety Asset",
+      "priorityScore": number (0 to 100),
+      "priorityLabel": "Critical Priority" | "High Priority" | "Medium Priority" | "Low Priority",
+      "safetyRisk": "⚠️ High Threat / Hazard" | "Medium Risk" | "Low Risk",
+      "estimatedBudget": "Mega Project" | "High Budget" | "🪙 Medium Budget" | "Low Budget",
+      "problemBrief": "A 2-3 sentence clear summary outlining the infrastructure deficits, risks, and impact.",
+      "requiresClarification": boolean (true if details are vague, missing outage duration, street markers, or dimensions),
+      "clarificationQuestion": "A clear question asking for the missing parameter, or null if requiresClarification is false"
+    }
+  `;
+
+  try {
+    const res = await fetchGeminiWithFallback([{ parts: [{ text: analysisPrompt }] }]);
+    const data = await res.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
+    const result = JSON.parse(rawText.replace(/```json|```/g, ''));
+    
+    // Write back classification parameters
+    session.tempSubmission.category = result.category || 'others';
+    session.tempSubmission.scope = result.scope || 'ward';
+    session.tempSubmission.population = result.estimatedPopulation || 5000;
+    session.tempSubmission.urgency = result.urgency || '🚨 Immediate Attention';
+    session.tempSubmission.fundingSource = result.fundingSource || '🏦 Municipality Budget';
+    session.tempSubmission.assetType = result.assetType || '🪠 Sanitation & Drainage';
+    session.tempSubmission.priorityScore = result.priorityScore || 50;
+    session.tempSubmission.priorityLabel = result.priorityLabel || 'Medium Priority';
+    session.tempSubmission.safetyRisk = result.safetyRisk || 'Low Risk';
+    session.tempSubmission.estimatedBudget = result.estimatedBudget || 'Medium Budget';
+    session.tempSubmission.aiSummary = result.problemBrief || '';
+
+    // Handle clarification questions unless user requested "Submit As Is"
+    if (result.requiresClarification && !session.tempSubmission.submittedAsIs) {
+      session.step = 'COMPLAINT_CLARIFY';
+      userState.set(chatId, session);
+      
+      const transQuestion = await translateBotText(result.clarificationQuestion, lang);
+      const submitAsIsText = await translateBotText("Submit as is anyway", lang);
+      
+      await bot.sendMessage(chatId, transQuestion, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: `⚠️ ${submitAsIsText}`, callback_data: 'submit_as_is' }]
+          ]
+        }
+      });
+    } else {
+      await sendPreSubmissionDashboard(chatId, session);
+    }
+  } catch (err) {
+    console.error("AI Analysis failed:", err);
+    await sendPreSubmissionDashboard(chatId, session);
+  }
+}
+
+// Show interactive overrides dashboard
+async function sendPreSubmissionDashboard(chatId, session) {
+  session.step = 'PRE_SUBMIT_DASHBOARD';
+  userState.set(chatId, session);
+  
+  const sub = session.tempSubmission;
+  const lang = session.lang || 'en';
+  
+  const catObj = CATEGORY_MAP[sub.category] || { label: "Others", emoji: "📁" };
+  const scopeLabel = SCOPE_MAP[sub.scope]?.label || sub.scope;
+
+  const rawDashboard = `🤖 *AI Summary & Pre-Submission Overview*
+
+*Problem Summary:* ${sub.aiSummary}
+
+*AI Classification & Parameter Overrides:*
+${catObj.emoji} *CATEGORY:* ${catObj.label}
+🌐 *SCOPE:* ${scopeLabel} (Est. ${sub.population} citizens affected)
+🚨 *URGENCY LEVEL:* ${sub.urgency}
+🏦 *SUGGESTED FUNDING:* ${sub.fundingSource}
+🔧 *ASSET TYPE:* ${sub.assetType}
+📈 *PRIORITY LEVEL:* ${sub.priorityLabel} (${sub.priorityScore}/100)
+⚠️ *SAFETY RISK:* ${sub.safetyRisk}
+🪙 *ESTIMATED BUDGET:* ${sub.estimatedBudget}`;
+
+  const translatedDashboard = await translateBotText(rawDashboard, lang);
+  
+  const changeCatText = await translateBotText("🏷️ Change Category", lang);
+  const changeScopeText = await translateBotText("🌐 Change Scope", lang);
+  const editPopText = await translateBotText("👥 Edit Population Impact", lang);
+  const confirmText = await translateBotText("✅ Confirm & Submit", lang);
+  const cancelText = await translateBotText("❌ Cancel", lang);
+
+  bot.sendMessage(chatId, translatedDashboard, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: changeCatText, callback_data: 'override_category' },
+          { text: changeScopeText, callback_data: 'override_scope' }
+        ],
+        [
+          { text: editPopText, callback_data: 'override_pop' }
+        ],
+        [
+          { text: confirmText, callback_data: 'submit_final' },
+          { text: cancelText, callback_data: 'cancel_submission' }
+        ]
+      ]
+    }
+  });
+}
+
+// Write to Firestore & generate tracking outputs
+async function submitFinalComplaint(chatId, session) {
+  const sub = session.tempSubmission;
+  const lang = session.lang || 'en';
+  
+  const docData = {
+    ticketType: sub.type,
+    category: sub.category,
+    scope: sub.scope,
+    location: session.location || { lat: 28.803, lng: 79.025 },
+    address: 'Submitted via JanSetuBot',
+    constituency: session.constituency || 'Rampur',
+    items: [{
+      type: sub.photoFileId ? 'photo' : 'text',
+      content: sub.inputText,
+      fileUrl: sub.photoUrl || '',
+      boundingBoxes: sub.boundingBoxes && sub.boundingBoxes.length > 0 ? sub.boundingBoxes : undefined,
+      createdAt: new Date().toISOString()
+    }],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    status: 'pending',
+    upvotes: 1,
+    estimatedImpact: sub.population,
+    urgency: sub.urgency.replace(/🚨|🔔/g, '').trim(),
+    assetType: sub.assetType.replace(/🪠|🔧/g, '').trim(),
+    fundingSource: sub.fundingSource.replace(/🏦/g, '').trim(),
+    aiOverview: {
+      brief: sub.aiSummary,
+      priorityScore: sub.priorityScore,
+      priorityLabel: sub.priorityLabel,
+      safetyRisk: sub.safetyRisk,
+      estimatedBudget: sub.estimatedBudget,
+      urgency: sub.urgency,
+      fundingSource: sub.fundingSource
+    }
+  };
+
+  try {
+    const docRef = await addDoc(collection(db, 'demands'), docData);
+    const ticketId = docRef.id;
+    
+    const trackingUrl = `https://jansetu-ef57d.web.app/track.html?id=${ticketId}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(trackingUrl)}`;
+
+    const rawSuccess = `✅ *Grievance Registered Successfully via JanSetuBot!*\n\nTicket Reference ID:\n\`${ticketId}\`\n\nYou can track this ticket live on the portal using the link below or by scanning the generated QR code.`;
+    const successMsg = await translateBotText(rawSuccess, lang);
+
+    await bot.sendMessage(chatId, successMsg, { parse_mode: 'Markdown' });
+    await bot.sendPhoto(chatId, qrUrl, { caption: `QR Code: Scan to track Reference ID ${ticketId}` });
+  } catch (err) {
+    console.error(err);
+    await bot.sendMessage(chatId, "Failed to submit. Please try again.");
+  }
+
+  // Clear session
+  session.step = 'MENU';
+  session.tempSubmission = null;
+  userState.set(chatId, session);
+  sendMainMenu(chatId, lang);
+}
+
 // Inline Buttons Handler
 bot.on('callback_query', async (queryData) => {
   const chatId = queryData.message.chat.id;
   const data = queryData.data;
 
   const session = userState.get(chatId) || {};
+  const lang = session.lang || 'en';
 
   // Handle Language selection
   if (data.startsWith('lang_')) {
-    const lang = data.split('_')[1];
-    session.lang = lang;
+    const chosenLang = data.split('_')[1];
+    session.lang = chosenLang;
     session.step = 'LOCATION';
     userState.set(chatId, session);
 
-    const reqText = await translateBotText(T.locationRequest, lang);
-    const btnText = await translateBotText(T.locationBtn, lang);
+    const reqText = await translateBotText(T.locationRequest, chosenLang);
+    const btnText = await translateBotText(T.locationBtn, chosenLang);
 
     bot.sendMessage(chatId, reqText, {
       reply_markup: {
@@ -498,8 +723,6 @@ bot.on('callback_query', async (queryData) => {
     });
     return;
   }
-
-  const lang = session.lang || 'en';
 
   // Handle Menu clicks
   if (data === 'menu_1') {
@@ -518,7 +741,6 @@ bot.on('callback_query', async (queryData) => {
     const msgText = await translateBotText(T.promptTrackId, lang);
     bot.sendMessage(chatId, msgText);
   } else if (data === 'menu_4') {
-    // Show regional verified issues & list them for upvote
     const consty = session.constituency || 'Rampur';
     try {
       const q = query(
@@ -572,6 +794,104 @@ bot.on('callback_query', async (queryData) => {
       const errText = await translateBotText("Error upvoting.", lang);
       bot.answerCallbackQuery(queryData.id, { text: errText, show_alert: true });
     }
+  }
+
+  // Handle pre-submission overrides dashboard clicks
+  if (data === 'submit_as_is') {
+    if (session.tempSubmission) {
+      session.tempSubmission.submittedAsIs = true;
+      await sendPreSubmissionDashboard(chatId, session);
+    }
+    bot.answerCallbackQuery(queryData.id);
+  }
+
+  if (data === 'override_category') {
+    const inlineKeyboard = [];
+    const keys = Object.keys(CATEGORY_MAP);
+    for (let i = 0; i < keys.length; i += 2) {
+      const row = [];
+      const k1 = keys[i];
+      row.push({ text: `${CATEGORY_MAP[k1].emoji} ${CATEGORY_MAP[k1].label}`, callback_data: `setcat_${k1}` });
+      if (i + 1 < keys.length) {
+        const k2 = keys[i + 1];
+        row.push({ text: `${CATEGORY_MAP[k2].emoji} ${CATEGORY_MAP[k2].label}`, callback_data: `setcat_${k2}` });
+      }
+      inlineKeyboard.push(row);
+    }
+    inlineKeyboard.push([{ text: "⬅️ Back", callback_data: "back_to_dashboard" }]);
+
+    const overrideTitle = await translateBotText("Select Category Override:", lang);
+    bot.sendMessage(chatId, overrideTitle, {
+      reply_markup: { inline_keyboard: inlineKeyboard }
+    });
+    bot.answerCallbackQuery(queryData.id);
+  }
+
+  if (data.startsWith('setcat_')) {
+    const newCat = data.replace('setcat_', '');
+    if (session.tempSubmission) {
+      session.tempSubmission.category = newCat;
+      await sendPreSubmissionDashboard(chatId, session);
+    }
+    bot.answerCallbackQuery(queryData.id);
+  }
+
+  if (data === 'override_scope') {
+    const inlineKeyboard = [
+      [{ text: "🏠 Household (1-10)", callback_data: "setscope_household" }],
+      [{ text: "🛣️ Street (~150)", callback_data: "setscope_street" }],
+      [{ text: "🏢 Ward (~5k)", callback_data: "setscope_ward" }],
+      [{ text: "🏛️ Constituency (10k+)", callback_data: "setscope_constituency" }],
+      [{ text: "⬅️ Back", callback_data: "back_to_dashboard" }]
+    ];
+    const overrideTitle = await translateBotText("Select Scope Override:", lang);
+    bot.sendMessage(chatId, overrideTitle, {
+      reply_markup: { inline_keyboard }
+    });
+    bot.answerCallbackQuery(queryData.id);
+  }
+
+  if (data.startsWith('setscope_')) {
+    const newScope = data.replace('setscope_', '');
+    if (session.tempSubmission) {
+      session.tempSubmission.scope = newScope;
+      // Prepopulate default population count for scope
+      if (SCOPE_MAP[newScope]) {
+        session.tempSubmission.population = SCOPE_MAP[newScope].defaultPopulation;
+      }
+      await sendPreSubmissionDashboard(chatId, session);
+    }
+    bot.answerCallbackQuery(queryData.id);
+  }
+
+  if (data === 'override_pop') {
+    session.step = 'OVERRIDE_POP_INPUT';
+    userState.set(chatId, session);
+    const askMsg = await translateBotText("Please type the exact number of estimated citizens affected by this complaint: (e.g. 80)", lang);
+    bot.sendMessage(chatId, askMsg);
+    bot.answerCallbackQuery(queryData.id);
+  }
+
+  if (data === 'back_to_dashboard') {
+    await sendPreSubmissionDashboard(chatId, session);
+    bot.answerCallbackQuery(queryData.id);
+  }
+
+  if (data === 'submit_final') {
+    if (session.tempSubmission) {
+      await submitFinalComplaint(chatId, session);
+    }
+    bot.answerCallbackQuery(queryData.id);
+  }
+
+  if (data === 'cancel_submission') {
+    session.tempSubmission = null;
+    session.step = 'MENU';
+    userState.set(chatId, session);
+    const cancelMsg = await translateBotText("Submission cancelled.", lang);
+    await bot.sendMessage(chatId, cancelMsg);
+    sendMainMenu(chatId, lang);
+    bot.answerCallbackQuery(queryData.id);
   }
 });
 

@@ -1520,16 +1520,53 @@ JSON:`
 
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
+        reader.onloadend = async () => {
           const base64data = (reader.result as string).split(',')[1];
           const cleanMime = (audioBlob.type || 'audio/webm').split(';')[0];
+
+          let resolvedTranscript = finalTranscript || '';
+
+          if (!resolvedTranscript.trim()) {
+            setAiIndicator({ active: true, message: 'AI checking audio for spoken content...' });
+            try {
+              const checkResponse = await fetchGemini({
+                contents: [{
+                  parts: [
+                    { inlineData: { mimeType: cleanMime, data: base64data } },
+                    { text: "Analyze this audio. Is there any actual spoken speech or voice content in it? (Silence, static, wind, or background noise do not count). Reply strictly with either 'YES' or 'NO'. Do not add any other words." }
+                  ]
+                }]
+              });
+              const checkJson = await checkResponse.json();
+              const checkText = (checkJson.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
+
+              if (checkText.includes('YES')) {
+                setAiIndicator({ active: true, message: 'AI transcribing voice note...' });
+                const transResponse = await fetchGemini({
+                  contents: [{
+                    parts: [
+                      { inlineData: { mimeType: cleanMime, data: base64data } },
+                      { text: "You are the audio transcriber for Jansetu. Please transcribe this audio file verbatim in the spoken language (which may be any Indian language or English). Output ONLY the verbatim transcription, no other text." }
+                    ]
+                  }]
+                });
+                const transJson = await transResponse.json();
+                const transText = (transJson.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+                if (transText) {
+                  resolvedTranscript = transText;
+                }
+              }
+            } catch (err) {
+              console.error("Audio fallback transcription failed:", err);
+            }
+          }
 
           const newItem: SubmissionItem = {
             id: Date.now().toString(),
             type: 'audio',
-            content: finalTranscript || 'Voice recording (Transcribing...)',
+            content: resolvedTranscript || 'Silence/No speech detected',
             fileUrl: audioUrl,
-            speechTranscript: finalTranscript || '',
+            speechTranscript: resolvedTranscript,
             audioBase64: base64data,
             audioMimeType: cleanMime
           };
@@ -1542,7 +1579,7 @@ JSON:`
 
           stream.getTracks().forEach(track => track.stop());
 
-          const voiceLower = (finalTranscript || '').toLowerCase();
+          const voiceLower = (resolvedTranscript || '').toLowerCase();
           const isRefusal = voiceLower.includes("dont know") || voiceLower.includes("don't know") || voiceLower.includes("no idea") || voiceLower.includes("submit as is") || voiceLower.includes("submit anyway") || voiceLower.includes("cannot say") || voiceLower.includes("can't say") || voiceLower.includes("cant tell") || voiceLower.includes("can't tell") || voiceLower.includes("dont tell");
           if (isRefusal) {
             setClarificationRefusals(prev => {
