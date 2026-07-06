@@ -1912,6 +1912,7 @@ JSON:`
       ticketType,
       category,
       scope,
+      source: 'web',
       location: location || { lat: 0, lng: 0 },
       address,
       constituency: detectedConstituency || getConstituencyOfLocation(

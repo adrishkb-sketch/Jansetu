@@ -643,7 +643,7 @@ function MPApp() {
                   matchingDemands.map(d => (
                     <div key={d.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', padding: '8px 12px', borderRadius: '6px', fontSize: '11.5px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8e90b3' }}>
-                        <span>📍 {d.address.slice(0, 20)}...</span>
+                        <span>📍 {d.address.slice(0, 20)}... {d.source === 'telegram' ? '✈️' : '🌐'}</span>
                         <span>👍 {d.upvotes || 1}</span>
                       </div>
                       <p style={{ margin: '2px 0 0 0', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

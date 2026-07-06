@@ -651,21 +651,40 @@ ${catObj.emoji} *CATEGORY:* ${catObj.label}
   });
 }
 
+function cleanUndefined(obj) {
+  if (obj === null || obj === undefined) return null;
+  const result = {};
+  Object.keys(obj).forEach(key => {
+    const val = obj[key];
+    if (val !== undefined) {
+      if (val && typeof val === 'object' && !Array.isArray(val)) {
+        result[key] = cleanUndefined(val);
+      } else if (Array.isArray(val)) {
+        result[key] = val.map(item => (item && typeof item === 'object') ? cleanUndefined(item) : item);
+      } else {
+        result[key] = val;
+      }
+    }
+  });
+  return result;
+}
+
 // Write to Firestore & generate tracking outputs
 async function submitFinalComplaint(chatId, session) {
   const sub = session.tempSubmission;
   const lang = session.lang || 'en';
   
   const docData = {
-    ticketType: sub.type,
-    category: sub.category,
-    scope: sub.scope,
+    ticketType: sub.type || 'complaint',
+    category: sub.category || 'others',
+    scope: sub.scope || 'ward',
+    source: 'telegram',
     location: session.location || { lat: 28.803, lng: 79.025 },
     address: 'Submitted via JanSetuBot',
     constituency: session.constituency || 'Rampur',
     items: [{
       type: sub.photoFileId ? 'photo' : 'text',
-      content: sub.inputText,
+      content: sub.inputText || '',
       fileUrl: sub.photoUrl || '',
       boundingBoxes: sub.boundingBoxes && sub.boundingBoxes.length > 0 ? sub.boundingBoxes : undefined,
       createdAt: new Date().toISOString()
@@ -674,23 +693,24 @@ async function submitFinalComplaint(chatId, session) {
     updatedAt: new Date().toISOString(),
     status: 'pending',
     upvotes: 1,
-    estimatedImpact: sub.population,
-    urgency: sub.urgency.replace(/🚨|🔔/g, '').trim(),
-    assetType: sub.assetType.replace(/🪠|🔧/g, '').trim(),
-    fundingSource: sub.fundingSource.replace(/🏦/g, '').trim(),
+    estimatedImpact: sub.population || 5000,
+    urgency: (sub.urgency || 'Immediate Attention').replace(/🚨|🔔/g, '').trim(),
+    assetType: (sub.assetType || 'others').replace(/🪠|🔧/g, '').trim(),
+    fundingSource: (sub.fundingSource || 'MPLADS Fund').replace(/🏦/g, '').trim(),
     aiOverview: {
-      brief: sub.aiSummary,
-      priorityScore: sub.priorityScore,
-      priorityLabel: sub.priorityLabel,
-      safetyRisk: sub.safetyRisk,
-      estimatedBudget: sub.estimatedBudget,
-      urgency: sub.urgency,
-      fundingSource: sub.fundingSource
+      brief: sub.aiSummary || '',
+      priorityScore: sub.priorityScore || 50,
+      priorityLabel: sub.priorityLabel || 'Medium Priority',
+      safetyRisk: sub.safetyRisk || 'Low Risk',
+      estimatedBudget: sub.estimatedBudget || 'Medium Budget',
+      urgency: sub.urgency || '🚨 Immediate Attention',
+      fundingSource: sub.fundingSource || '🏦 Municipality Budget'
     }
   };
 
   try {
-    const docRef = await addDoc(collection(db, 'demands'), docData);
+    const cleaned = cleanUndefined(docData);
+    const docRef = await addDoc(collection(db, 'demands'), cleaned);
     const ticketId = docRef.id;
     
     const trackingUrl = `https://jansetu-ef57d.web.app/track.html?id=${ticketId}`;

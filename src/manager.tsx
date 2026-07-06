@@ -2042,9 +2042,20 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                         }}
                       >
                         <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '0.75rem', background: isSug ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSug ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                            {isSug ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
-                          </span>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', background: isSug ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSug ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                              {isSug ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
+                            </span>
+                            {d.source === 'telegram' ? (
+                              <span style={{ fontSize: '0.7rem', background: 'rgba(56, 189, 248, 0.18)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                ✈️ Telegram
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.7rem', background: 'rgba(232, 121, 249, 0.18)', color: '#e879f9', border: '1px solid rgba(232, 121, 249, 0.35)', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                🌐 Website
+                              </span>
+                            )}
+                          </div>
                           <span style={{ 
                             fontSize: '0.75rem', 
                             background: d.status === 'approved' ? 'rgba(52, 211, 153, 0.15)' : d.status === 'pending' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(255, 255, 255, 0.08)',
@@ -3072,6 +3083,11 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                                 <span style={{ textTransform: 'capitalize' }}>
                                   {d.ticketType === 'suggestion' ? '💡' : '⚠️'} {d.category}
                                 </span>
+                                {d.source === 'telegram' ? (
+                                  <span style={{ marginLeft: '6px', fontSize: '9px', background: 'rgba(56, 189, 248, 0.18)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)', padding: '1px 5px', borderRadius: '10px', fontWeight: '600' }}>✈️ Telegram</span>
+                                ) : (
+                                  <span style={{ marginLeft: '6px', fontSize: '9px', background: 'rgba(232, 121, 249, 0.18)', color: '#e879f9', border: '1px solid rgba(232, 121, 249, 0.35)', padding: '1px 5px', borderRadius: '10px', fontWeight: '600' }}>🌐 Web</span>
+                                )}
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'left', color: 'var(--text-desc)' }}>
                                 📍 {d.address.split(',')[0]}
