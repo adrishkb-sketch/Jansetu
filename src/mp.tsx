@@ -63,8 +63,6 @@ function MPApp() {
 
   // Action Plan from Manager
   const [approvedPlan, setApprovedPlan] = useState<any | null>(null);
-  const [selectedPlanType, setSelectedPlanType] = useState<'constituency' | 'category'>('constituency');
-  const [selectedPlanCategory, setSelectedPlanCategory] = useState<string>('water');
  
   // Load MP Funds & Demands
   useEffect(() => {
@@ -74,12 +72,12 @@ function MPApp() {
     }
   }, [isAuthenticated, selectedConstituency]);
  
-  // Load Action Plan whenever selection or search criteria changes
+  // Load Action Plan whenever selection changes
   useEffect(() => {
     if (isAuthenticated) {
       loadActionPlan();
     }
-  }, [isAuthenticated, selectedConstituency, selectedPlanType, selectedPlanCategory]);
+  }, [isAuthenticated, selectedConstituency]);
  
   const loadFundsConfig = async () => {
     const fundsData = await getMPFunds(selectedConstituency);
@@ -93,12 +91,7 @@ function MPApp() {
   };
  
   const loadActionPlan = async () => {
-    let planKey = '';
-    if (selectedPlanType === 'constituency') {
-      planKey = selectedConstituency;
-    } else {
-      planKey = `category_${selectedPlanCategory.toLowerCase()}`;
-    }
+    const planKey = selectedConstituency;
  
     const plan = await getActionPlanByConstituency(planKey);
     if (plan && plan.isApproved) {
@@ -509,8 +502,8 @@ function MPApp() {
         {/* MP Hero Stats Bar */}
         {(() => {
           const constDemands = matchingDemands;
-          const pending = constDemands.filter((d: any) => ['pending','needs_info'].includes(d.status)).length;
-          const resolved = constDemands.filter((d: any) => d.status === 'completed').length;
+          const pending = constDemands.filter((d: any) => !['completed','solved'].includes(d.status)).length;
+          const resolved = constDemands.filter((d: any) => ['completed','solved'].includes(d.status)).length;
           const totalImpact = constDemands.reduce((s: number, d: any) => s + (d.estimatedImpact || 1), 0);
           return (
             <div style={{
@@ -811,78 +804,18 @@ function MPApp() {
             <span>Approved Development Action Plan & Funding Allocations</span>
           </h3>
 
-          {/* Plan Selector Tab Header */}
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => setSelectedPlanType('constituency')}
-              style={{
-                background: selectedPlanType === 'constituency' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(0,0,0,0.2)',
-                border: selectedPlanType === 'constituency' ? '1px solid #14b8a6' : '1px solid rgba(255,255,255,0.1)',
-                color: selectedPlanType === 'constituency' ? '#2dd4bf' : '#8e90b3',
-                padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px'
-              }}
-            >
-              🏛️ Constituency Plan ({selectedConstituency})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedPlanType('category')}
-              style={{
-                background: selectedPlanType === 'category' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(0,0,0,0.2)',
-                border: selectedPlanType === 'category' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)',
-                color: selectedPlanType === 'category' ? '#a5b4fc' : '#8e90b3',
-                padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px'
-              }}
-            >
-              🏷️ General Topic-Wise Plan
-            </button>
-            {selectedPlanType === 'category' && (
-              <select
-                value={selectedPlanCategory}
-                onChange={e => setSelectedPlanCategory(e.target.value)}
-                style={{
-                  background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white',
-                  padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', marginLeft: 'auto'
-                }}
-              >
-                <option value="water">Water & Sanitation</option>
-                <option value="roads">Roads & Transport</option>
-                <option value="education">Education & Schools</option>
-                <option value="health">Healthcare Clinics</option>
-                <option value="power">Power & Electricity</option>
-                <option value="agriculture">Agriculture & Irrigation</option>
-                <option value="safety">Public Safety & Police</option>
-                <option value="environment">Environment & Parks</option>
-                <option value="welfare">Social Welfare & Pensions</option>
-                <option value="housing">Housing & Urban Dev</option>
-                <option value="anticorruption">Anti-Corruption & Vigilance</option>
-                <option value="digital">Digital Infrastructure</option>
-                <option value="disaster">Disaster Management</option>
-                <option value="women">Women & Child Development</option>
-                <option value="justice">Justice & Law Enforcement</option>
-                <option value="economy">Job Creation & Economy</option>
-                <option value="consumer">Consumer Rights</option>
-                <option value="taxes">Taxes, Revenue & Land</option>
-                <option value="tourism">Arts, Culture & Tourism</option>
-                <option value="youth">Youth Affairs & Sports</option>
-                <option value="innovation">Science & Innovation</option>
-                <option value="rural">Rural Development</option>
-                <option value="security">National Security & Defense</option>
-                <option value="cyber">AI & Cyber Security</option>
-                <option value="climate">Climate & Sustainability</option>
-                <option value="space">Space & Advanced Tech</option>
-                <option value="foreign">International Relations</option>
-                <option value="others">Others / General</option>
-              </select>
-            )}
+          {/* Header spacer only */}
+          <div style={{ marginBottom: '12px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
+            <span style={{ fontSize: '12px', color: '#8e90b3', fontWeight: 'bold' }}>
+              🏛️ Scoped Action Plan for Lok Sabha Constituency: {selectedConstituency}
+            </span>
           </div>
 
           {!approvedPlan ? (
             <div style={{ textAlign: 'center', padding: '30px 0', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '12px', background: 'rgba(0,0,0,0.1)' }}>
               <Info size={28} style={{ color: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
               <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', margin: 0 }}>
-                No active Approved Action Plan found for the selected {selectedPlanType === 'constituency' ? `constituency "${selectedConstituency}"` : `topic "${selectedPlanCategory}"`}.
+                No active Approved Action Plan found for the constituency "{selectedConstituency}".
               </p>
               <p style={{ color: 'var(--text-desc)', fontSize: '11px', marginTop: '4px' }}>
                 Please have the aggregation manager generate and approve a plan in the Manager portal first.
@@ -985,7 +918,16 @@ function MPApp() {
                           <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
                             <td style={{ padding: '10px', fontWeight: 'bold' }}>{step.id}</td>
                             <td style={{ padding: '10px', fontWeight: 'bold' }}>{step.title}</td>
-                            <td style={{ padding: '10px', color: 'var(--text-desc)' }}>{step.description}</td>
+                             <td style={{ padding: '12px 10px', minWidth: '320px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {(step.description || '').split(/(?<=[.!?])\s+/).filter(Boolean).map((sentence: string, sIdx: number) => (
+                                  <div key={sIdx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '12px', color: '#cbd5e1', lineHeight: '1.4' }}>
+                                    <span style={{ color: '#2dd4bf', flexShrink: 0, marginTop: '3px', fontSize: '10px' }}>✦</span>
+                                    <span>{sentence.trim()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
                             <td style={{ padding: '10px', color: '#2dd4bf' }}>{step.agency}</td>
                             <td style={{ padding: '10px', textAlign: 'center', fontWeight: 'bold', color: '#fbbf24' }}>
                               ₹{(step.cost || 0).toLocaleString()}
