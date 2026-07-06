@@ -588,7 +588,8 @@ You must return your output strictly as a valid JSON object matching this struct
     const planConstituency = selectedDemands[0]?.constituency || 'Rampur';
 
     const compiledItemsText = selectedDemands.map((d, index) => {
-      const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
+      const loc = d.location || { lat: 28.803, lng: 79.025 };
+      const segment = getClosestConstituencySegment(loc.lat, loc.lng);
       return `Item #${index + 1}:
 - ID: ${d.id}
 - Category: ${d.category}
@@ -686,7 +687,8 @@ Provide your response ONLY as a valid JSON object matching the following schema.
     setTimeout(async () => {
       const mockDetailedSteps = selectedDemands.map((d, index) => {
         const cost = getProjectCostEstimate(d.category, d.scope);
-        const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
+        const loc = d.location || { lat: 28.803, lng: 79.025 };
+        const segment = getClosestConstituencySegment(loc.lat, loc.lng);
         const desc = d.items?.[0]?.content || d.items?.[0]?.speechTranscript || `Remediation for ${d.category} issues in ${segment.name}`;
         
         let agency = 'District Development Authority';
@@ -1058,7 +1060,8 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
 
   const zones: any = {};
   filteredDemands.forEach(d => {
-    const wardKey = `Ward Zone (${d.location.lat.toFixed(2)}, ${d.location.lng.toFixed(2)})`;
+    const loc = d.location || { lat: 28.803, lng: 79.025 };
+    const wardKey = `Ward Zone (${loc.lat.toFixed(2)}, ${loc.lng.toFixed(2)})`;
     if (!zones[wardKey]) {
       zones[wardKey] = { name: wardKey, address: (d.address || 'Submitted via Chatbot').split(',')[0], water: 0, roads: 0, education: 0, health: 0, power: 0, others: 0, total: 0 };
     }
@@ -2180,14 +2183,14 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                       <GoogleMapComponent
                         apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
                         onLocationSelect={() => {}}
-                        selectedLocation={selectedComplaint.location}
+                        selectedLocation={selectedComplaint.location || { lat: 28.803, lng: 79.025 }}
                         nearbyHotspots={[]}
-                        focusedPlace={{ lat: selectedComplaint.location.lat, lng: selectedComplaint.location.lng, name: selectedComplaint.associatedPlace?.name || 'Citizen Location' }}
-                        circleData={selectedComplaint.circleData || { lat: selectedComplaint.location.lat, lng: selectedComplaint.location.lng, radius: 100 }}
+                        focusedPlace={{ lat: (selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lat, lng: (selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lng, name: selectedComplaint.associatedPlace?.name || 'Citizen Location' }}
+                        circleData={selectedComplaint.circleData || { lat: (selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lat, lng: (selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lng, radius: 100 }}
                       />
                     </div>
                     <span style={{ fontSize: '12px', color: '#8e90b3', display: 'block', marginTop: '6px' }}>
-                      📍 Geocoded Address: <strong>{selectedComplaint.address}</strong> (Coords: {selectedComplaint.location.lat.toFixed(5)}, {selectedComplaint.location.lng.toFixed(5)})
+                      📍 Geocoded Address: <strong>{selectedComplaint.address || 'Submitted via Chatbot'}</strong> (Coords: ({(selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lat.toFixed(5)}), ({(selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lng.toFixed(5)}))
                     </span>
                   </div>
 
@@ -3070,7 +3073,8 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                         .map(d => ({ ...d, cpi: calculateCombinedPriorityIndex(d, selectedGlobalConstituency) }))
                         .sort((a, b) => b.cpi - a.cpi)
                         .map(d => {
-                          const gapDetails = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category, selectedGlobalConstituency);
+                          const loc = d.location || { lat: 28.803, lng: 79.025 };
+                          const gapDetails = evaluateInfrastructureGap(loc.lat, loc.lng, d.category, selectedGlobalConstituency);
 
                           
                           // CPI Color code
@@ -3099,7 +3103,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                                 <span style={{ display: 'block', fontSize: '9px', color: 'var(--text-muted)' }}>({gapDetails.localMetric})</span>
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'center', color: 'var(--text-desc)' }}>
-                                {getClosestConstituencySegment(d.location.lat, d.location.lng).scStPercentage > 18 ? 'High SC/ST' : 'General Rural'}
+                                {getClosestConstituencySegment(loc.lat, loc.lng).scStPercentage > 18 ? 'High SC/ST' : 'General Rural'}
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'center', background: 'rgba(255,255,255,0.01)' }}>
                                 <span style={{ display: 'inline-block', background: `${cpiColor}15`, color: cpiColor, border: `1px solid ${cpiColor}`, padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold', fontSize: '13px' }}>
