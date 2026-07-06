@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const TelegramBot = require('node-telegram-bot-api');
+const TelegramBot = require('node-telegram-bot-api').default || require('node-telegram-bot-api').TelegramBot || require('node-telegram-bot-api');
 const { initializeApp } = require('firebase/app');
 const { 
   getFirestore, 
