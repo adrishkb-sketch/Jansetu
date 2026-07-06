@@ -120,9 +120,154 @@ export interface SubmissionData {
 // In-Memory Fallback Local DB (Emulator) to guarantee 100% operation on local/offline env
 const getLocalEmulatorData = (): any[] => {
   const data = localStorage.getItem('jansetu_mock_db');
-  if (data) return JSON.parse(data);
+  if (data && data !== '[]') return JSON.parse(data);
 
-  const defaultData: any[] = [];
+  const defaultData: any[] = [
+    {
+      id: "JS-HOW-2026-WT451",
+      category: "water",
+      scope: "ward",
+      location: { lat: 22.5958, lng: 88.2636 },
+      address: "Ward 14, Near Shalimar Crossing, Howrah",
+      constituency: "Howrah",
+      ticketType: "complaint",
+      items: [{
+        type: "text",
+        content: "Major drinking water pipeline leakage near the main crossing has contaminated the local borewell supply. Over 400 households are receiving muddy, foul-smelling water for the past 5 days."
+      }],
+      upvotes: 42,
+      status: "pending",
+      estimatedImpact: 5000,
+      createdAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString()
+    },
+    {
+      id: "JS-HOW-2026-RD809",
+      category: "roads",
+      scope: "constituency",
+      location: { lat: 22.6012, lng: 88.2514 },
+      address: "GT Road Junction near Railway Station, Howrah",
+      constituency: "Howrah",
+      ticketType: "complaint",
+      items: [{
+        type: "text",
+        content: "Huge deep potholes at the main junction are causing massive daily traffic delays and multiple motorcycle slips during rainy hours. Immediate patch repairs are requested."
+      }],
+      upvotes: 89,
+      status: "raised",
+      estimatedImpact: 100000,
+      createdAt: new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString()
+    },
+    {
+      id: "JS-RAM-2026-ED120",
+      category: "education",
+      scope: "ward",
+      location: { lat: 29.0234, lng: 79.0125 },
+      address: "Sector 3 Girls High School Road, Rampur",
+      constituency: "Rampur",
+      ticketType: "complaint",
+      items: [{
+        type: "text",
+        content: "The primary school building has a severely leaky roof that collapses classroom attendance during rain. Desks are rusted and there are no operational toilets for girls."
+      }],
+      upvotes: 35,
+      status: "pending",
+      estimatedImpact: 5000,
+      createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString()
+    },
+    {
+      id: "JS-RAM-2026-HL653",
+      category: "health",
+      scope: "street",
+      location: { lat: 29.0301, lng: 79.0211 },
+      address: "PHC Campus, Civil Lines, Rampur",
+      constituency: "Rampur",
+      ticketType: "complaint",
+      items: [{
+        type: "text",
+        content: "The local health center is running short of basic anti-rabies vaccines, insulin, and pediatric fever syrup. Staffing is low and no doctor visits after 2 PM."
+      }],
+      upvotes: 18,
+      status: "pending",
+      estimatedImpact: 150,
+      createdAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString()
+    },
+    {
+      id: "JS-HOW-2026-PW190",
+      category: "power",
+      scope: "ward",
+      location: { lat: 22.5891, lng: 88.2452 },
+      address: "Industrial Layout Block C, Howrah",
+      constituency: "Howrah",
+      ticketType: "complaint",
+      items: [{
+        type: "text",
+        content: "Frequent voltage fluctuations and daily unannounced power cuts of 5 to 7 hours are disrupting micro manufacturing units and small shops in the industrial ward."
+      }],
+      upvotes: 56,
+      status: "funded",
+      estimatedImpact: 5000,
+      createdAt: new Date(Date.now() - 8 * 24 * 3600 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString()
+    },
+    {
+      id: "JS-PAT-2026-AG711",
+      category: "agriculture",
+      scope: "constituency",
+      location: { lat: 25.5941, lng: 85.1376 },
+      address: "West Agricultural Canal Area, Patna",
+      constituency: "Patna",
+      ticketType: "complaint",
+      items: [{
+        type: "text",
+        content: "Irrigation canal is completely blocked by weeds and silt. Farmers are unable to channel water to their dry wheat crops, putting their seasonal yield at risk."
+      }],
+      upvotes: 124,
+      status: "pending",
+      estimatedImpact: 100000,
+      createdAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString()
+    },
+    {
+      id: "JS-BLR-2026-SF301",
+      category: "safety",
+      scope: "street",
+      location: { lat: 12.9716, lng: 77.5946 },
+      address: "Near ORR Metro Construction Service Lane, Bangalore",
+      constituency: "Bangalore",
+      ticketType: "suggestion",
+      items: [{
+        type: "text",
+        content: "Dark service lanes due to broken street lights are causing safety hazards. Suggest installing solar-powered security lights along the service lanes immediately."
+      }],
+      upvotes: 27,
+      status: "pending",
+      estimatedImpact: 150,
+      createdAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString()
+    },
+    {
+      id: "JS-HOW-2026-EV290",
+      category: "environment",
+      scope: "ward",
+      location: { lat: 22.6105, lng: 88.2711 },
+      address: "Park Street Lake Side, Howrah",
+      constituency: "Howrah",
+      ticketType: "complaint",
+      items: [{
+        type: "text",
+        content: "Dumping of plastic garbage and commercial wastes inside the lake is polluting local groundwater and emitting a terrible stench, making park pathways unusable."
+      }],
+      upvotes: 38,
+      status: "completed",
+      estimatedImpact: 5000,
+      createdAt: new Date(Date.now() - 12 * 24 * 3600 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString()
+    }
+  ];
   localStorage.setItem('jansetu_mock_db', JSON.stringify(defaultData));
   return defaultData;
 };

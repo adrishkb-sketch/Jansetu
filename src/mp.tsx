@@ -48,7 +48,13 @@ function MPApp() {
   // Search States
   const [searchMode, setSearchMode] = useState<'constituency' | 'issue'>('constituency');
   const [searchConstituencyName, setSearchConstituencyName] = useState<string>('Rampur');
+  const [searchConstituencyQuery, setSearchConstituencyQuery] = useState<string>('Rampur');
+  const [showSearchConstituencyDropdown, setShowSearchConstituencyDropdown] = useState<boolean>(false);
   const [searchIssueQuery, setSearchIssueQuery] = useState<string>('water');
+
+  useEffect(() => {
+    setSearchConstituencyQuery(selectedConstituency);
+  }, [selectedConstituency]);
 
   // Matching Demands
   const [demands, setDemands] = useState<any[]>([]);
@@ -57,6 +63,8 @@ function MPApp() {
   // Gemini AI Summary States
   const [generatingSummary, setGeneratingSummary] = useState(false);
   const [problemSummary, setProblemSummary] = useState<string>('');
+  const [searchSummaryText, setSearchSummaryText] = useState<string>('');
+  const [isGeneratingSearchSummary, setIsGeneratingSearchSummary] = useState<boolean>(false);
 
   // Speech script generation
   const [generatingSpeech, setGeneratingSpeech] = useState(false);
@@ -139,17 +147,13 @@ function MPApp() {
   useEffect(() => {
     let filtered = demands.filter(d => (d.constituency || 'Rampur').toLowerCase() === selectedConstituency.toLowerCase());
     
-    if (searchMode === 'issue') {
+    if (searchMode === 'issue' && searchIssueQuery) {
       filtered = filtered.filter(d => 
-        (d.category || '').toLowerCase().includes(searchIssueQuery.toLowerCase()) || 
-        (d.address || '').toLowerCase().includes(searchIssueQuery.toLowerCase()) ||
-        (d.items && d.items.some((item: any) => 
-          (item.content && item.content.toLowerCase().includes(searchIssueQuery.toLowerCase())) ||
-          (item.speechTranscript && item.speechTranscript.toLowerCase().includes(searchIssueQuery.toLowerCase()))
-        ))
+        (d.category || '').toLowerCase() === searchIssueQuery.toLowerCase()
       );
     }
     setMatchingDemands(filtered);
+    setSearchSummaryText('');
   }, [demands, searchMode, selectedConstituency, searchIssueQuery]);
 
   // Save Funds Configuration
@@ -215,6 +219,43 @@ function MPApp() {
       setProblemSummary('Failed to communicate with Gemini. Please verify your internet connection.');
     } finally {
       setGeneratingSummary(false);
+    }
+  };
+
+  const handleGenerateSearchSummary = async () => {
+    if (matchingDemands.length === 0) {
+      alert("No grievances selected to summarize.");
+      return;
+    }
+    setIsGeneratingSearchSummary(true);
+    setSearchSummaryText("AI is compiling a summary of the selected grievances...");
+
+    const textPayload = matchingDemands.map((d, i) => 
+      `Grievance #${i+1}: Category: ${d.category}, Location: ${d.address}, Scope: ${d.scope}, Upvotes: ${d.upvotes || 1}. Content: ${d.items?.[0]?.content || d.items?.[0]?.speechTranscript}`
+    ).join('\n\n');
+
+    const prompt = `
+      You are an expert constituency planning assistant.
+      Provide a highly concise, executive summary (3-4 sentences maximum) of the following citizen grievances in ${selectedConstituency}. 
+      Highlight the main recurring infrastructure gaps and the estimated total community impact.
+      
+      Citizen Grievances Data:
+      ${textPayload}
+    `;
+
+    try {
+      const response = await fetchGemini({ contents: [{ parts: [{ text: prompt }] }] });
+      if (response.ok) {
+        const resData = await response.json();
+        const summary = resData.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not compile summary.';
+        setSearchSummaryText(summary);
+      } else {
+        setSearchSummaryText("Could not compile summary.");
+      }
+    } catch (e) {
+      setSearchSummaryText("Failed to compile AI summary. Check your Gemini API connection.");
+    } finally {
+      setIsGeneratingSearchSummary(false);
     }
   };
 
@@ -773,36 +814,167 @@ function MPApp() {
             </div>
 
             {searchMode === 'constituency' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
                 <label style={{ fontSize: '11px', color: '#8e90b3' }}>Constituency Name</label>
-                <select
-                  value={searchConstituencyName}
+                {showSearchConstituencyDropdown && (
+                  <div 
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} 
+                    onClick={() => setShowSearchConstituencyDropdown(false)} 
+                  />
+                )}
+                <input
+                  type="text"
+                  value={searchConstituencyQuery}
+                  placeholder="🔍 Type to search constituency..."
                   onChange={e => {
-                    setSearchConstituencyName(e.target.value);
-                    setSelectedConstituency(e.target.value);
+                    setSearchConstituencyQuery(e.target.value);
+                    setShowSearchConstituencyDropdown(true);
                   }}
-                  style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '6px', fontSize: '13px' }}
-                >
-                  {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
-                    <option key={cName} value={cName}>{cName}</option>
-                  ))}
-                </select>
+                  onFocus={() => setShowSearchConstituencyDropdown(true)}
+                  style={{ 
+                    background: '#0e0d24', 
+                    border: '1px solid var(--border-light)', 
+                    color: 'white', 
+                    padding: '8px 12px', 
+                    borderRadius: '6px', 
+                    fontSize: '13px',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    position: 'relative',
+                    zIndex: 1000
+                  }}
+                />
+                {showSearchConstituencyDropdown && (() => {
+                  const filtered = Object.keys(ALL_CONSTITUENCIES_DATA)
+                    .filter(c => c.toLowerCase().includes(searchConstituencyQuery.toLowerCase()))
+                    .sort();
+                  return (
+                    <div style={{ 
+                      position: 'absolute', 
+                      top: '100%', 
+                      left: 0, 
+                      right: 0, 
+                      background: '#0d0c22', 
+                      border: '1px solid rgba(255,255,255,0.15)', 
+                      borderRadius: '8px', 
+                      maxHeight: '200px', 
+                      overflowY: 'auto', 
+                      zIndex: 1001, 
+                      marginTop: '4px',
+                      boxShadow: '0 8px 16px rgba(0,0,0,0.5)'
+                    }}>
+                      {filtered.length > 0 ? (
+                        filtered.map(cName => (
+                          <div 
+                            key={cName}
+                            onClick={() => {
+                              setSelectedConstituency(cName);
+                              setSearchConstituencyName(cName);
+                              setSearchConstituencyQuery(cName);
+                              setShowSearchConstituencyDropdown(false);
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              color: 'white',
+                              cursor: 'pointer',
+                              fontSize: '12.5px',
+                              fontWeight: '600',
+                              borderBottom: '1px solid rgba(255,255,255,0.05)',
+                              background: selectedConstituency === cName ? 'rgba(217, 119, 6, 0.2)' : 'transparent',
+                              textAlign: 'left'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                            onMouseLeave={e => e.currentTarget.style.background = selectedConstituency === cName ? 'rgba(217, 119, 6, 0.2)' : 'transparent'}
+                          >
+                            🏛️ {cName}
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ padding: '10px', color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic' }}>
+                          No constituency found
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', color: '#8e90b3' }}>Issue Keyword / Category</label>
-                <input
-                  type="text"
-                  placeholder="e.g. water, road, school"
+                <label style={{ fontSize: '11px', color: '#8e90b3' }}>Select Category</label>
+                <select
                   value={searchIssueQuery}
                   onChange={e => setSearchIssueQuery(e.target.value)}
-                  style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '6px', fontSize: '13px' }}
-                />
+                  style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold' }}
+                >
+                  <option value="water">💧 Water & Sanitation</option>
+                  <option value="roads">🛣️ Roads & Transport</option>
+                  <option value="education">🎓 Education & Schools</option>
+                  <option value="health">🏥 Healthcare Clinics</option>
+                  <option value="power">⚡ Power & Electricity</option>
+                  <option value="agriculture">🌾 Agriculture & Irrigation</option>
+                  <option value="safety">🛡️ Public Safety & Police</option>
+                  <option value="environment">🌳 Environment & Parks</option>
+                  <option value="welfare">👥 Social Welfare & Pensions</option>
+                  <option value="housing">🏢 Housing & Urban Dev</option>
+                </select>
               </div>
             )}
 
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               
+              {/* AI Summarize Selected Grievances Button */}
+              <div>
+                <button
+                  type="button"
+                  onClick={handleGenerateSearchSummary}
+                  disabled={isGeneratingSearchSummary || matchingDemands.length === 0}
+                  style={{
+                    width: '100%',
+                    background: 'rgba(20, 184, 166, 0.15)',
+                    border: '1px solid #14b8a6',
+                    color: '#2dd4bf',
+                    fontWeight: 'bold',
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {isGeneratingSearchSummary ? (
+                    <>
+                      <Loader2 className="animate-spin" size={12} />
+                      <span>Synthesizing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={12} />
+                      <span>AI Summarize Selected ({matchingDemands.length})</span>
+                    </>
+                  )}
+                </button>
+
+                {searchSummaryText && (
+                  <div style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(20, 184, 166, 0.3)',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    marginTop: '8px',
+                    fontSize: '11px',
+                    color: '#cbd5e1',
+                    lineHeight: '1.45'
+                  }}>
+                    <strong style={{ color: '#2dd4bf', display: 'block', marginBottom: '2px', fontSize: '11.5px' }}>🧙‍♂️ AI Planning Brief:</strong>
+                    {searchSummaryText}
+                  </div>
+                )}
+              </div>
+
               {/* Grievance Inbox (Awaiting Review) */}
               {(() => {
                 const list = matchingDemands.filter(d => !d.status || ['pending', 'needs_info'].includes(d.status));
@@ -814,7 +986,7 @@ function MPApp() {
                     </div>
                     <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {list.length === 0 ? (
-                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No new issues.</span>
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No new grievances.</span>
                       ) : (
                         list.map(d => (
                           <div key={d.id} style={{ background: 'rgba(251,191,36,0.03)', border: '1px solid rgba(251,191,36,0.12)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px' }}>
@@ -885,6 +1057,20 @@ function MPApp() {
                             <p style={{ margin: '2px 0 0 0', color: '#93c5fd', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {d.items?.[0]?.content || d.items?.[0]?.speechTranscript}
                             </p>
+                            <div style={{ marginTop: '6px' }}>
+                              <span style={{ 
+                                fontSize: '9px', 
+                                background: 'linear-gradient(135deg, rgba(129, 140, 248, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%)', 
+                                color: '#2dd4bf', 
+                                padding: '2px 8px', 
+                                borderRadius: '4px', 
+                                fontWeight: 'bold', 
+                                border: '1px solid rgba(20, 184, 166, 0.4)',
+                                display: 'inline-block'
+                              }}>
+                                🏛️ Raised & Funded 💰
+                              </span>
+                            </div>
                           </div>
                         ))
                       )}
@@ -915,6 +1101,20 @@ function MPApp() {
                             <p style={{ margin: '2px 0 0 0', color: '#a7f3d0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {d.items?.[0]?.content || d.items?.[0]?.speechTranscript}
                             </p>
+                            <div style={{ marginTop: '6px' }}>
+                              <span style={{ 
+                                fontSize: '9px', 
+                                background: 'linear-gradient(135deg, rgba(129, 140, 248, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%)', 
+                                color: '#2dd4bf', 
+                                padding: '2px 8px', 
+                                borderRadius: '4px', 
+                                fontWeight: 'bold', 
+                                border: '1px solid rgba(20, 184, 166, 0.4)',
+                                display: 'inline-block'
+                              }}>
+                                🏛️ Raised & Funded 💰
+                              </span>
+                            </div>
                           </div>
                         ))
                       )}
