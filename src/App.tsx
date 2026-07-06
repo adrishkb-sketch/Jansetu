@@ -1039,8 +1039,45 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     if (!activeKey) return;
 
     setAiError(null);
-    setAiIndicator({ active: true, message: 'AI identifying problem details & checking correlations...' });
+    setAiIndicator({ active: true, message: 'AI translating content...' });
     setIsAiAnalyzing(true);
+
+    let translatedText = textToAnalyze;
+    
+    // Check if the text contains non-English characters (indicative of a regional language or mixed script)
+    const isEnglishOnly = /^[\u0000-\u007F]*$/.test(textToAnalyze);
+    if (!isEnglishOnly) {
+      try {
+        const translatePrompt = `You are a translation assistant for Jansetu.
+Translate the following regional Indian language user input into clear, standard English. 
+Preserve all names, locations, numbers, landmarks, and the core complaints/suggestions. 
+Do not add any preamble, conversational fluff, or notes. Return ONLY the translated English text.
+
+Text to translate:
+"${textToAnalyze}"`;
+
+        const translateRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: translatePrompt }] }]
+          })
+        });
+
+        if (translateRes.ok) {
+          const transJson = await translateRes.json();
+          const cleanTrans = transJson.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (cleanTrans && cleanTrans.trim()) {
+            translatedText = cleanTrans.trim();
+            console.log("Translated text to analyze into English:", translatedText);
+          }
+        }
+      } catch (err) {
+        console.error("Gemini translation helper error:", err);
+      }
+    }
+
+    setAiIndicator({ active: true, message: 'AI identifying problem details & checking correlations...' });
 
     let insightsText = "No local landmarks data available.";
     if (insights) {
@@ -1158,7 +1195,7 @@ Format the output strictly as a JSON object with keys:
   "resolvedCircleRadius": 150 or null
 }
 
-Transcript: "${textToAnalyze}"
+Transcript: "${translatedText}"
 JSON:`
             }]
           }],
@@ -1375,12 +1412,6 @@ JSON:`
       const recorder = new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
 
-      const selectElement = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
-      if (selectElement && selectElement.value !== 'en') {
-        selectElement.value = 'en';
-        selectElement.dispatchEvent(new Event('change'));
-      }
-
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
@@ -1406,13 +1437,6 @@ JSON:`
         liveTranscriptRef.current = '';
 
         stream.getTracks().forEach(track => track.stop());
-
-        const restoreSelect = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
-        const activeLang = getActiveLangCode() || selectedLang;
-        if (restoreSelect && restoreSelect.value !== activeLang) {
-          restoreSelect.value = activeLang;
-          restoreSelect.dispatchEvent(new Event('change'));
-        }
 
         const voiceLower = (finalTranscript || '').toLowerCase();
         const isRefusal = voiceLower.includes("dont know") || voiceLower.includes("don't know") || voiceLower.includes("no idea") || voiceLower.includes("submit as is") || voiceLower.includes("submit anyway") || voiceLower.includes("cannot say") || voiceLower.includes("can't say") || voiceLower.includes("cant tell") || voiceLower.includes("can't tell") || voiceLower.includes("dont tell");
