@@ -556,7 +556,10 @@ export async function getDemandById(id: string): Promise<any | null> {
       const docRef = doc(db, 'demands', id);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        firestoreDemand = { id: docSnap.id, ...docSnap.data() };
+        const data = docSnap.data();
+        if (!data.isConfig && !data.isBotSession) {
+          firestoreDemand = { id: docSnap.id, ...data };
+        }
       }
     }
   } catch (e) {
