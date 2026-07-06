@@ -216,8 +216,11 @@ function ManagerConsole() {
 
   const loadData = async () => {
     const data = await getAllDemands();
-    // Sort by date newest first
-    data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    data.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+      const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+      return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+    });
 
     // Retroactively backfill constituency for existing complaints that are missing it
     const backfillPromises = data
@@ -938,7 +941,11 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
     } else if (sortBy === 'upvotes') {
       sourceDemands.sort((a, b) => (b.upvotes || 1) - (a.upvotes || 1));
     } else {
-      sourceDemands.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      sourceDemands.sort((a, b) => {
+        const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+        const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+        return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+      });
     }
 
     sourceDemands.forEach(d => {

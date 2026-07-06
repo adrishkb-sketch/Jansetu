@@ -23,7 +23,12 @@ const getFirebaseConfig = () => {
   const customConfig = localStorage.getItem('jansetu_firebase_config');
   if (customConfig) {
     try {
-      return JSON.parse(customConfig);
+      const parsed = JSON.parse(customConfig);
+      if (parsed && parsed.apiKey && parsed.apiKey !== "AIzaSyDummyKeyForJansetuFastPrototypeScale") {
+        return parsed;
+      } else {
+        localStorage.removeItem('jansetu_firebase_config');
+      }
     } catch (e) {
       console.error('Invalid custom Firebase config, falling back to default.');
     }
@@ -320,7 +325,10 @@ export async function getAllDemands(): Promise<any[]> {
     if (db) {
       const qSnapshot = await getDocs(collection(db, 'demands'));
       qSnapshot.forEach((docSnap) => {
-        firestoreDemands.push({ id: docSnap.id, ...docSnap.data() });
+        const data = docSnap.data();
+        if (docSnap.id !== 'config_gemini' && !data.isConfig) {
+          firestoreDemands.push({ id: docSnap.id, ...data });
+        }
       });
       hasFirestore = true;
     }
@@ -332,7 +340,9 @@ export async function getAllDemands(): Promise<any[]> {
   if (hasFirestore && firestoreDemands.length > 0) {
     const merged: Record<string, any> = {};
     localDemands.forEach(d => {
-      merged[d.id] = d;
+      if (d.id && d.id !== 'config_gemini' && !d.isConfig) {
+        merged[d.id] = d;
+      }
     });
     firestoreDemands.forEach(d => {
       const existing = merged[d.id];
@@ -346,7 +356,9 @@ export async function getAllDemands(): Promise<any[]> {
         merged[d.id] = d;
       }
     });
-    return Object.values(merged);
+    const result = Object.values(merged);
+    saveLocalEmulatorData(result);
+    return result;
   }
   return localDemands;
 }

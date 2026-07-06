@@ -119,8 +119,8 @@ function MPApp() {
     
     if (searchMode === 'issue') {
       filtered = filtered.filter(d => 
-        d.category.toLowerCase().includes(searchIssueQuery.toLowerCase()) || 
-        d.address.toLowerCase().includes(searchIssueQuery.toLowerCase()) ||
+        (d.category || '').toLowerCase().includes(searchIssueQuery.toLowerCase()) || 
+        (d.address || '').toLowerCase().includes(searchIssueQuery.toLowerCase()) ||
         (d.items && d.items.some((item: any) => 
           (item.content && item.content.toLowerCase().includes(searchIssueQuery.toLowerCase())) ||
           (item.speechTranscript && item.speechTranscript.toLowerCase().includes(searchIssueQuery.toLowerCase()))
