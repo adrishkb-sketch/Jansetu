@@ -758,7 +758,7 @@ async function runBotInputAnalysis(chatId, session) {
       "problemBrief": "A 2-3 sentence clear summary outlining the infrastructure deficits, risks, and impact.",
       "detectedLocationName": "The specific landmark, institution, street, or place name mentioned in the text, or null if none found",
       "detectedLocationType": "school | hospital | police_station | road | market | park | temple | bus_stand | colony | other | null",
-      "requiresClarification": boolean (true if details are vague, missing outage duration, street markers, or dimensions),
+      "requiresClarification": boolean (set to true if the details lack precise user-provided landmark markers, street names, duration, or dimensions. IMPORTANT: If the input does not contain the phrase 'Additional user clarification', set requiresClarification to true and ask a friendly follow-up question requesting the exact landmark, road name, or duration of the issue),
       "clarificationQuestion": "A clear question asking for the missing parameter, or null if requiresClarification is false"
     }
   `;
