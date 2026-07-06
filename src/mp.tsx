@@ -57,6 +57,8 @@ function MPApp() {
   const [speechDraft, setSpeechDraft] = useState<string>('');
   const [speechSlides, setSpeechSlides] = useState<string[]>([]);
   const [activeSpeechSlide, setActiveSpeechSlide] = useState<number>(0);
+  const [aiActionAuditReport, setAiActionAuditReport] = useState<string | null>(null);
+  const [isAuditingAction, setIsAuditingAction] = useState<boolean>(false);
 
   // Action Plan from Manager
   const [approvedPlan, setApprovedPlan] = useState<any | null>(null);
@@ -261,6 +263,77 @@ function MPApp() {
     }
   };
 
+  const runParliamentActionAudit = async (actionType: 'raise' | 'fund', dataDetail: any) => {
+    setIsAuditingAction(true);
+    setAiActionAuditReport("🤖 Gemini is conducting a Parliamentary Action & Local Grievance Alignment Audit...");
+
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
+    
+    const raisedDemands = matchingDemands;
+    const raisedDemandsCount = raisedDemands.length;
+
+    const similarDemands = demands.filter(d => 
+      (d.constituency || 'Rampur').toLowerCase() === selectedConstituency.toLowerCase() &&
+      d.status !== 'raised' && d.status !== 'funded' && d.status !== 'completed'
+    );
+
+    let prompt = '';
+    if (actionType === 'raise') {
+      prompt = `
+        You are the Parliamentary AI Audit Assistant for Jansetu.
+        The MP has just clicked the "Raise in Parliament" button, marking ${raisedDemandsCount} citizen complaints as "Speech Raised" in ${selectedConstituency}.
+        Here is the real data of the complaints raised:
+        ${JSON.stringify(raisedDemands.map(d => ({ category: d.category, content: d.items?.[0]?.content, address: d.address, upvotes: d.upvotes || 1 })))}
+
+        Other similar unresolved grievances in this constituency (${selectedConstituency}) that still need voice representation:
+        ${JSON.stringify(similarDemands.slice(0, 10).map(d => ({ category: d.category, content: d.items?.[0]?.content, address: d.address, upvotes: d.upvotes || 1 })))}
+
+        Please analyze this parliamentary action and output a concise, professional report (3-4 bullet points) containing:
+        1. An impact verification of the specific complaints that were just voiced in parliament.
+        2. A comparison showing what fraction of the constituency's total grievances this addresses.
+        3. A list of remaining similar unresolved issues in the constituency that still require voice representation or attention.
+        
+        Use ONLY the real data provided. Do not invent any issues. Output clean, readable text.
+      `;
+    } else {
+      prompt = `
+        You are the Parliamentary AI Audit Assistant for Jansetu.
+        The MP has just allocated MPLADS funding for: "${dataDetail.planName || 'Development Plan'}" in constituency "${selectedConstituency}".
+        Detail of funded action steps:
+        ${JSON.stringify(dataDetail.steps)}
+
+        The citizen complaints associated with this plan:
+        ${JSON.stringify(raisedDemands.slice(0, 5).map(d => ({ category: d.category, content: d.items?.[0]?.content, address: d.address, upvotes: d.upvotes || 1 })))}
+
+        Other similar unresolved grievances in this constituency (${selectedConstituency}) that still need budget allocation:
+        ${JSON.stringify(similarDemands.slice(0, 10).map(d => ({ category: d.category, content: d.items?.[0]?.content, address: d.address, upvotes: d.upvotes || 1 })))}
+
+        Please analyze this budget allocation and output a concise, professional report (3-4 bullet points) containing:
+        1. An impact audit showing how this funding addresses the primary infrastructure gaps and citizens' demands.
+        2. A summary of similar unresolved grievances in the constituency that still need budget/resources.
+        3. A recommendation on which related projects to fund next in this area based on the remaining demands.
+
+        Use ONLY the real data provided. Do not invent any issues. Output clean, readable text.
+      `;
+    }
+
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      if (!res.ok) throw new Error("API failure");
+      const resData = await res.json();
+      const report = resData.candidates?.[0]?.content?.parts?.[0]?.text || 'Audit completed with no output.';
+      setAiActionAuditReport(report);
+    } catch (err) {
+      setAiActionAuditReport("⚠️ AI Audit Generation failed. Please ensure a valid Gemini API Key is entered in settings.");
+    } finally {
+      setIsAuditingAction(false);
+    }
+  };
+
   const handleRaiseInParliament = async () => {
     if (matchingDemands.length === 0) {
       alert("No matching citizen complaints found to raise in parliament.");
@@ -284,6 +357,7 @@ function MPApp() {
 
     alert(`Successfully raised the issues in Parliament! Marked all plan steps and ${matchingDemands.length} citizen complaints as "Speech Raised".`);
     loadData();
+    runParliamentActionAudit('raise', null);
   };
 
   // Fund Approved Plan Entirely
@@ -332,6 +406,10 @@ function MPApp() {
 
     alert(`Successfully allocated ₹${totalCostToFund.toLocaleString()}! Entire project has been funded and authorized!`);
     loadData();
+    runParliamentActionAudit('fund', {
+      planName: approvedPlan.planName,
+      steps: stepsToFundIndices.map(idx => approvedPlan.detailedSteps[idx])
+    });
   };
 
   // Fund Approved Plan Individual Step
@@ -367,6 +445,10 @@ function MPApp() {
 
     alert(`Successfully allocated ₹${cost.toLocaleString()} to step "${step.title}"!`);
     loadData();
+    runParliamentActionAudit('fund', {
+      planName: approvedPlan.planName,
+      steps: [step]
+    });
   };
 
   // Play audio morning briefing
@@ -663,13 +745,36 @@ function MPApp() {
                     </div>
                   </div>
                   
-                  <button
+                   <button
                     onClick={handleRaiseInParliament}
-                    style={{ background: '#818cf8', border: 'none', color: 'white', fontWeight: 'bold', padding: '12px 24px', borderRadius: '8px', fontSize: '13.5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', alignSelf: 'flex-start' }}
+                    disabled={isAuditingAction}
+                    style={{ background: '#818cf8', border: 'none', color: 'white', fontWeight: 'bold', padding: '12px 24px', borderRadius: '8px', fontSize: '13.5px', cursor: isAuditingAction ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', alignSelf: 'flex-start', opacity: isAuditingAction ? 0.7 : 1 }}
                   >
-                    <Volume2 size={16} />
+                    {isAuditingAction ? <Loader2 size={16} className="animate-spin" /> : <Volume2 size={16} />}
                     <span>📢 Raise in Parliament (Mark as Speech Raised)</span>
                   </button>
+
+                  {aiActionAuditReport && (
+                    <div style={{
+                      marginTop: '20px',
+                      background: 'rgba(99, 102, 241, 0.08)',
+                      border: '1px solid rgba(99, 102, 241, 0.3)',
+                      borderRadius: '8px',
+                      padding: '16px 20px',
+                      fontSize: '12.5px',
+                      color: '#c7d2fe',
+                      lineHeight: '1.5',
+                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+                    }}>
+                      <h4 style={{ margin: '0 0 10px 0', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 'bold' }}>
+                        <Sparkles size={16} />
+                        <span>🤖 Live Parliamentary Action & Grievance Alignment Audit:</span>
+                      </h4>
+                      <div style={{ whiteSpace: 'pre-line' }}>
+                        {aiActionAuditReport}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -769,6 +874,27 @@ function MPApp() {
                 <h4 style={{ color: 'white', margin: '6px 0 2px 0', fontSize: '1rem' }}>{approvedPlan.planName}</h4>
                 <p style={{ color: 'var(--text-desc)', fontSize: '12.5px', margin: 0 }}>{approvedPlan.summary}</p>
               </div>
+
+              {aiActionAuditReport && (
+                <div style={{
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  borderRadius: '8px',
+                  padding: '16px 20px',
+                  fontSize: '12.5px',
+                  color: '#c7d2fe',
+                  lineHeight: '1.5',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+                }}>
+                  <h4 style={{ margin: '0 0 10px 0', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 'bold' }}>
+                    <Sparkles size={16} />
+                    <span>🤖 Live Parliamentary Action & Grievance Alignment Audit:</span>
+                  </h4>
+                  <div style={{ whiteSpace: 'pre-line' }}>
+                    {aiActionAuditReport}
+                  </div>
+                </div>
+              )}
 
               {/* Progress Tracker Visual Timeline */}
               <div>

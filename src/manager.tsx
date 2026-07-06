@@ -102,6 +102,7 @@ function ManagerConsole() {
   const [showAiClusterConstituencyDropdown, setShowAiClusterConstituencyDropdown] = useState(false);
   const [aiClusterStartDate, setAiClusterStartDate] = useState<string>('');
   const [aiClusterEndDate, setAiClusterEndDate] = useState<string>('');
+  const [aiClusterTicketType, setAiClusterTicketType] = useState<string>('all');
 
   // Constituency Plan & Proposal Builder States
   const [selectedConstituencyPlanIds, setSelectedConstituencyPlanIds] = useState<string[]>(() => {
@@ -251,7 +252,12 @@ function ManagerConsole() {
       filteredDemands = filteredDemands.filter(d => d.category.toLowerCase() === aiClusterTargetCategory.toLowerCase());
     }
 
-    // 3. Apply date range filter
+    // 3. Apply ticket type filter
+    if (aiClusterTicketType !== 'all') {
+      filteredDemands = filteredDemands.filter(d => (d.ticketType || 'complaint') === aiClusterTicketType);
+    }
+
+    // 4. Apply date range filter
     if (aiClusterStartDate) {
       const start = new Date(aiClusterStartDate);
       start.setHours(0, 0, 0, 0);
@@ -264,7 +270,7 @@ function ManagerConsole() {
     }
 
     if (filteredDemands.length === 0) {
-      alert(`No verified complaints found matching your filters.\n\nOnly complaints marked as "Verified" by a manager are eligible for AI clustering.\n\nCheck the Complaint Registry tab to verify complaints first.`);
+      alert(`No verified items (complaints/suggestions) found matching your filters.\n\nOnly complaints or suggestions marked as "Verified" by a manager are eligible for AI clustering.\n\nCheck the Complaint Registry tab to verify items first.`);
       return;
     }
 
@@ -2558,6 +2564,20 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                       </select>
                     </div>
                   )}
+
+                  {/* Ticket Type Filter */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#c7d2fe', fontWeight: 'bold' }}>Ticket Type</span>
+                    <select
+                      value={aiClusterTicketType}
+                      onChange={e => setAiClusterTicketType(e.target.value)}
+                      style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '6px 10px', borderRadius: '6px', fontSize: '12.5px' }}
+                    >
+                      <option value="all">All (Complaints & Suggestions)</option>
+                      <option value="complaint">Complaints Only</option>
+                      <option value="suggestion">Suggestions Only</option>
+                    </select>
+                  </div>
 
                   {/* Date Range Filter */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
