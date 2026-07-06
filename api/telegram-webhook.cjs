@@ -38,6 +38,7 @@ const bot = new TelegramBot(BOT_TOKEN);
 
 // Load backup/custom key config
 let geminiKeys = [
+  Buffer.from('QVEuQWI4Uk42S09xQ2RrQUhiZERJaV9ydzNrVjN3aW4weFB1RUJFTkowZ2cyTkhubk5hRlE=', 'base64').toString('utf8'),
   Buffer.from('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=', 'base64').toString('utf8'),
   Buffer.from('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=', 'base64').toString('utf8')
 ];
@@ -76,6 +77,7 @@ async function syncKeysFromFirestore() {
         const parsedKeys = fetched.split(/[\n\r,;]+/).map(k => k.trim()).filter(Boolean);
         if (parsedKeys.length > 0) {
           geminiKeys = [...new Set([
+            Buffer.from('QVEuQWI4Uk42S09xQ2RrQUhiZERJaV9ydzNrVjN3aW4weFB1RUJFTkowZ2cyTkhubk5hRlE=', 'base64').toString('utf8'),
             Buffer.from('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=', 'base64').toString('utf8'),
             Buffer.from('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=', 'base64').toString('utf8'),
             ...parsedKeys,
