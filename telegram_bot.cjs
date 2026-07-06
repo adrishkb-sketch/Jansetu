@@ -671,6 +671,10 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
             });
           });
         }
+        // Send AI analysis description to user
+        const descriptionMsg = `🔍 *AI Image Analysis Summary:* \n\n${content}`;
+        const transDescription = await translateBotText(descriptionMsg, lang);
+        await bot.sendMessage(chatId, transDescription, { parse_mode: 'Markdown' });
       } catch (err) {
         console.error('[Bot Photo]', err);
         content = 'Photo received (Analysis failed — please add a text description).';
