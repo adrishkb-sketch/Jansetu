@@ -14,8 +14,8 @@ let cachedFirestoreKeys: string[] = [];
 async function getKeys(): Promise<string[]> {
   const keysString = localStorage.getItem('jansetu_gemini_key') || '';
 
-  // If it's the old blocked key or empty, we fetch from Firestore config
-  if (!keysString || keysString === 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw') {
+  // If it's the old blocked key, empty, or dummy, we fetch from Firestore config
+  if (!keysString || keysString === 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw' || keysString === 'AIzaSyDummyKeyForJansetuFastPrototypeScale') {
     if (cachedFirestoreKeys.length > 0) {
       return cachedFirestoreKeys;
     }
@@ -46,7 +46,11 @@ async function getKeys(): Promise<string[]> {
         if (fetched) {
           localStorage.setItem('jansetu_gemini_key', fetched);
           cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
-          console.log("[Jansetu AI] Successfully loaded API keys from Firestore configuration.");
+          
+          const userKey = atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
+          if (!cachedFirestoreKeys.includes(userKey)) {
+            cachedFirestoreKeys.unshift(userKey);
+          }
           return cachedFirestoreKeys;
         }
       }
@@ -55,14 +59,15 @@ async function getKeys(): Promise<string[]> {
     }
   }
 
-  const target = keysString || 'AIzaSyDummyKeyForJansetuFastPrototypeScale';
+  const target = keysString || atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
   const parsed = target
     .split(/[\n\r,;]+/)
     .map(k => k.trim())
     .filter(k => k.length > 0);
   
-  if (parsed.length === 0) {
-    parsed.push('AIzaSyDummyKeyForJansetuFastPrototypeScale');
+  const userKey = atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
+  if (!parsed.includes(userKey)) {
+    parsed.unshift(userKey);
   }
   return parsed;
 }

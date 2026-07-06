@@ -37,7 +37,7 @@ const BOT_TOKEN = "8724667418:AAFSz9FkGQd0DlyCf6TnrsVKdke-4xnx1Aw";
 const bot = new TelegramBot(BOT_TOKEN);
 
 // Load backup/custom key config
-let geminiKeys = [];
+let geminiKeys = [atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=')];
 try {
   const filepath = path.join(__dirname, "bot_config.json");
   if (fs.existsSync(filepath)) {
@@ -72,7 +72,7 @@ async function syncKeysFromFirestore() {
         const fetched = data.keys.trim();
         const parsedKeys = fetched.split(/[\n\r,;]+/).map(k => k.trim()).filter(Boolean);
         if (parsedKeys.length > 0) {
-          geminiKeys = [...new Set([...parsedKeys, ...geminiKeys])];
+          geminiKeys = [...new Set([atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E='), ...parsedKeys, ...geminiKeys])];
         }
       }
     }
