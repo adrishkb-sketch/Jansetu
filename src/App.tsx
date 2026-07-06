@@ -23,7 +23,7 @@ import {
   Activity
 } from 'lucide-react';
 import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
-import { getConstituencyOfLocation } from './services/constituency_datasets';
+import { getConstituencyOfLocation, ALL_CONSTITUENCIES_DATA } from './services/constituency_datasets';
 import { fetchGemini } from './services/gemini_api';
 
 // ISO 639-1 / Google Translate codes for the 22 Scheduled Indian Languages + English
@@ -1855,7 +1855,7 @@ JSON:`
       scope,
       location: location || { lat: 0, lng: 0 },
       address,
-      constituency: getConstituencyOfLocation(
+      constituency: detectedConstituency || getConstituencyOfLocation(
         (location || { lat: 0, lng: 0 }).lat,
         (location || { lat: 0, lng: 0 }).lng,
         address
@@ -2393,31 +2393,58 @@ JSON:`
               <h3>2. Select Location on Map (Compulsory)</h3>
             </div>
  
-            <div className="address-display" style={{ marginTop: '14px' }}>
-              <span className="address-label">📍 Selected Address:</span>
-              <p className={address ? 'address-text' : 'address-text placeholder'}>
-                {address || 'No location selected. Please tap your location on the map below or click Auto-Detect.'}
-              </p>
-              {detectedConstituency && (
-                <div style={{ 
-                  marginTop: '10px', 
-                  fontSize: '13px', 
-                  color: '#818cf8', 
-                  fontWeight: 'bold', 
-                  background: 'rgba(99, 102, 241, 0.1)', 
-                  padding: '8px 12px', 
-                  borderRadius: '6px', 
-                  border: '1px solid rgba(99, 102, 241, 0.2)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <span>🏛️ Detected Constituency:</span>
-                  <span style={{ color: 'white', background: '#4f46e5', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                    {detectedConstituency}
-                  </span>
-                </div>
-              )}
+            <div className="address-display" style={{ marginTop: '14px', background: 'transparent', border: 'none', padding: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '13px', color: '#c7d2fe', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>📍 Selected Address:</span>
+                </label>
+                <textarea
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  placeholder="No location selected. Tap the map below or write details..."
+                  style={{
+                    width: '100%',
+                    background: 'rgba(0,0,0,0.25)',
+                    border: '1px solid var(--border-light)',
+                    color: 'white',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    minHeight: '60px',
+                    lineHeight: '1.4'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '16px' }}>
+                <label style={{ fontSize: '13px', color: '#c7d2fe', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>🏛️ Selected Constituency:</span>
+                </label>
+                <select
+                  value={detectedConstituency}
+                  onChange={e => setDetectedConstituency(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: '#0e0d24',
+                    border: '1px solid var(--border-light)',
+                    color: 'white',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '600'
+                  }}
+                >
+                  <option value="">-- Choose Constituency --</option>
+                  {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
+                    <option key={cName} value={cName}>{cName}</option>
+                  ))}
+                </select>
+                <span style={{ fontSize: '11px', color: '#8e90b3', fontStyle: 'italic' }}>
+                  Auto-detected from coordinates, but you can manually correct it if the mapping is incorrect.
+                </span>
+              </div>
             </div>
  
             <GoogleMapComponent
