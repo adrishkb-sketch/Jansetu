@@ -86,6 +86,52 @@ function rotateGeminiKey() {
   console.log(`Rotated to backup Gemini key: index ${currentKeyIndex % geminiKeys.length}`);
 }
 
+// Sync API keys from Firestore demands/config_gemini
+async function syncKeysFromFirestore() {
+  try {
+    const docRef = doc(db, 'demands', 'config_gemini');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data && data.keys) {
+        const fetched = data.keys.trim();
+        const parsedKeys = fetched.split(/[\n\r,;]+/).map(k => k.trim()).filter(Boolean);
+        if (parsedKeys.length > 0) {
+          geminiKeys = [...new Set([...parsedKeys, ...geminiKeys])];
+          console.log(`[Bot Gemini] Successfully synchronized ${parsedKeys.length} keys from Firestore config_gemini!`);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[Bot Gemini] Failed to sync keys from Firestore:", err.message);
+  }
+}
+
+// Crowdsourcing clarification details question
+async function askGeminiWhatDetailsAreNeeded(gap) {
+  if (gap.clarificationQuestion) {
+    return gap.clarificationQuestion;
+  }
+  const description = gap.items?.[0]?.content || gap.items?.[0]?.speechTranscript || '';
+  const prompt = `
+    Analyze this citizen complaint which is marked as incomplete:
+    Description: "${description}"
+    
+    Identify what specific additional details or pictures are needed from the public (e.g. landmarks, precise street names, dimensions of the pothole, duration of the issue, clear pictures of the damage).
+    Output a friendly, concise, single question/prompt asking the local public to provide these missing details so we can verify the issue.
+    Example: "Please provide the exact street name or any nearby landmark where the water logging is occurring."
+  `;
+  try {
+    const res = await fetchGeminiWithFallback([{ parts: [{ text: prompt }] }]);
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (text) return text;
+  } catch (e) {
+    console.error("Gemini details prompt call failed:", e);
+  }
+  return "Please provide more details or pictures of the issue to help us verify it.";
+}
+
 // Auto-detect actual MIME type from base64 header bytes
 function detectMimeFromBase64(base64) {
   const sig = base64.substring(0, 8);
@@ -151,6 +197,7 @@ function normalizeBoxes(rawBoxes) {
 
 // Text-only fallback (no vision) — tries all keys on gemini-2.5-flash
 async function fetchGeminiWithFallback(contents) {
+  await syncKeysFromFirestore();
   const maxRetries = Math.max(3, geminiKeys.length);
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const key = getActiveGeminiKey();
@@ -189,6 +236,7 @@ async function fetchGeminiWithFallback(contents) {
 // Vision-specific cascade: tries gemini-2.5-flash → 2.0-flash → 1.5-pro
 // Each model is tried with all keys before falling to next model.
 async function fetchGeminiVision(parts) {
+  await syncKeysFromFirestore();
   const VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
   for (const model of VISION_MODELS) {
     for (let i = 0; i < geminiKeys.length; i++) {
@@ -348,7 +396,7 @@ const T = {
   option1: "📝 Register Complaint",
   option2: "💡 Send Suggestion",
   option3: "🔍 Track Status",
-  option4: "🗳️ Upvote Local Gaps",
+  option4: "🗳️ Update Local Gaps",
   promptMedia: "Please submit your detail: You can type text, send a photo of the issue, or record a voice note.",
   processing: "⏳ Jansetu AI is processing your input...",
   promptTrackId: "🔍 *Track Your Complaint*\n\nPlease enter your full Complaint Reference ID (e.g., `JS-HOW-2026-X8D2K`):",
@@ -512,6 +560,65 @@ bot.on('message', async (msg) => {
       const errorMsg = await translateBotText("Please enter a valid positive number for population:", lang);
       await bot.sendMessage(chatId, errorMsg);
     }
+    return;
+  }
+
+  // Handle providing missing details for incomplete complaints/gaps
+  if (session.step === 'PROVIDE_DETAILS') {
+    let content = userText;
+    let photoFileId = msg.photo ? msg.photo[msg.photo.length - 1].file_id : null;
+    let fileUrl = '';
+    
+    await syncKeysFromFirestore();
+    const processingMsg = await translateBotText("⏳ Adding your contribution...", lang);
+    const sentMsg = await bot.sendMessage(chatId, processingMsg);
+    
+    if (photoFileId) {
+      try {
+        fileUrl = await bot.getFileLink(photoFileId);
+        content = content || 'Uploaded a photo contribution';
+      } catch (err) {
+        console.error("Failed to get file link:", err);
+      }
+    }
+    
+    try {
+      const docRef = doc(db, 'demands', session.activeGapDocId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const itemData = docSnap.data();
+        const items = itemData.items || [];
+        items.push({
+          type: photoFileId ? 'photo' : 'text',
+          content: content,
+          fileUrl: fileUrl,
+          createdAt: new Date().toISOString()
+        });
+        
+        await updateDoc(docRef, {
+          items: items,
+          status: 'pending',
+          needsMoreInfo: false,
+          updatedAt: new Date().toISOString()
+        });
+        
+        try {
+          await bot.deleteMessage(chatId, sentMsg.message_id);
+        } catch {}
+        
+        const successText = await translateBotText("✅ Thank you! Your crowdsourced contribution has been added. The planning team has been notified and the issue is now pending verification.", lang);
+        await bot.sendMessage(chatId, successText);
+      }
+    } catch (err) {
+      console.error(err);
+      bot.sendMessage(chatId, "Failed to submit details. Please try again.");
+    }
+    
+    session.step = 'MENU';
+    session.activeGapDocId = null;
+    session.localGaps = null;
+    userState.set(chatId, session);
+    sendMainMenu(chatId, lang);
     return;
   }
 
@@ -781,6 +888,8 @@ async function runBotInputAnalysis(chatId, session) {
     session.tempSubmission.safetyRisk = result.safetyRisk || 'Low Risk';
     session.tempSubmission.estimatedBudget = result.estimatedBudget || 'Medium Budget';
     session.tempSubmission.aiSummary = result.problemBrief || '';
+    session.tempSubmission.requiresClarification = result.requiresClarification || false;
+    session.tempSubmission.clarificationQuestion = result.clarificationQuestion || null;
 
     // Save detected location name for optional tagging
     if (result.detectedLocationName && result.detectedLocationName !== 'null') {
@@ -943,7 +1052,9 @@ async function submitFinalComplaint(chatId, session) {
     }],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    status: 'pending',
+    status: (sub.requiresClarification && !sub.submittedAsIs) ? 'needs_info' : 'pending',
+    needsMoreInfo: (sub.requiresClarification && !sub.submittedAsIs),
+    clarificationQuestion: sub.clarificationQuestion || undefined,
     upvotes: 1,
     estimatedImpact: sub.population || 5000,
     urgency: (sub.urgency || 'Immediate Attention').replace(/🚨|🔔/g, '').trim(),
@@ -967,7 +1078,9 @@ async function submitFinalComplaint(chatId, session) {
     const trackingUrl = `https://jansetu-ef57d.web.app/track.html?id=${ticketId}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(trackingUrl)}`;
 
-    const rawSuccess = `✅ *Grievance Registered Successfully via JanSetuBot!*\n\nTicket Reference ID:\n\`${ticketId}\`\n\nYou can track this ticket live on the portal using the link below or by scanning the generated QR code.`;
+    const isSug = sub.type === 'suggestion';
+    const typeLabel = isSug ? "Suggestion" : "Grievance";
+    const rawSuccess = `✅ *${typeLabel} Registered Successfully via JanSetuBot!*\n\nTicket Reference ID:\n\`${ticketId}\`\n\nYou can track this ticket live on the portal using the link below or by scanning the generated QR code.`;
     const successMsg = await translateBotText(rawSuccess, lang);
 
     await bot.sendMessage(chatId, successMsg, { parse_mode: 'Markdown' });
@@ -1029,58 +1142,110 @@ bot.on('callback_query', async (queryData) => {
     const msgText = await translateBotText(T.promptTrackId, lang);
     bot.sendMessage(chatId, msgText);
   } else if (data === 'menu_4') {
-    const consty = session.constituency || 'Rampur';
+    if (!session.location || !session.location.lat || !session.location.lng) {
+      const noLocMsg = await translateBotText("📍 Please share your location first to check local gaps.", lang);
+      bot.sendMessage(chatId, noLocMsg);
+      bot.answerCallbackQuery(queryData.id);
+      return;
+    }
+    
+    await syncKeysFromFirestore();
+    const processingMsg = await translateBotText("⏳ Fetching and analyzing nearby issues...", lang);
+    const sentMsg = await bot.sendMessage(chatId, processingMsg);
+
     try {
-      const q = query(
-        collection(db, 'demands'),
-        where('constituency', '==', consty),
-        orderBy('createdAt', 'desc'),
-        limit(5)
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) {
-        const noIssuesMsg = await translateBotText(T.noIssues, lang);
-        bot.sendMessage(chatId, noIssuesMsg);
-      } else {
-        const upvoteTitle = await translateBotText(T.upvoteListTitle, lang);
-        await bot.sendMessage(chatId, upvoteTitle);
-        
-        for (const docSnap of snap.docs) {
-          const item = docSnap.data();
-          const detailMsg = `📍 *Grievance:* ${item.category.toUpperCase()} issue\nStatus: ${item.status}\n👍 Upvotes: ${item.upvotes || 1}\nDetail: "${item.aiOverview?.brief || item.items?.[0]?.content?.slice(0, 100)}"`;
-          const translatedDetail = await translateBotText(detailMsg, lang);
-          const upvoteBtnText = await translateBotText("👍 Upvote Issue", lang);
-          
-          await bot.sendMessage(chatId, translatedDetail, {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: upvoteBtnText, callback_data: `upvote_${docSnap.id}` }]
-              ]
-            }
-          });
+      const snap = await getDocs(collection(db, 'demands'));
+      const list = [];
+      snap.forEach(docSnap => {
+        const item = docSnap.data();
+        if (docSnap.id === 'config_gemini' || item.isConfig) return;
+        if (item.status === 'pending' || item.status === 'needs_info') {
+          list.push({ id: docSnap.id, ...item });
         }
-      }
+      });
+
+      list.sort((a, b) => {
+        const distA = getHaversineDistance(session.location.lat, session.location.lng, a.location?.lat || 28.803, a.location?.lng || 79.025);
+        const distB = getHaversineDistance(session.location.lat, session.location.lng, b.location?.lat || 28.803, b.location?.lng || 79.025);
+        return distA - distB;
+      });
+
+      session.localGaps = { list, index: 0 };
+      session.step = 'LOCAL_GAPS_FLOW';
+      userState.set(chatId, session);
+
+      try {
+        await bot.deleteMessage(chatId, sentMsg.message_id);
+      } catch {}
+      bot.answerCallbackQuery(queryData.id);
+      await showCurrentLocalGap(chatId, session);
     } catch (err) {
       console.error(err);
-      const noIssuesMsg = await translateBotText(T.noIssues, lang);
-      bot.sendMessage(chatId, noIssuesMsg);
+      bot.answerCallbackQuery(queryData.id);
+      bot.sendMessage(chatId, "Failed to load local gaps.");
     }
   }
 
-  // Handle Upvotes
-  if (data.startsWith('upvote_')) {
-    const docId = data.replace('upvote_', '');
+  // Handle local gaps flow navigation callbacks
+  if (data === 'gap_next') {
+    if (session.localGaps) {
+      session.localGaps.index++;
+      userState.set(chatId, session);
+      await showCurrentLocalGap(chatId, session);
+    }
+    bot.answerCallbackQuery(queryData.id);
+  }
+
+  if (data === 'gap_menu') {
+    session.step = 'MENU';
+    session.localGaps = null;
+    userState.set(chatId, session);
+    bot.answerCallbackQuery(queryData.id);
+    sendMainMenu(chatId, lang);
+  }
+
+  if (data.startsWith('gap_upvote_') || data.startsWith('upvote_')) {
+    const docId = data.replace('gap_upvote_', '').replace('upvote_', '');
     try {
       const docRef = doc(db, 'demands', docId);
       await updateDoc(docRef, {
         upvotes: increment(1)
       });
+      if (session.localGaps?.list) {
+        const gap = session.localGaps.list.find(g => g.id === docId);
+        if (gap) gap.upvotes = (gap.upvotes || 1) + 1;
+      }
       const upvoteDoneText = await translateBotText(T.upvoteDone, lang);
       bot.answerCallbackQuery(queryData.id, { text: upvoteDoneText, show_alert: true });
-    } catch {
-      const errText = await translateBotText("Error upvoting.", lang);
-      bot.answerCallbackQuery(queryData.id, { text: errText, show_alert: true });
+      if (session.step === 'LOCAL_GAPS_FLOW') {
+        await showCurrentLocalGap(chatId, session);
+      }
+    } catch (err) {
+      console.error(err);
+      bot.answerCallbackQuery(queryData.id, { text: "Error upvoting.", show_alert: true });
+    }
+  }
+
+  if (data.startsWith('gap_details_')) {
+    const docId = data.replace('gap_details_', '');
+    session.step = 'PROVIDE_DETAILS';
+    session.activeGapDocId = docId;
+    userState.set(chatId, session);
+    bot.answerCallbackQuery(queryData.id);
+
+    try {
+      const docRef = doc(db, 'demands', docId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const gap = { id: docSnap.id, ...docSnap.data() };
+        await syncKeysFromFirestore();
+        const question = await askGeminiWhatDetailsAreNeeded(gap);
+        const transPrompt = await translateBotText(`✍️ *Crowdsourcing details for Grievance #${gap.id}*\n\n_${question}_\n\n👉 Please reply to this message directly with your text description or upload a clear photo of the issue.`, lang);
+        await bot.sendMessage(chatId, transPrompt, { parse_mode: 'Markdown' });
+      }
+    } catch (err) {
+      console.error(err);
+      bot.sendMessage(chatId, "Failed to load details.");
     }
   }
 
@@ -1200,6 +1365,79 @@ bot.on('callback_query', async (queryData) => {
     bot.answerCallbackQuery(queryData.id);
   }
 });
+
+// Interactive gaps display
+async function showCurrentLocalGap(chatId, session) {
+  const gaps = session.localGaps?.list || [];
+  const idx = session.localGaps?.index || 0;
+  const lang = session.lang || 'en';
+
+  if (gaps.length === 0 || idx >= gaps.length) {
+    const noGapsMsg = await translateBotText("🎉 Great job! No pending or incomplete local gaps found near your location.", lang);
+    await bot.sendMessage(chatId, noGapsMsg);
+    
+    session.step = 'MENU';
+    session.localGaps = null;
+    userState.set(chatId, session);
+    sendMainMenu(chatId, lang);
+    return;
+  }
+
+  const gap = gaps[idx];
+  const distance = getHaversineDistance(
+    session.location.lat, 
+    session.location.lng, 
+    gap.location?.lat || 28.803, 
+    gap.location?.lng || 79.025
+  ).toFixed(1);
+
+  const isSuggestion = gap.ticketType === 'suggestion';
+  const typeLabel = isSuggestion ? "💡 Suggestion" : "⚠️ Complaint";
+  
+  let detailMsg = `📍 *Local Gap ${idx + 1} of ${gaps.length}* (${distance} km away)\n\n` +
+                  `*Type:* ${typeLabel}\n` +
+                  `*Category:* ${gap.category.toUpperCase()}\n` +
+                  `*Status:* ${gap.status === 'needs_info' ? '❓ Needs Details' : '📥 Pending Verification'}\n` +
+                  `*Upvotes/Signatures:* 👍 ${gap.upvotes || 1}\n` +
+                  `*Description:* "${gap.aiOverview?.brief || gap.items?.[0]?.content?.slice(0, 150) || 'No description'}"\n`;
+
+  let detailsNeededPrompt = "";
+  if (gap.status === 'needs_info' || gap.needsMoreInfo) {
+    await syncKeysFromFirestore();
+    const question = await askGeminiWhatDetailsAreNeeded(gap);
+    detailsNeededPrompt = `\n❓ *MISSING DETAILS NEEDED:* \n_${question}_\n\n👉 *You can reply with text or upload a photo to provide these details!*`;
+  }
+
+  const translatedDetail = await translateBotText(detailMsg, lang) + (detailsNeededPrompt ? `\n` + await translateBotText(detailsNeededPrompt, lang) : "");
+  
+  const upvoteBtnText = await translateBotText("👍 Upvote This", lang);
+  const addDetailsBtnText = await translateBotText("✍️ Provide Details", lang);
+  const nextBtnText = await translateBotText("➡️ Next", lang);
+  const backMenuBtnText = await translateBotText("🔙 Main Menu", lang);
+
+  const inlineKeyboard = [];
+  const actionRow = [];
+  
+  actionRow.push({ text: upvoteBtnText, callback_data: `gap_upvote_${gap.id}` });
+  if (gap.status === 'needs_info' || gap.needsMoreInfo) {
+    actionRow.push({ text: addDetailsBtnText, callback_data: `gap_details_${gap.id}` });
+  }
+  inlineKeyboard.push(actionRow);
+
+  const navRow = [];
+  if (idx < gaps.length - 1) {
+    navRow.push({ text: nextBtnText, callback_data: `gap_next` });
+  }
+  navRow.push({ text: backMenuBtnText, callback_data: `gap_menu` });
+  inlineKeyboard.push(navRow);
+
+  await bot.sendMessage(chatId, translatedDetail, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: inlineKeyboard
+    }
+  });
+}
 
 // Helper: Show Main Menu Inline Buttons
 async function sendMainMenu(chatId, lang) {
