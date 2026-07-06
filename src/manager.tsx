@@ -861,9 +861,9 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
   };
 
   const handleApproveAllPending = async () => {
-    const pendingDemands = demands.filter(d => d.status === 'pending');
+    const pendingDemands = demands.filter(d => d.status === 'pending' && !d.needsMoreInfo);
     if (pendingDemands.length === 0) {
-      alert("No pending complaints found to verify.");
+      alert("No verified pending complaints found to approve.");
       return;
     }
     for (const d of pendingDemands) {
@@ -2137,38 +2137,46 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                     </div>
 
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      {selectedComplaint.status !== 'verified' && selectedComplaint.status !== 'approved' && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(selectedComplaint.id, 'verified')}
-                          style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.4)', color: '#34d399', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-                        >
-                          <CheckCircle size={16} />
-                          <span>Mark Verified</span>
-                        </button>
-                      )}
-                      {selectedComplaint.status === 'verified' && (
-                        <span style={{ color: '#34d399', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', padding: '8px 12px', background: 'rgba(52,211,153,0.1)', borderRadius: '8px', border: '1px solid rgba(52,211,153,0.3)' }}>
-                          <CheckCircle size={16} />
-                          <span>Verified</span>
+                      {(selectedComplaint.status === 'needs_info' || selectedComplaint.needsMoreInfo) ? (
+                        <span style={{ color: '#ef4444', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)' }}>
+                          ⚠️ Incomplete: Awaiting Crowdsourced Details
                         </span>
-                      )}
-                      {selectedComplaint.status !== 'approved' ? (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus(selectedComplaint.id, 'approved')}
-                          style={{ background: 'var(--manager-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-                        >
-                          <Check size={16} />
-                          <span>Approve &amp; Hotspot</span>
-                        </button>
                       ) : (
-                        <span style={{ color: '#34d399', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}>
-                          <CheckCircle size={18} />
-                          <span>Approved &amp; Active</span>
-                        </span>
+                        <>
+                          {selectedComplaint.status !== 'verified' && selectedComplaint.status !== 'approved' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateStatus(selectedComplaint.id, 'verified')}
+                              style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.4)', color: '#34d399', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                            >
+                              <CheckCircle size={16} />
+                              <span>Mark Verified</span>
+                            </button>
+                          )}
+                          {selectedComplaint.status === 'verified' && (
+                            <span style={{ color: '#34d399', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', padding: '8px 12px', background: 'rgba(52,211,153,0.1)', borderRadius: '8px', border: '1px solid rgba(52,211,153,0.3)' }}>
+                              <CheckCircle size={16} />
+                              <span>Verified</span>
+                            </span>
+                          )}
+                          {selectedComplaint.status !== 'approved' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateStatus(selectedComplaint.id, 'approved')}
+                              style={{ background: 'var(--manager-grad)', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                            >
+                              <Check size={16} />
+                              <span>Approve &amp; Hotspot</span>
+                            </button>
+                          ) : (
+                            <span style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', padding: '8px 12px', background: 'rgba(20,184,166,0.1)', borderRadius: '8px', border: '1px solid rgba(20,184,166,0.3)' }}>
+                              <Check size={16} />
+                              <span>Approved &amp; Active</span>
+                            </span>
+                          )}
+                        </>
                       )}
-                      {selectedComplaint.status !== 'pending' && (
+                      {selectedComplaint.status !== 'pending' && selectedComplaint.status !== 'needs_info' && !selectedComplaint.needsMoreInfo && (
                         <button
                           type="button"
                           onClick={() => handleUpdateStatus(selectedComplaint.id, 'pending')}
