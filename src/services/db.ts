@@ -122,6 +122,11 @@ const saveLocalEmulatorData = (data: any[]) => {
   localStorage.setItem('jansetu_mock_db', JSON.stringify(data));
 };
 
+const cleanPayload = (obj: any): any => {
+  if (obj === null || obj === undefined) return null;
+  return JSON.parse(JSON.stringify(obj));
+};
+
 /**
  * Submits a new citizen complaint/demand.
  * Scales by loading media to Firebase Storage and saving light documents to Firestore.
@@ -146,7 +151,7 @@ export async function submitDemand(data: SubmissionData): Promise<string> {
 
   try {
     if (db) {
-      const docRef = await addDoc(collection(db, 'demands'), docData);
+      const docRef = await addDoc(collection(db, 'demands'), cleanPayload(docData));
       createdId = docRef.id;
     }
   } catch (e) {
@@ -192,7 +197,7 @@ export async function contributeToDemand(id: string, newItems: any[], extraData?
           ...extraData,
           updatedAt: new Date().toISOString()
         };
-        await updateDoc(docRef, updatePayload);
+        await updateDoc(docRef, cleanPayload(updatePayload));
       }
     }
   } catch (e) {
@@ -405,7 +410,7 @@ export async function updateDemandDetails(id: string, customUpdates: any): Promi
   try {
     if (db && !id.startsWith('local_')) {
       const docRef = doc(db, 'demands', id);
-      await updateDoc(docRef, { ...customUpdates, updatedAt: new Date().toISOString() });
+      await updateDoc(docRef, cleanPayload({ ...customUpdates, updatedAt: new Date().toISOString() }));
     }
   } catch (e) {
     console.error("Firestore update failed: ", e);
@@ -431,7 +436,7 @@ export async function saveActionPlan(plan: any): Promise<void> {
   try {
     if (db) {
       const docRef = doc(db, 'plans', 'rampur_constituency_plan');
-      await setDoc(docRef, planData);
+      await setDoc(docRef, cleanPayload(planData));
     }
   } catch (e) {
     console.error("Firestore saveActionPlan failed: ", e);
@@ -487,7 +492,7 @@ export async function saveActionPlanByConstituency(key: string, plan: any): Prom
   try {
     if (db) {
       const docRef = doc(db, 'plans', docId);
-      await setDoc(docRef, planData);
+      await setDoc(docRef, cleanPayload(planData));
     }
   } catch (e) {
     console.error("Firestore saveActionPlanByConstituency failed: ", e);
@@ -589,7 +594,7 @@ export async function saveMPFunds(constituency: string, fundsData: { totalFunds:
   try {
     if (db) {
       const docRef = doc(db, 'mp_funds', docId);
-      await setDoc(docRef, payload);
+      await setDoc(docRef, cleanPayload(payload));
     }
   } catch (e) {
     console.error("Firestore saveMPFunds failed: ", e);
