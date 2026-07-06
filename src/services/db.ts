@@ -95,6 +95,7 @@ export interface SubmissionData {
   scope: string;
   location: { lat: number; lng: number };
   address: string;
+  constituency?: string;
   items: any[];
   email?: string;
   phone?: string;

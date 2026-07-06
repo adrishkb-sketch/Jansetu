@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
+import { getConstituencyOfLocation } from './services/constituency_datasets';
 
 // ISO 639-1 / Google Translate codes for the 22 Scheduled Indian Languages + English
 const INDIAN_LANGUAGES = [
@@ -1836,6 +1837,11 @@ JSON:`
       scope,
       location: location || { lat: 0, lng: 0 },
       address,
+      constituency: getConstituencyOfLocation(
+        (location || { lat: 0, lng: 0 }).lat,
+        (location || { lat: 0, lng: 0 }).lng,
+        address
+      ),
       items: itemsMapped,
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
