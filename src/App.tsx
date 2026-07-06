@@ -807,6 +807,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   // Audio recording state
   const [isRecording, setIsRecording] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
+  const [micSharingBlocked, setMicSharingBlocked] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -1116,7 +1117,7 @@ Verify the user's ${ticketType} against the Ground Truth Local Infrastructure li
 ${insightsText}
 
 You must:
-1. Listen to any attached audio files (transcribing the speech to English, even if spoken in regional languages like Hindi, Bengali, etc.), and read the transcript. Translate all inputs to English if they are in another Indian language or written in regional mixed dialects (such as Hinglish, Banglish, or other languages mixed with English terms, local slang, or local spelling variations). Normalise all local slang and abbreviations into standard English. Provide this standard English translation in the 'translatedText' field.
+1. Listen to any attached audio files (transcribing the speech to English, even if spoken in regional languages like Hindi, Bengali, etc.), and read the transcript. Translate all inputs to English if they are in another Indian language or written in regional mixed dialects (such as Hinglish, Banglish, or other languages mixed with English terms, local slang, or local spelling variations). Normalise all local slang and abbreviations into standard English. Provide this standard English translation in the 'translatedText' field. Also, if there is an audio file, transcribe the audio exactly in the original language spoken (e.g. in Hindi script or Bengali script) and provide this in the 'originalTranscript' field.
 2. Determine the category: Choose exactly one from: ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"].
 3. Determine the impact scope: Choose exactly one from: ["household", "street", "ward", "constituency"].
 4. Estimate the population affected: Return a numerical estimate of how many citizens are affected (e.g. 5, 150, 2000, etc.) in the 'estimatedPopulation' field.
@@ -1150,6 +1151,7 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
 
 Format the output strictly as a JSON object with keys:
 {
+  "originalTranscript": "...",
   "translatedText": "...",
   "category": "...",
   "scope": "...",
@@ -1213,6 +1215,22 @@ JSON:`
       const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) {
         const result = JSON.parse(text);
+        
+        if (result.originalTranscript || result.translatedText) {
+          setItems(prevItems => {
+            return prevItems.map(item => {
+              if (item.type === 'audio' && (!item.speechTranscript || item.speechTranscript === '')) {
+                const transcriptText = result.originalTranscript || result.translatedText;
+                return {
+                  ...item,
+                  content: transcriptText,
+                  speechTranscript: transcriptText
+                };
+              }
+              return item;
+            });
+          });
+        }
         
         if (result.category) {
           setCategory(result.category);
@@ -1433,7 +1451,7 @@ JSON:`
           const newItem: SubmissionItem = {
             id: Date.now().toString(),
             type: 'audio',
-            content: finalTranscript || 'Voice recording',
+            content: finalTranscript || 'Voice recording (Transcribing...)',
             fileUrl: audioUrl,
             speechTranscript: finalTranscript || '',
             audioBase64: base64data,
@@ -1444,6 +1462,7 @@ JSON:`
           setItems(nextItems);
           setLiveTranscript('');
           liveTranscriptRef.current = '';
+          setMicSharingBlocked(false);
 
           stream.getTracks().forEach(track => track.stop());
 
@@ -1495,6 +1514,7 @@ JSON:`
 
           recognition.onerror = (err: any) => {
             console.error('Speech recognition error:', err);
+            setMicSharingBlocked(true);
             if (err.error === 'language-not-supported') {
               let nextLang: string | null = null;
               
@@ -2767,7 +2787,9 @@ JSON:`
                   <div className="voice-feedback notranslate">
                     <span className="pulse-circle"></span>
                     <span className="live-trans-preview notranslate">
-                      {liveTranscript || 'Listening... speak now.'}
+                      {micSharingBlocked 
+                        ? '🎙️ Recording audio note... (Native browser preview unavailable. Gemini will transcribe this note once you stop recording)' 
+                        : (liveTranscript || 'Listening... speak now.')}
                     </span>
                   </div>
                 )}
