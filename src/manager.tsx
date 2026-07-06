@@ -176,7 +176,7 @@ const renderFormattedDescription = (descText: string) => {
 
 const getCategoryColor = (category: string) => {
   const categoriesList = ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"];
-  const idx = categoriesList.indexOf(category.toLowerCase());
+  const idx = categoriesList.indexOf((category || 'others').toLowerCase());
   if (idx === -1) return '#818cf8';
   const hue = (idx * (360 / categoriesList.length)) % 360;
   return `hsl(${hue}, 75%, 60%)`;
@@ -376,7 +376,7 @@ function ManagerConsole() {
     if (aiClusterMode === 'constituency') {
       filteredDemands = filteredDemands.filter(d => (d.constituency || 'Rampur').toLowerCase() === aiClusterTargetConstituency.toLowerCase());
     } else {
-      filteredDemands = filteredDemands.filter(d => d.category.toLowerCase() === aiClusterTargetCategory.toLowerCase());
+      filteredDemands = filteredDemands.filter(d => (d.category || 'others').toLowerCase() === aiClusterTargetCategory.toLowerCase());
     }
 
     // 3. Apply ticket type filter
@@ -463,7 +463,7 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
       const clustersMap: Record<string, { title: string; summary: string; ticketIds: string[]; priority: string; recommendedAction: string }> = {};
 
       filteredDemands.forEach(d => {
-        const categoryKey = d.category.toLowerCase();
+        const categoryKey = (d.category || 'others').toLowerCase();
         const regionName = d.constituency || 'Rampur';
         let clusterKey = `${categoryKey}_${regionName.toLowerCase().replace(/\s+/g, '_')}`;
 
@@ -1229,8 +1229,8 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
   });
 
   const getProjectCostEstimate = (category: string, scope: string) => {
-    const scopeKey = scope.toLowerCase();
-    const catKey = category.toLowerCase();
+    const scopeKey = (scope || 'ward').toLowerCase();
+    const catKey = (category || 'others').toLowerCase();
     if (catKey === 'roads') {
       if (scopeKey === 'constituency') return 30000000; // ₹3.00 Cr
       if (scopeKey === 'ward') return 12000000; // ₹1.20 Cr

@@ -318,7 +318,7 @@ export function evaluateInfrastructureGap(lat: number, lng: number, category: st
   const segment = (constituencyName && ALL_CONSTITUENCIES_DATA[constituencyName]) 
     ? ALL_CONSTITUENCIES_DATA[constituencyName] 
     : getClosestConstituencySegment(lat, lng);
-  const normalizedCategory = category.toLowerCase();
+  const normalizedCategory = (category || 'others').toLowerCase();
   
   let gapPercentage = 0;
   let localMetric = 'N/A';
