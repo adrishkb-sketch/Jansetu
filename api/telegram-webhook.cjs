@@ -201,7 +201,7 @@ module.exports = async (req, res) => {
 
   try {
     const update = req.body;
-    if (!update) return res.sendStatus(200);
+    if (!update) return res.status(200).send("OK");
 
     const GEMINI_KEY = await getGeminiKey();
 
@@ -286,11 +286,11 @@ module.exports = async (req, res) => {
           await bot.answerCallbackQuery(queryData.id, { text: "Error upvoting.", show_alert: true });
         }
       }
-      return res.sendStatus(200);
+      return res.status(200).send("OK");
     }
 
     const { message } = update;
-    if (!message) return res.sendStatus(200);
+    if (!message) return res.status(200).send("OK");
 
     const chatId = message.chat.id;
     const userText = message.text || "";
@@ -306,7 +306,7 @@ module.exports = async (req, res) => {
           ]
         }
       });
-      return res.sendStatus(200);
+      return res.status(200).send("OK");
     }
 
     const session = await getUserSession(chatId);
@@ -325,7 +325,7 @@ module.exports = async (req, res) => {
 
       await bot.sendMessage(chatId, T.constituencySelected[lang](constituency), { parse_mode: "Markdown" });
       sendMainMenu(chatId, lang);
-      return res.sendStatus(200);
+      return res.status(200).send("OK");
     }
 
     // Handle Media uploads
@@ -491,7 +491,7 @@ module.exports = async (req, res) => {
       session.step = "MENU";
       await saveUserSession(chatId, session);
       sendMainMenu(chatId, lang);
-      return res.sendStatus(200);
+      return res.status(200).send("OK");
     }
 
     // Handle tracking
@@ -513,12 +513,12 @@ module.exports = async (req, res) => {
       session.step = "MENU";
       await saveUserSession(chatId, session);
       sendMainMenu(chatId, lang);
-      return res.sendStatus(200);
+      return res.status(200).send("OK");
     }
 
-    res.sendStatus(200);
+    res.status(200).send("OK");
   } catch (err) {
     console.error("Webhook processing error:", err);
-    res.sendStatus(200);
+    res.status(200).send("OK");
   }
 };
