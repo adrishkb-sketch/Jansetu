@@ -670,12 +670,14 @@ If you can identify a civic or public infrastructure issue (potholes, overflowin
 1. Write a detailed English description: type of issue, severity, approximate scale, surroundings, and any visible text/signs/boards.
 2. Generate bounding boxes (% of image, 0–100) around the damaged areas. Each box: x, y, width, height (integers), label (short name), severity ("Immediate Attention"/"Moderate"/"Minor").
 3. Set requiresMoreContext to false.
+4. Set isValidCivicIssue to true.
 
-If the image is blurry, dark, unclear, or doesn't show a public issue:
+If the image is blurry, dark, unclear, or doesn't show a public issue (e.g. faces, interiors, unrelated items):
 - Set requiresMoreContext to true with a brief description of what is visible.
+- Set isValidCivicIssue to false.
 
 Output ONLY valid JSON. No markdown. No explanation outside JSON.
-Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
+Schema: { "description": "...", "requiresMoreContext": false, "isValidCivicIssue": true, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
 
         let rawText = await fetchGeminiVision([
           { inlineData: { mimeType: detectedMime, data: fileBase64 } },
@@ -700,7 +702,11 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
         }
 
         if (imgResult && imgResult.description) {
-          content = imgResult.description;
+          if (imgResult.isValidCivicIssue === false) {
+            content = "Photo received — AI could not identify any valid civic or infrastructure issue in this image.";
+          } else {
+            content = imgResult.description;
+          }
         } else {
           content = "Photo received — AI could not identify a specific issue. Please add a text description.";
         }
@@ -830,8 +836,13 @@ async function runBotInputAnalysis(chatId, session) {
       "detectedLocationName": "landmark name or null",
       "detectedLocationType": "school | hospital | police_station | road | market | park | temple | bus_stand | colony | other | null",
       "requiresClarification": boolean,
-      "clarificationQuestion": "clarification question or null"
+      "clarificationQuestion": "clarification question or null",
+      "isValidCivicIssue": boolean
     }
+
+    For "isValidCivicIssue":
+    - Set to true if the text describes a valid public civic, infrastructure, or community issue (such as water cuts, potholes, broken street lights, sanitation, garbage accumulation, public safety, public schools/hospitals etc.).
+    - Set to false if the text is general greeting (e.g. Hi, Hello), testing, gibberish/non-sensical, or explicitly indicates a transcription failure, empty message, or lack of civic relevance.
   `;
 
   try {
@@ -840,6 +851,28 @@ async function runBotInputAnalysis(chatId, session) {
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "{}";
     const result = JSON.parse(rawText.replace(/```json|```/g, ""));
     
+    // Rejection rules for invalid/gibberish civic issues or transcription failures
+    const textLower = englishContent.toLowerCase();
+    const isFailedInput = textLower.includes("no clear speech detected") || 
+                          textLower.includes("transcription failed") || 
+                          textLower.includes("could not identify a specific issue") || 
+                          textLower.includes("could not identify any valid civic") ||
+                          textLower.includes("analysis failed") ||
+                          textLower.trim().length < 8;
+
+    if (result.isValidCivicIssue === false || isFailedInput) {
+      session.step = "MENU";
+      await saveUserSession(chatId, session);
+      
+      const rejectText = await translateBotText(
+        "❌ Sorry, I could not identify or verify a valid civic or public infrastructure issue in your message. Please describe the problem in more detail or send a clearer photo/audio describing a real public issue (such as roads, water logging, garbage piles, etc.).",
+        lang
+      );
+      await bot.sendMessage(chatId, rejectText);
+      sendMainMenu(chatId, lang);
+      return;
+    }
+
     session.tempSubmission.category = result.category || "others";
     session.tempSubmission.scope = result.scope || "ward";
     session.tempSubmission.population = result.estimatedPopulation || 5000;
