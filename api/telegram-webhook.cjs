@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const TelegramBot = require("node-telegram-bot-api").default || require("node-telegram-bot-api").TelegramBot || require("node-telegram-bot-api");
 const { initializeApp } = require("firebase/app");
 const { 
@@ -430,22 +431,50 @@ Text: "${text}"`;
   return text;
 }
 
-// Stateless user conversation flow manager using Firestore 'demands' collection (hidden via isBotSession: true)
+function getSessionDocId(chatId) {
+  const hash = crypto.createHash("md5").update(String(chatId)).digest("hex").toUpperCase();
+  return `JS-BOT-2026-${hash.slice(0, 5)}`;
+}
+
+// Stateless user conversation flow manager using Firestore 'demands' collection
 async function getUserSession(chatId) {
   try {
-    const docRef = doc(db, "demands", `JS-BOT-${chatId}`);
+    const docId = getSessionDocId(chatId);
+    const docRef = doc(db, "demands", docId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return docSnap.data();
     }
-  } catch {}
+  } catch (err) {
+    console.error("[Jansetu Bot] Error getting session:", err);
+  }
   return { step: "LANG" };
 }
 
 async function saveUserSession(chatId, session) {
   try {
-    const docRef = doc(db, "demands", `JS-BOT-${chatId}`);
-    await setDoc(docRef, { ...session, isBotSession: true, ticketType: "bot_session" });
+    const docId = getSessionDocId(chatId);
+    const docRef = doc(db, "demands", docId);
+    
+    const docData = {
+      ...session,
+      id: docId,
+      ticketType: "complaint",
+      category: "others",
+      scope: "ward",
+      source: "telegram",
+      location: session.location || { lat: 28.803, lng: 79.025 },
+      address: "JanSetuBot Session",
+      constituency: session.constituency || "Rampur",
+      createdAt: session.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: "pending",
+      upvotes: 1,
+      estimatedImpact: 5000,
+      isBotSession: true
+    };
+
+    await setDoc(docRef, docData);
   } catch (err) {
     console.error("[Jansetu Bot] Error saving user session:", err);
   }
