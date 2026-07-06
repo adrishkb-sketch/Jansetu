@@ -1057,7 +1057,7 @@ Do not add any preamble, conversational fluff, or notes. Return ONLY the transla
 Text to translate:
 "${textToAnalyze}"`;
 
-        const translateRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`, {
+        const translateRes = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${activeKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1193,7 +1193,7 @@ JSON:`
         }
       });
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${activeKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1588,7 +1588,7 @@ JSON:`
     setAiIndicator({ active: true, message: 'AI analyzing uploaded image context...' });
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${activeKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
