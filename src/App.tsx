@@ -958,13 +958,13 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     localStorage.setItem('jansetu_upvoted_ids', JSON.stringify(nextVoted));
   };
 
-  // Query hotspots when location changes — only unverified (pending/needs_info) issues
+  // Query hotspots when location changes — only truly unverified (pending/needs_info) issues
   useEffect(() => {
     if (location) {
       getNearbyHotspots(location.lat, location.lng).then(data => {
-        // Only show issues that haven't been verified by manager yet
-        const unverified = data.filter((h: any) => 
-          h.status !== 'verified' && h.status !== 'resolved' && h.status !== 'closed'
+        // Strict whitelist: only show issues not yet processed by manager
+        const unverified = data.filter((h: any) =>
+          h.status === 'pending' || h.status === 'needs_info'
         );
         setNearbyHotspots(unverified);
       });
@@ -2794,65 +2794,56 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
             </div>
           )}
 
-          {/* Section 4: Nearby hotspots overlay votes */}
+          {/* Section 4: Nearby pending issues - upvote instead of duplicate */}
           {nearbyHotspots.length > 0 && (
             <div className="hotspots-card">
-              <h4>⚠️ Existing Active Submissions in this Area ({nearbyHotspots.length})</h4>
-              <p className="hotspots-help">To prevent duplicate entries, you can support or agree to an active submission below:</p>
-              <div className="hotspots-list">
+              <h4 style={{ fontSize: '13px', marginBottom: '4px' }}>⚠️ Pending Issues Nearby ({nearbyHotspots.length})</h4>
+              <p className="hotspots-help" style={{ fontSize: '11px', marginBottom: '8px' }}>Upvote an existing issue if it matches yours — avoid duplicates:</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                 {nearbyHotspots.map(hotspot => {
                   const isSuggestion = hotspot.ticketType === 'suggestion';
                   const isIncomplete = isHotspotIncomplete(hotspot);
+                  const desc = (hotspot.aiOverview?.brief || hotspot.items?.[0]?.content || hotspot.address || '').replace(/\n/g, ' ').slice(0, 100);
+                  const catEmoji = ({water:'🚰',roads:'🛣️',education:'🏫',health:'🏥',power:'⚡',agriculture:'🌾',safety:'🚓',environment:'🌳',welfare:'🤝',housing:'🏗️'} as any)[hotspot.category] || '📁';
+                  const alreadyVoted = upvotedHotspotIds.includes(hotspot.id);
                   return (
-                    <div key={hotspot.id} className="hotspot-item" style={{ borderLeft: isSuggestion ? '4px solid #10b981' : '4px solid #f59e0b' }}>
-                      <div className="hotspot-info">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '10px', background: isSuggestion ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSuggestion ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                            {isSuggestion ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
+                    <div key={hotspot.id} style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '8px 10px', borderRadius: '8px',
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.07)',
+                      borderLeft: `3px solid ${isSuggestion ? '#10b981' : '#f59e0b'}`
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '9px', color: isSuggestion ? '#34d399' : '#fbbf24', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            {isSuggestion ? '💡' : '⚠️'} {(hotspot.category || 'others').toUpperCase()}
                           </span>
-                          <span className="hotspot-badge" style={{ textTransform: 'capitalize', margin: 0 }}>
-                            {hotspot.category === 'water' && '🚰'}
-                            {hotspot.category === 'roads' && '🛣️'}
-                            {hotspot.category === 'education' && '🏫'}
-                            {hotspot.category === 'health' && '🏥'}
-                            {hotspot.category === 'power' && '⚡'}
-                            {hotspot.category === 'agriculture' && '🌾'}
-                            {hotspot.category === 'safety' && '🚓'}
-                            {hotspot.category === 'environment' && '🌳'}
-                            {hotspot.category === 'welfare' && '🤝'}
-                            {hotspot.category === 'housing' && '🏗️'}
-                            {hotspot.category === 'others' && '📁'}
-                            {hotspot.category}
-                          </span>
+                          {catEmoji && <span style={{ fontSize: '10px' }}>{catEmoji}</span>}
+                          {isIncomplete && <span style={{ fontSize: '9px', color: '#f87171', fontWeight: 600 }}>• Needs Info</span>}
                         </div>
-                        <p className="hotspot-text">{"\"" + (hotspot.items[0]?.content || hotspot.address) + "\""}</p>
-                        {isIncomplete && (
-                          <span style={{ fontSize: '10px', background: 'rgba(239,68,68,0.2)', color: '#f87171', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block', marginTop: '4px' }}>
-                            ⚠️ Needs Details / {isSuggestion ? 'Crowdfunding Info' : 'Evidence'}
-                          </span>
-                        )}
+                        <p style={{ fontSize: '11px', color: '#c4c7d6', margin: 0, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          "{desc}{desc.length >= 100 ? '…' : ''}"
+                        </p>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
-                        <button 
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
+                        <button
                           type="button"
-                          className="btn-upvote"
-                          disabled={upvotedHotspotIds.includes(hotspot.id)}
+                          disabled={alreadyVoted}
                           onClick={() => handleUpvote(hotspot.id)}
-                          style={{ 
-                            padding: '6px 10px', 
-                            fontSize: '12px', 
-                            borderColor: upvotedHotspotIds.includes(hotspot.id) ? 'rgba(255,255,255,0.1)' : isSuggestion ? '#10b981' : '#f59e0b', 
-                            color: upvotedHotspotIds.includes(hotspot.id) ? '#8e90b3' : isSuggestion ? '#6ee7b7' : '#fde68a',
-                            background: upvotedHotspotIds.includes(hotspot.id) ? 'rgba(255,255,255,0.05)' : 'transparent',
-                            cursor: upvotedHotspotIds.includes(hotspot.id) ? 'not-allowed' : 'pointer'
+                          style={{
+                            padding: '4px 8px', fontSize: '11px', fontWeight: 700, borderRadius: '5px',
+                            border: `1px solid ${alreadyVoted ? 'rgba(255,255,255,0.1)' : isSuggestion ? '#10b981' : '#f59e0b'}`,
+                            color: alreadyVoted ? '#6b7280' : isSuggestion ? '#6ee7b7' : '#fde68a',
+                            background: alreadyVoted ? 'rgba(255,255,255,0.03)' : 'transparent',
+                            cursor: alreadyVoted ? 'default' : 'pointer', whiteSpace: 'nowrap'
                           }}
                         >
-                          {upvotedHotspotIds.includes(hotspot.id) ? '👍 Supported' : isSuggestion ? '👍 Agree' : '👍 Support'} ({hotspot.upvotes})
+                          {alreadyVoted ? '✓ Done' : '👍'} {hotspot.upvotes || 1}
                         </button>
                         {isIncomplete && (
-                          <button 
-                            type="button" 
-                            className="btn-add-action" 
+                          <button
+                            type="button"
                             onClick={() => {
                               setContributingIssue(hotspot);
                               setTicketType(hotspot.ticketType || 'complaint');
@@ -2862,9 +2853,9 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
                               setScope(hotspot.scope);
                               document.querySelector('.portal-col')?.scrollIntoView({ behavior: 'smooth' });
                             }}
-                            style={{ fontSize: '10.5px', padding: '4px 8px', background: isSuggestion ? '#10b981' : '#e11d48', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            style={{ fontSize: '9px', padding: '3px 6px', background: '#e11d48', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                           >
-                            {isSuggestion ? '🪙 Crowdfund Info' : '📝 Contribute Info'}
+                            📝 Add Info
                           </button>
                         )}
                       </div>
