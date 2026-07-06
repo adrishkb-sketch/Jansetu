@@ -72,13 +72,13 @@ try {
 } catch (e) {}
 
 if (geminiKeys.length === 0) {
-  geminiKeys.push('AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw');
+  geminiKeys.push('AIzaSyDummyKeyForJansetuFastPrototypeScale');
 }
 
 // Sequence rotation helper for Gemini
 let currentKeyIndex = 0;
 function getActiveGeminiKey() {
-  if (geminiKeys.length === 0) return 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
+  if (geminiKeys.length === 0) return 'AIzaSyDummyKeyForJansetuFastPrototypeScale';
   return geminiKeys[currentKeyIndex % geminiKeys.length];
 }
 function rotateGeminiKey() {

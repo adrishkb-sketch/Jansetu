@@ -5,14 +5,51 @@
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-function getKeys(): string[] {
-  const keysString = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
-  const keys = keysString
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from './db';
+
+// Cache for loaded Firestore keys
+let cachedFirestoreKeys: string[] = [];
+
+async function getKeys(): Promise<string[]> {
+  const keysString = localStorage.getItem('jansetu_gemini_key') || '';
+
+  // If it's the old blocked key or empty, we fetch from Firestore config
+  if (!keysString || keysString === 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw') {
+    if (cachedFirestoreKeys.length > 0) {
+      return cachedFirestoreKeys;
+    }
+
+    try {
+      if (db) {
+        const docRef = doc(db, 'demands', 'config_gemini');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && data.keys) {
+            const fetched = data.keys.trim();
+            localStorage.setItem('jansetu_gemini_key', fetched);
+            cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
+            console.log("[Jansetu AI] Successfully loaded API keys from Firestore configuration.");
+            return cachedFirestoreKeys;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[Jansetu AI] Failed to load keys from Firestore, falling back to local defaults:", e);
+    }
+  }
+
+  const target = keysString || 'AIzaSyDummyKeyForJansetuFastPrototypeScale';
+  const parsed = target
     .split(/[\n\r,;]+/)
     .map(k => k.trim())
     .filter(k => k.length > 0);
-  if (keys.length === 0) keys.push('AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw');
-  return keys;
+  
+  if (parsed.length === 0) {
+    parsed.push('AIzaSyDummyKeyForJansetuFastPrototypeScale');
+  }
+  return parsed;
 }
 
 async function callGemini(model: string, key: string, payload: any): Promise<any> {
@@ -60,7 +97,7 @@ export async function fetchGemini(
   payload: any,
   model: string = 'gemini-2.5-flash'
 ): Promise<Response> {
-  const keys = getKeys();
+  const keys = await getKeys();
   let lastError: any = new Error('No Gemini keys available');
 
   for (let i = 0; i < keys.length; i++) {
@@ -95,7 +132,7 @@ export async function fetchGeminiVision(
     'gemini-1.5-pro',
   ];
 
-  const keys = getKeys();
+  const keys = await getKeys();
 
   for (const model of VISION_MODELS) {
     for (let i = 0; i < keys.length; i++) {

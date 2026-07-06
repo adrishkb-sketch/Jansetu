@@ -50,7 +50,7 @@ const db = getFirestore(firebaseApp);
 
 // 2. Telegram Bot API Settings
 const BOT_TOKEN = "8724667418:AAFSz9FkGQd0DlyCf6TnrsVKdke-4xnx1Aw";
-const GEMINI_KEY = "AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw"; // Default fallback key
+const GEMINI_KEY = "AIzaSyDummyKeyForJansetuFastPrototypeScale"; // Default fallback key
 
 // Load 543 constituencies dataset for geolocation matching
 let constituenciesData = {};

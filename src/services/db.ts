@@ -40,7 +40,7 @@ const getFirebaseConfig = () => {
   };
 };
 
-let db: any = null;
+export let db: any = null;
 
 try {
   const config = getFirebaseConfig();

@@ -4236,7 +4236,7 @@ function App() {
 
 export function GeminiKeysFooter() {
   const [keysInput, setKeysInput] = useState(() => {
-    return localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
+    return localStorage.getItem('jansetu_gemini_key') || 'AIzaSyDummyKeyForJansetuFastPrototypeScale';
   });
   const [isOpen, setIsOpen] = useState(false);
 
@@ -4246,7 +4246,7 @@ export function GeminiKeysFooter() {
       .map(k => k.trim())
       .filter(k => k.length > 0)
       .join('\n');
-    localStorage.setItem('jansetu_gemini_key', cleaned || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw');
+    localStorage.setItem('jansetu_gemini_key', cleaned || 'AIzaSyDummyKeyForJansetuFastPrototypeScale');
     alert('Gemini API Keys saved. Your changes are synchronized across all pages.');
     window.location.reload();
   };
