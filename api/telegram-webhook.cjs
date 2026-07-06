@@ -1611,28 +1611,6 @@ async function sendMainMenu(chatId, lang) {
 
 // Vercel Entrypoint
 module.exports = async (req, res) => {
-  // One-time admin patch: fix mislabelled Rampur→Howrah complaints
-  if (req.method === "GET" && req.query?.admin === "fix-howrah-2026") {
-    try {
-      const howrahLoc = { lat: 22.5958, lng: 88.2636 };
-      const ids = ["JS-RAM-2026-KWQAK", "JS-RAM-2026-WBWXG", "JS-RAM-2026-47YKV"];
-      const results = [];
-      for (const id of ids) {
-        try {
-          await updateDoc(doc(db, "demands", id), {
-            location: howrahLoc,
-            constituency: "Howrah",
-            address: "Submitted via JanSetuBot — Howrah Constituency"
-          });
-          results.push(`✅ ${id} updated`);
-        } catch(e) { results.push(`❌ ${id}: ${e.message}`); }
-      }
-      return res.status(200).send(results.join("\n"));
-    } catch(e) {
-      return res.status(500).send("Error: " + e.message);
-    }
-  }
-
   if (req.method !== "POST") {
     return res.status(200).send("Jansetu Bot Webhook is active!");
   }
