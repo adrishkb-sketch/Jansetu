@@ -10,8 +10,6 @@ import {
   Loader2,
   CheckCircle,
   Upload,
-  ChevronDown,
-  ChevronUp,
   ArrowLeft,
   Info,
   MapPin,
@@ -26,6 +24,7 @@ import {
 } from 'lucide-react';
 import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
 import { getConstituencyOfLocation } from './services/constituency_datasets';
+import { fetchGemini } from './services/gemini_api';
 
 // ISO 639-1 / Google Translate codes for the 22 Scheduled Indian Languages + English
 const INDIAN_LANGUAGES = [
@@ -805,11 +804,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   
   const [location, setLocation] = useState<Location | null>(null);
   const [address, setAddress] = useState('');
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg');
-  const [tempApiKey, setTempApiKey] = useState(apiKey);
-  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw');
-  const [tempGeminiKey, setTempGeminiKey] = useState(geminiKey);
-  const [showApiSettings, setShowApiSettings] = useState(false);
+  const apiKey = localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
 
   // New structured metadata states
   const [category, setCategory] = useState('others');
@@ -902,8 +897,6 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     const urlGeminiKey = params.get('gemini_key');
     if (urlGeminiKey) {
       localStorage.setItem('jansetu_gemini_key', urlGeminiKey);
-      setGeminiKey(urlGeminiKey);
-      setTempGeminiKey(urlGeminiKey);
       alert('🔑 Custom Gemini API Key synchronized successfully from URL!');
     }
 
@@ -995,14 +988,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     }
   };
 
-  const handleSaveApiKeys = () => {
-    localStorage.setItem('jansetu_gmaps_key', tempApiKey);
-    localStorage.setItem('jansetu_gemini_key', tempGeminiKey);
-    setApiKey(tempApiKey);
-    setGeminiKey(tempGeminiKey);
-    alert('API Settings saved. Reloading the page to apply...');
-    window.location.reload();
-  };
+
 
 
   const handleUpvote = async (id: string) => {
@@ -1071,14 +1057,62 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     mapContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const runAIAttachmentAnalysis = async (textToAnalyze: string, currentItems: SubmissionItem[]) => {
+  const translateToEnglish = async (text: string): Promise<string> => {
+    const payload = {
+      contents: [{
+        parts: [{
+          text: `Translate the following text into standard, grammatical English. Do not add any notes, explanation, introduction, or markdown, just return the direct English translation. If the text is already in English, return it exactly as is:\n\n${text}`
+        }]
+      }]
+    };
+    try {
+      const response = await fetchGemini(payload);
+      const json = await response.json();
+      const translated = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      return translated.trim();
+    } catch (e) {
+      console.error("translateToEnglish error:", e);
+      throw e;
+    }
+  };
+
+  const translateFromEnglish = async (text: string, targetLangCode: string): Promise<string> => {
+    if (targetLangCode === 'en') return text;
+    const langName = INDIAN_LANGUAGES.find(l => l.code === targetLangCode)?.name || 'Hindi';
+    const payload = {
+      contents: [{
+        parts: [{
+          text: `Translate the following English text to ${langName}. Do not add any note, comments, prefix, or markdown, just output the translation directly:\n\n${text}`
+        }]
+      }]
+    };
+    try {
+      const response = await fetchGemini(payload);
+      const json = await response.json();
+      const translated = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      return translated.trim();
+    } catch (e) {
+      console.error("translateFromEnglish error:", e);
+      throw e;
+    }
+  };
+
+  const runAIAttachmentAnalysis = async (textToAnalyze: string, _currentItems: SubmissionItem[]) => {
     if (!location) return;
-    const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
-    if (!activeKey) return;
 
     setAiError(null);
     setAiIndicator({ active: true, message: 'AI translating content...' });
     setIsAiAnalyzing(true);
+
+    let englishText = textToAnalyze;
+    if (selectedLang !== 'en') {
+      try {
+        setAiIndicator({ active: true, message: 'AI translating regional speech/text to English...' });
+        englishText = await translateToEnglish(textToAnalyze);
+      } catch (err) {
+        console.warn("Background English translation failed, falling back to raw input:", err);
+      }
+    }
 
     setAiIndicator({ active: true, message: 'AI identifying problem details & checking correlations...' });
 
@@ -1119,7 +1153,7 @@ Verify the user's ${ticketType} against the Ground Truth Local Infrastructure li
 ${insightsText}
 
 You must:
-1. Listen to any attached audio files (transcribing the speech to English, even if spoken in regional languages like Hindi, Bengali, etc.), and read the transcript. Translate all inputs to English if they are in another Indian language or written in regional mixed dialects (such as Hinglish, Banglish, or other languages mixed with English terms, local slang, or local spelling variations). Normalise all local slang and abbreviations into standard English. Provide this standard English translation in the 'translatedText' field. Also, if there is an audio file, transcribe the audio exactly in the original language spoken (e.g. in Hindi script or Bengali script) and provide this in the 'originalTranscript' field.
+1. Translate all inputs to English if they are in another Indian language or written in regional mixed dialects (such as Hinglish, Banglish, or other languages mixed with English terms, local slang, or local spelling variations). Normalise all local slang and abbreviations into standard English. Provide this standard English translation in the 'translatedText' field. Also, transcribe any text exactly in the original language spoken and provide this in the 'originalTranscript' field.
 2. Determine the category: Choose exactly one from: ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"].
 3. Determine the impact scope: Choose exactly one from: ["household", "street", "ward", "constituency"].
 4. Estimate the population affected: Return a numerical estimate of how many citizens are affected (e.g. 5, 150, 2000, etc.) in the 'estimatedPopulation' field.
@@ -1176,45 +1210,45 @@ Format the output strictly as a JSON object with keys:
 }
 
 Citizen's Input details:
-${textToAnalyze}
+${englishText}
 
 JSON:`
         }
       ];
 
-      // Add actual base64 audio attachment to Gemini call if present
-      currentItems.forEach(item => {
-        if (item.type === 'audio' && item.audioBase64) {
-          const cleanMime = (item.audioMimeType || 'audio/webm').split(';')[0];
-          promptParts.push({
-            inlineData: {
-              mimeType: cleanMime,
-              data: item.audioBase64
-            }
-          });
-        }
-      });
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: promptParts
-          }]
-        })
+      const response = await fetchGemini({
+        contents: [{
+          parts: promptParts
+        }]
       });
 
       const json = await response.json();
-      if (!response.ok) {
-        throw new Error(json.error?.message || `API error ${response.status}: ${response.statusText}`);
-      }
       const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) {
         const result = safeJsonParse(text);
         
+        // Translate the clarification question and problem brief back to selected regional language
+        let finalQuestion = result.clarificationQuestion;
+        let finalBrief = result.problemBrief;
+        
+        if (selectedLang !== 'en') {
+          setAiIndicator({ active: true, message: 'AI translating overview and follow-up questions...' });
+          if (finalQuestion) {
+            try {
+              finalQuestion = await translateFromEnglish(finalQuestion, selectedLang);
+            } catch (err) {
+              console.warn("Failed to translate question back:", err);
+            }
+          }
+          if (finalBrief) {
+            try {
+              finalBrief = await translateFromEnglish(finalBrief, selectedLang);
+            } catch (err) {
+              console.warn("Failed to translate brief back:", err);
+            }
+          }
+        }
+
         if (result.originalTranscript || result.translatedText) {
           setItems(prevItems => {
             return prevItems.map(item => {
@@ -1251,7 +1285,7 @@ JSON:`
         }
         if (result.problemBrief) {
           setAiOverview({
-            brief: result.problemBrief,
+            brief: finalBrief,
             priorityScore: result.priorityScore || 50,
             priorityLabel: result.priorityLabel || 'Medium Priority',
             estimatedBudget: result.estimatedBudget || 'Medium Budget',
@@ -1271,7 +1305,7 @@ JSON:`
         }
 
         if (result.requiresClarification) {
-          setAiClarificationQuestion(result.clarificationQuestion);
+          setAiClarificationQuestion(finalQuestion);
           setAiUnderstood(false);
         } else {
           setAiClarificationQuestion(null);
@@ -1591,32 +1625,23 @@ JSON:`
   };
 
   const runGeminiImageAnalysis = async (base64Data: string, mimeType: string): Promise<{ description: string; requiresMoreContext: boolean; boundingBoxes?: any[] } | null> => {
-    const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
-    if (!activeKey) return null;
-
     setAiIndicator({ active: true, message: 'AI analyzing uploaded image context...' });
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                inlineData: {
-                  mimeType: mimeType,
-                  data: base64Data
-                }
-              },
-              {
-                text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight, blocked drainage), output a detailed description of the problem in English. In your description, make sure to describe both the visual nature of the damage (e.g. size, severity, environment) and read any visible text, signs, placards, banners, or markers in the image that might provide context (e.g. names of roads, projects, or municipalities). In addition, localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`
+      const response = await fetchGemini({
+        contents: [{
+          parts: [
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Data
               }
-            ]
-          }]
-        })
+            },
+            {
+              text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight, blocked drainage), output a detailed description of the problem in English. In your description, make sure to describe both the visual nature of the damage (e.g. size, severity, environment) and read any visible text, signs, placards, banners, or markers in the image that might provide context (e.g. names of roads, projects, or municipalities). In addition, localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`
+            }
+          ]
+        }]
       });
 
       const json = await response.json();
@@ -1903,29 +1928,27 @@ JSON:`
             <ArrowLeft size={18} />
             <span>Back to Roles</span>
           </button>
-          <h2>{isDashboardView ? "Citizen Profile & Gamification Space" : "Citizen Complainant Portal"}</h2>
+          <h2>{isDashboardView ? "Citizen Profile & Civic Space" : "Share Your Community Need"}</h2>
           <p className="portal-subtitle">
             {isDashboardView 
-              ? "Track your submitted complaints/suggestions, claim achievements, and view civic points" 
-              : "Submit infrastructure and developmental demands directly into the constituency registry"}
+              ? "Track your submitted suggestions, check points, and earn civic badges." 
+              : "Submit your local infrastructure suggestions directly to leaders."}
           </p>
-          <div style={{ marginTop: '8px', fontSize: '10.5px', color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(99,102,241,0.1)', padding: '4px 8px', borderRadius: '4px', width: 'fit-content' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }}></span>
-            <span>Active Gemini API Key: <strong>{localStorage.getItem('jansetu_gemini_key') ? `${localStorage.getItem('jansetu_gemini_key')?.substring(0, 10)}...${localStorage.getItem('jansetu_gemini_key')?.substring(localStorage.getItem('jansetu_gemini_key')!.length - 4)}` : 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw (Default)'}</strong></span>
-          </div>
         </div>
-        <button 
-          type="button" 
-          className="btn-toggle-settings" 
-          onClick={() => {
-            setIsDashboardView(!isDashboardView);
-            setIsLoggedIn(false);
-            setLoginEmail('');
-          }}
-          style={{ padding: '8px 16px', fontSize: '13px', background: isDashboardView ? 'rgba(99,102,241,0.2)' : 'rgba(16,185,129,0.2)', color: isDashboardView ? '#a5b4fc' : '#6ee7b7', borderColor: isDashboardView ? '#6366f1' : '#10b981', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          {isDashboardView ? "✍️ Switch to Form Submission" : "🏆 Switch to Profile Login"}
-        </button>
+        {isDashboardView && (
+          <button 
+            type="button" 
+            className="btn-toggle-settings" 
+            onClick={() => {
+              setIsDashboardView(false);
+              setIsLoggedIn(false);
+              setLoginEmail('');
+            }}
+            style={{ padding: '8px 16px', fontSize: '13px', background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', borderColor: '#6366f1', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            ✍️ Write a Suggestion
+          </button>
+        )}
       </div>
       {petitionTicket && !isDashboardView ? (
         <div className="form-card" style={{ maxWidth: '800px', margin: '40px auto', padding: '32px', textAlign: 'left' }}>
@@ -2280,7 +2303,7 @@ JSON:`
           
           {/* Submission Mode Selector (Complaint vs Suggestion) */}
           <div className="form-card" style={{ marginBottom: '24px', padding: '16px', display: 'flex', gap: '12px', alignItems: 'center', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(79, 70, 229, 0.15))', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#c7d2fe', textTransform: 'uppercase', flexShrink: 0 }}>Ticket Type:</span>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#c7d2fe', textTransform: 'uppercase', flexShrink: 0 }}>I want to:</span>
             <button
               type="button"
               onClick={() => {
@@ -2289,7 +2312,7 @@ JSON:`
               }}
               style={{
                 flex: 1,
-                padding: '8px 12px',
+                padding: '10px 12px',
                 borderRadius: '6px',
                 border: '1px solid',
                 borderColor: ticketType === 'complaint' ? '#6366f1' : 'rgba(255,255,255,0.1)',
@@ -2300,7 +2323,7 @@ JSON:`
                 cursor: 'pointer'
               }}
             >
-              ⚠️ Complaint (Broken Infrastructure)
+              Report a Problem (e.g. broken road, water leak)
             </button>
             <button
               type="button"
@@ -2310,7 +2333,7 @@ JSON:`
               }}
               style={{
                 flex: 1,
-                padding: '8px 12px',
+                padding: '10px 12px',
                 borderRadius: '6px',
                 border: '1px solid',
                 borderColor: ticketType === 'suggestion' ? '#10b981' : 'rgba(255,255,255,0.1)',
@@ -2321,17 +2344,17 @@ JSON:`
                 cursor: 'pointer'
               }}
             >
-              💡 Suggestion (New Proposals)
+              Make a Suggestion (e.g. build a park, streetlights)
             </button>
           </div>
-
+ 
           {/* Section 1: Contact details */}
           <div className="form-card">
-            <h3>1. Contact Details (Optional)</h3>
-            <p className="section-help">Provide details to receive updates. Submit your email to earn Civic Points and unlock profile badges.</p>
+            <h3>1. Your Contact Details (Optional)</h3>
+            <p className="section-help">If you want updates about your suggestion, write your details below. You can leave this blank.</p>
             
             <div className="input-group">
-              <label>Email Address</label>
+              <label>Your Email Address</label>
               <input
                 type="email"
                 placeholder="citizen@domain.com"
@@ -2340,7 +2363,7 @@ JSON:`
               />
             </div>
             <div className="input-group" style={{ marginTop: '14px' }}>
-              <label>Mobile Number</label>
+              <label>Your Phone Number</label>
               <input
                 type="tel"
                 placeholder="+91 XXXXX XXXXX"
@@ -2349,55 +2372,20 @@ JSON:`
               />
             </div>
           </div>
-
+ 
           {/* Section 2: Compulsory Map location */}
           <div ref={mapContainerRef} className="form-card" style={{ marginTop: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3>2. Map Selection (Compulsory)</h3>
-              <button
-                type="button"
-                className="btn-toggle-settings"
-                onClick={() => setShowApiSettings(!showApiSettings)}
-              >
-                {showApiSettings ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                <span>API Settings</span>
-              </button>
+              <h3>2. Select Location on Map (Compulsory)</h3>
             </div>
-
-            {showApiSettings && (
-              <div className="api-key-panel">
-                <div className="input-group">
-                  <label>Google Maps API Key</label>
-                  <input
-                    type="text"
-                    placeholder="AIzaSy..."
-                    value={tempApiKey}
-                    onChange={e => setTempApiKey(e.target.value)}
-                  />
-                </div>
-                <div className="input-group" style={{ marginTop: '10px' }}>
-                  <label>Google Gemini API Key (Google AI Studio)</label>
-                  <input
-                    type="text"
-                    placeholder="AIzaSy..."
-                    value={tempGeminiKey}
-                    onChange={e => setTempGeminiKey(e.target.value)}
-                  />
-                </div>
-                <button type="button" className="btn-add-action" style={{ marginTop: '12px', width: '100%' }} onClick={handleSaveApiKeys}>
-                  Apply API Credentials
-                </button>
-                <p className="api-help">If empty, loads with default credentials for fast prototyping.</p>
-              </div>
-            )}
-
-            <div className="address-display">
-              <span className="address-label">📍 Pinplaced Location:</span>
+ 
+            <div className="address-display" style={{ marginTop: '14px' }}>
+              <span className="address-label">📍 Selected Address:</span>
               <p className={address ? 'address-text' : 'address-text placeholder'}>
-                {address || 'No location selected yet. Click on the map or use Auto-Detect.'}
+                {address || 'No location selected. Please tap your location on the map below or click Auto-Detect.'}
               </p>
             </div>
-
+ 
             <GoogleMapComponent
               apiKey={apiKey}
               onLocationSelect={handleLocationSelect}
@@ -2677,14 +2665,14 @@ JSON:`
         {/* Right Column: Evidence, attachments list, and AI auto-detect overrides */}
         <div className="portal-col">
           <div className="form-card h-full">
-            <h3>3. Add {ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'} Details & Attach {ticketType === 'suggestion' ? 'Proposals / Details' : 'Evidence'}</h3>
-            <p className="section-help">You can attach multiple entries. At least one attachment is required.</p>
+            <h3>3. Explain the Suggestion or Problem</h3>
+            <p className="section-help">Choose any option below to share details of the community need. At least one detail is required.</p>
 
             {contributingIssue && (
               <div className="contributing-banner" style={{ border: '1px solid #10b981', background: 'rgba(16,185,129,0.1)', padding: '12px 14px', borderRadius: '8px', marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ textAlign: 'left' }}>
-                  <strong style={{ color: '#34d399', fontSize: '13px', display: 'block' }}>📝 Mode: Contributing Info to Existing {contributingIssue.ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'}</strong>
-                  <span style={{ fontSize: '11px', color: '#6ee7b7' }}>Your inputs will be appended to the active {contributingIssue.ticketType || 'complaint'} ticket: <strong>"{contributingIssue.items?.[0]?.content || contributingIssue.address}"</strong></span>
+                  <strong style={{ color: '#34d399', fontSize: '13px', display: 'block' }}>📝 Mode: Contributing details to active post</strong>
+                  <span style={{ fontSize: '11px', color: '#6ee7b7' }}>Your details will be added to the active post: <strong>"{contributingIssue.items?.[0]?.content || contributingIssue.address}"</strong></span>
                 </div>
                 <button 
                   type="button" 
@@ -2695,7 +2683,7 @@ JSON:`
                   }}
                   style={{ flexShrink: 0, padding: '4px 8px', fontSize: '11px', color: '#fca5a5', borderColor: '#fda4af', cursor: 'pointer', borderRadius: '4px' }}
                 >
-                  Cancel Contribution
+                  Cancel
                 </button>
               </div>
             )}
@@ -2705,8 +2693,8 @@ JSON:`
               <div className="ai-verifying-banner" style={{ marginTop: '12px', border: '1px solid #6366f1', padding: '10px 14px', borderRadius: '8px', background: 'rgba(99,102,241,0.08)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Loader2 className="spinner" size={18} style={{ color: '#818cf8' }} />
                 <div>
-                  <strong style={{ display: 'block', fontSize: '13px', color: '#c7d2fe' }}>{aiIndicator.message || "Verifying with AI..."}</strong>
-                  <span style={{ fontSize: '11px', color: '#a5b4fc' }}>Cross-referencing details, categories, and local landmark parameters.</span>
+                  <strong style={{ display: 'block', fontSize: '13px', color: '#c7d2fe' }}>{aiIndicator.message || "Checking details with AI..."}</strong>
+                  <span style={{ fontSize: '11px', color: '#a5b4fc' }}>AI is checking categories, local landmarks, and similar requests.</span>
                 </div>
               </div>
             )}
@@ -2738,30 +2726,30 @@ JSON:`
                   </div>
                   <strong style={{ color: '#c7d2fe', fontSize: '15px', display: 'block', marginBottom: '6px' }}>📍 Map Location Required</strong>
                   <p style={{ color: '#a5b4fc', fontSize: '12.5px', margin: 0, lineHeight: '1.4' }}>
-                    Please select a point on the map in Section 2 first to unlock descriptions, attachments, and the AI verification engine.
+                    Please select a location on the map in Step 2 to enable text writing, voice recording, or photo uploads.
                   </p>
                 </div>
               )}
               
               {/* Text Description Box */}
               <div className="input-box-sub">
-                <label>Add Text Description</label>
+                <label>Option A: Write Details</label>
                 <div className="text-area-row">
                   <textarea
-                    placeholder="Enter description of public infrastructure need (AI will auto-tag and set scope)..."
+                    placeholder="Type your suggestion or describe the local issue here..."
                     value={textNote}
                     onChange={e => setTextNote(e.target.value)}
                   />
                   <button type="button" className="btn-add-action" onClick={handleAddText} disabled={!textNote.trim()}>
-                    Add Text
+                    Save Text
                   </button>
                 </div>
               </div>
 
               {/* Audio Note Recorder */}
               <div className="input-box-sub" style={{ marginTop: '20px' }}>
-                <label>Record Voice Note</label>
-                <p className="voice-info">Syncs transcription with selected language. Currently: <strong>{selectedLang}</strong></p>
+                <label>Option B: Speak Your Suggestion</label>
+                <p className="voice-info">Speak in your regional language. Browser will write it down. Selected: <strong>{selectedLang}</strong></p>
                 <div className="voice-row">
                   <button
                     type="button"
@@ -2769,7 +2757,7 @@ JSON:`
                     onClick={isRecording ? stopRecording : startRecording}
                   >
                     <span className="record-icon"></span>
-                    <span>{isRecording ? 'Stop Recording' : 'Start Recording Voice Note'}</span>
+                    <span>{isRecording ? '🛑 Stop Speaking' : '🎙️ Tap to Speak (Voice)'}</span>
                   </button>
                 </div>
                 {isRecording && (
@@ -2777,7 +2765,7 @@ JSON:`
                     <span className="pulse-circle"></span>
                     <span className="live-trans-preview notranslate">
                       {micSharingBlocked 
-                        ? '🎙️ Recording audio note... (Native browser preview unavailable. Gemini will transcribe this note once you stop recording)' 
+                        ? '🎙️ Speaking... (Native browser preview offline. Recording voice note...)' 
                         : (liveTranscript || 'Listening... speak now.')}
                     </span>
                   </div>
@@ -2786,8 +2774,8 @@ JSON:`
 
               {/* Photo Evidence Upload */}
               <div className="input-box-sub" style={{ marginTop: '20px' }}>
-                <label>Upload Photo Attachments</label>
-                <p className="photo-info">Uploaded images will be analyzed by Gemini Vision AI to identify civic issues and extract text.</p>
+                <label>Option C: Add a Photo</label>
+                <p className="photo-info">Upload a picture of the issue (optional).</p>
                 <div className="photo-upload-zone">
                   <input
                     type="file"
@@ -2799,7 +2787,7 @@ JSON:`
                   />
                   <label htmlFor="evidence-photos" className="photo-upload-label">
                     <Upload size={24} />
-                    <span>Click to Upload Images</span>
+                    <span>📁 Select Photo</span>
                   </label>
                 </div>
               </div>
@@ -2810,7 +2798,7 @@ JSON:`
             {imageContextWarning && (
               <div className="context-warning-card" style={{ marginTop: '16px', border: '1px dashed #fbbf24', padding: '12px', borderRadius: '8px', background: 'rgba(251,191,36,0.1)' }}>
                 <p style={{ margin: 0, fontSize: '13px', color: '#f59e0b' }}>
-                  ❓ <strong>AI needs more context:</strong> The uploaded image details are ambiguous. Please add a brief voice note or text description to describe the exact problem.
+                  ❓ <strong>Need more details:</strong> The uploaded picture is not clear. Please record a voice note or write a description explaining the issue.
                 </p>
               </div>
             )}
@@ -2820,10 +2808,10 @@ JSON:`
               <div className="ai-suggested-place-card" style={{ marginTop: '16px', border: '1px solid #6366f1', padding: '14px', borderRadius: '8px', background: 'rgba(99,102,241,0.08)' }}>
                 <h4 style={{ margin: '0 0 6px', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Sparkles size={16} />
-                  <span>AI Landmark Recommendation</span>
+                  <span>Suggested Nearby Place</span>
                 </h4>
                 <p style={{ margin: 0, fontSize: '13px', color: '#c7d2fe', lineHeight: '1.4' }}>
-                  It looks like your description mentions <strong>{aiSuggestedLandmark.name}</strong>. Would you like to link this landmark to your complaint?
+                  We found <strong>{aiSuggestedLandmark.name}</strong> in your description. Would you like to link this place?
                 </p>
                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                   <button 
@@ -2837,7 +2825,7 @@ JSON:`
                       setAiSuggestedLandmark(null);
                     }}
                   >
-                    📌 Yes, Tag & Focus
+                    📌 Link & Focus Map
                   </button>
                   <button 
                     type="button" 
@@ -2845,7 +2833,7 @@ JSON:`
                     style={{ fontSize: '11px', padding: '6px 12px', border: '1px solid rgba(255,255,255,0.2)', color: 'white' }}
                     onClick={() => setAiSuggestedLandmark(null)}
                   >
-                    Dismiss Suggestion
+                    Dismiss
                   </button>
                 </div>
               </div>
@@ -2856,13 +2844,13 @@ JSON:`
               <div className="ai-clarification-card" style={{ marginTop: '16px', border: '1px solid #f59e0b', padding: '14px', borderRadius: '8px', background: 'rgba(245,158,11,0.08)' }}>
                 <h4 style={{ margin: '0 0 6px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Sparkles size={16} />
-                  <span>AI Request for Clarification</span>
+                  <span>AI Follow-up Question</span>
                 </h4>
                 <p style={{ margin: 0, fontSize: '13px', color: '#fde68a', lineHeight: '1.4', textAlign: 'left' }}>
                   {aiClarificationQuestion}
                 </p>
                 <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#c5c7e6', fontStyle: 'italic', textAlign: 'left' }}>
-                  Please add a follow-up text description or voice note clarifying the details to unlock submission.
+                  Please describe the details above (or use the voice mic) to answer.
                 </p>
                 <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
                   <button 
@@ -2884,20 +2872,20 @@ JSON:`
             {!aiUnderstood && items.length > 0 && !aiClarificationQuestion && !aiError && (
               <div className="ai-status-pending-card" style={{ marginTop: '16px', border: '1px dashed rgba(99, 102, 241, 0.4)', padding: '12px', borderRadius: '8px', background: 'rgba(99,102,241,0.04)' }}>
                 <p style={{ margin: 0, fontSize: '13px', color: '#c7d2fe' }}>
-                  ⏳ AI is currently analyzing your inputs. Submission will unlock once classification and verification are complete.
+                  ⏳ Checking details... Please wait a moment.
                 </p>
               </div>
             )}
 
             {aiError && (
               <div className="ai-error-card" style={{ marginTop: '16px', border: '1px solid #ef4444', padding: '14px', borderRadius: '8px', background: 'rgba(239,68,68,0.1)', textAlign: 'left' }}>
-                <strong style={{ display: 'block', fontSize: '13px', color: '#fca5a5', marginBottom: '6px' }}>❌ Gemini AI Verification Failed</strong>
+                <strong style={{ display: 'block', fontSize: '13px', color: '#fca5a5', marginBottom: '6px' }}>❌ AI Check Offline</strong>
                 <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#fca5a5', lineHeight: '1.4' }}>
                   {aiError}
                 </p>
                 <div style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)' }}>
                   <p style={{ margin: 0, fontSize: '11.5px', color: '#fbcfe8', lineHeight: '1.5' }}>
-                    💡 <strong>Quick Fix:</strong> Please verify that you copied the complete API key from Google AI Studio. Google AI Studio keys start with either the <strong>AIzaSy</strong> or <strong>AQ.</strong> prefix. If you see this card, the API call failed (e.g. invalid permissions, incorrect project setup, or network timeout).
+                    💡 <strong>Quick Fix:</strong> Please verify that your Gemini API keys in the footer are active and copied correctly. If keys are missing or invalid, AI checks will remain offline.
                   </p>
                 </div>
                 <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
@@ -2911,7 +2899,7 @@ JSON:`
                       setAiError(null);
                     }}
                   >
-                    ⚠️ Submit Anyway (Bypass AI Verification)
+                    ⚠️ Submit Anyway (Bypass AI check)
                   </button>
                 </div>
               </div>
@@ -3259,15 +3247,15 @@ JSON:`
         <div className="checklist">
           <div className={'checklist-item ' + (location ? 'checked' : '')}>
             <span className="checkbox"></span>
-            <span>Map Coordinates Placed</span>
+            <span>Location Selected</span>
           </div>
           <div className={'checklist-item ' + (items.length > 0 ? 'checked' : '')}>
             <span className="checkbox"></span>
-            <span>Evidence Material Provided</span>
+            <span>Description Added</span>
           </div>
           <div className={'checklist-item ' + (isAiAnalyzing ? 'analyzing' : aiUnderstood && !aiClarificationQuestion ? 'checked' : '')}>
             {isAiAnalyzing ? <Loader2 className="spinner" size={14} style={{ marginRight: '8px', color: '#818cf8' }} /> : <span className="checkbox"></span>}
-            <span>AI Verification Satisfied</span>
+            <span>AI Check Done</span>
           </div>
         </div>
 
@@ -3277,7 +3265,7 @@ JSON:`
           disabled={isSubmitDisabled}
           onClick={handleSubmit}
         >
-          <span>Submit {ticketType === 'suggestion' ? 'Suggestion' : 'Complaint'} to Registry</span>
+          <span>Send Request to Leaders</span>
           <ArrowRight size={18} />
         </button>
       </div>
@@ -3827,9 +3815,100 @@ function App() {
           <div className="footer-sub">
             Built for MP Constituency Development Planning * Smart India Hackathon Track 1 * All Rights Reserved
           </div>
+          <GeminiKeysFooter />
         </div>
       </footer>
     </>
+  );
+}
+
+export function GeminiKeysFooter() {
+  const [keysInput, setKeysInput] = useState(() => {
+    return localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
+  });
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleSave = () => {
+    const cleaned = keysInput
+      .split(/[\n\r,;]+/)
+      .map(k => k.trim())
+      .filter(k => k.length > 0)
+      .join('\n');
+    localStorage.setItem('jansetu_gemini_key', cleaned || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw');
+    alert('Gemini API Keys saved. Your changes are synchronized across all pages.');
+    window.location.reload();
+  };
+
+  const keysCount = keysInput
+    .split(/[\n\r,;]+/)
+    .map(k => k.trim())
+    .filter(k => k.length > 0).length;
+
+  return (
+    <div className="gemini-keys-footer container" style={{ marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px', textAlign: 'center' }}>
+      <button 
+        type="button"
+        className="btn-toggle-footer-keys"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          color: '#a5b4fc',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontSize: '0.8rem',
+          fontWeight: 600,
+          fontFamily: 'inherit',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <span>⚙️ Configure Gemini API Keys ({keysCount} active)</span>
+      </button>
+      {isOpen && (
+        <div className="footer-keys-panel" style={{ marginTop: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', padding: '16px', borderRadius: '10px', maxWidth: '600px', margin: '12px auto', textAlign: 'left' }}>
+          <p style={{ margin: '0 0 10px', fontSize: '11.5px', color: '#94a3b8', lineHeight: '1.4' }}>
+            Jansetu uses a multi-key backup system. Paste one or more Google Gemini API keys below (one per line). 
+            If one key fails due to limits or errors, the platform automatically switches to the backup keys.
+          </p>
+          <textarea
+            className="footer-keys-textarea"
+            value={keysInput}
+            onChange={(e) => setKeysInput(e.target.value)}
+            placeholder="AIzaSy..."
+            rows={4}
+            style={{
+              width: '100%',
+              background: 'rgba(0,0,0,0.2)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '8px',
+              color: 'white',
+              padding: '10px',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              marginBottom: '12px'
+            }}
+          />
+          <button 
+            type="button" 
+            onClick={handleSave} 
+            className="btn-save-footer-keys"
+            style={{
+              background: '#4f46e5',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              fontWeight: 600,
+              fontSize: '12px',
+              cursor: 'pointer'
+            }}
+          >
+            Save Keys & Update
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

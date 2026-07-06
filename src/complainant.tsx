@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { Network } from 'lucide-react';
-import { LanguageSelector, ComplainantPortal, getInitialLanguage } from './App';
+import { LanguageSelector, ComplainantPortal, getInitialLanguage, GeminiKeysFooter } from './App';
 import './index.css';
 
 function ComplainantApp() {
@@ -67,6 +67,7 @@ function ComplainantApp() {
           <div className="footer-sub">
             Built for MP Constituency Development Planning • Smart India Hackathon Track 1 • All Rights Reserved
           </div>
+          <GeminiKeysFooter />
         </div>
       </footer>
     </>

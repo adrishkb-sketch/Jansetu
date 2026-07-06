@@ -38,7 +38,8 @@ const safeJsonParse = (text: string) => {
   return JSON.parse(cleanText.trim());
 };
 import { getAllDemands, updateDemandStatus, saveActionPlan, getActionPlan, updateDemandDetails, getAllActionPlans, saveActionPlanByConstituency, getActionPlanByConstituency, clearDatabaseCollections } from './services/db';
-import { LanguageSelector, getInitialLanguage, GoogleMapComponent } from './App';
+import { LanguageSelector, getInitialLanguage, GoogleMapComponent, GeminiKeysFooter } from './App';
+import { fetchGemini } from './services/gemini_api';
 import { AuthModal } from './AuthModal';
 import { 
   evaluateInfrastructureGap, 
@@ -275,7 +276,6 @@ function ManagerConsole() {
     }
 
     setIsClustering(true);
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     const submissionsForClustering = filteredDemands.map(d => ({
       id: d.id,
@@ -287,7 +287,7 @@ function ManagerConsole() {
       upvotes: d.upvotes || 1
     }));
 
-    if (geminiKey) {
+    if (true) {
       try {
         const prompt = `You are an AI data scientist specializing in civic technology and constituency development.
 We have a set of citizen submissions (both complaints and suggestions) containing categories, addresses, descriptions, and user upvotes.
@@ -313,16 +313,10 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
   }
 ]`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{ text: prompt }]
-            }]
-          })
+        const response = await fetchGemini({
+          contents: [{
+            parts: [{ text: prompt }]
+          }]
         });
 
         const json = await response.json();
@@ -402,7 +396,6 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
     if (!plan) return;
     setIsAuditingProgress(true);
     setProgressAuditResult('Evaluating MP parliamentary activity and dedicated funds...');
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     const planSummary = `
       Plan Name: ${plan.planName}
@@ -425,11 +418,7 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
     `;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
+      const response = await fetchGemini({ contents: [{ parts: [{ text: prompt }] }] });
 
       if (!response.ok) throw new Error("API error");
       const resData = await response.json();
@@ -445,7 +434,6 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
   const runGeminiGrievanceAudit = async (complaint: any) => {
     if (!complaint) return;
     setIsAuditing(true);
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     const compiledEvidence = (complaint.items || []).map((item: any, index: number) => {
       let details = `[Item #${index + 1} - Type: ${item.type}]`;
@@ -463,7 +451,7 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
       allSubmissionsAndFollowUps: compiledEvidence
     };
 
-    if (geminiKey) {
+    if (true) {
       try {
         const prompt = `You are an AI civic auditor evaluating municipal and infrastructure grievances.
 Please analyze the following citizen submission details:
@@ -485,12 +473,8 @@ You must return your output strictly as a valid JSON object matching this struct
   "citizenResponse": "..."
 }`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
+        const response = await fetchGemini({
+          contents: [{ parts: [{ text: prompt }] }]
         });
 
         const json = await response.json();
@@ -593,7 +577,6 @@ You must return your output strictly as a valid JSON object matching this struct
 
   const generateParliamentBrief = async () => {
     setIsGeneratingProposal(true);
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     const selectedDemands = demands.filter(d => selectedPlanIds.includes(d.id));
     if (selectedDemands.length === 0) {
@@ -616,7 +599,7 @@ You must return your output strictly as a valid JSON object matching this struct
 - Local Government Metric: ${segment.waterCoverage}% JJM tap water coverage, ${segment.unconnectedHabitations} unconnected PMGSY habitations, ${segment.avgDistanceToPHC}km average distance to healthcare PHC.`;
     }).join('\n\n');
 
-    if (geminiKey) {
+    if (true) {
       try {
         const prompt = proposalType === 'constituency'
           ? `You are a constituency development expert. Create a structured step-by-step action plan for ${planConstituency} Lok Sabha constituency based on these selected citizen priorities:
@@ -670,16 +653,10 @@ Provide your response ONLY as a valid JSON object matching the following schema.
   ]
 }`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{ text: prompt }]
-            }]
-          })
+        const response = await fetchGemini({
+          contents: [{
+            parts: [{ text: prompt }]
+          }]
         });
 
         const json = await response.json();
@@ -774,7 +751,6 @@ Provide your response ONLY as a valid JSON object matching the following schema.
   const handleUpdatePlanWithGemini = async () => {
     if (!actionPlan) return;
     setIsGeneratingProposal(true);
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     try {
       const prompt = `You are a constituency development expert. The user (manager) has typed manual changes or updates to the action plan. Here is the current state of the plan:
@@ -812,13 +788,9 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
 
       let responsePlan = actionPlan;
 
-      if (geminiKey) {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
+      if (true) {
+        const response = await fetchGemini({
+          contents: [{ parts: [{ text: prompt }] }]
         });
 
         if (response.ok) {
@@ -3994,6 +3966,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
           <div className="footer-sub">
             Built for MP Constituency Development Planning • Smart India Hackathon Track 1 • All Rights Reserved
           </div>
+          <GeminiKeysFooter />
         </div>
       </footer>
     </>
@@ -4026,7 +3999,6 @@ function ClubbedDetailPanel({ group, onClose, loadData }: ClubbedDetailPanelProp
   const handleGeneratePlan = async () => {
     setIsGenerating(true);
     setAiError(null);
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     try {
       const complaintsText = group.demands.map((d: any, idx: number) => 
@@ -4086,11 +4058,7 @@ function ClubbedDetailPanel({ group, onClose, loadData }: ClubbedDetailPanelProp
         }
       `;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
+      const response = await fetchGemini({ contents: [{ parts: [{ text: prompt }] }] });
 
       if (!response.ok) {
         throw new Error(`Failed to generate: HTTP ${response.status}`);

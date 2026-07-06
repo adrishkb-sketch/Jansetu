@@ -21,7 +21,8 @@ import {
   getMPFunds,
   saveMPFunds 
 } from './services/db';
-import { LanguageSelector, getInitialLanguage } from './App';
+import { LanguageSelector, getInitialLanguage, GeminiKeysFooter } from './App';
+import { fetchGemini } from './services/gemini_api';
 import { AuthModal } from './AuthModal';
 import { ALL_CONSTITUENCIES_DATA } from './services/constituency_datasets';
 import './index.css';
@@ -164,7 +165,6 @@ function MPApp() {
     setGeneratingSummary(true);
     setProblemSummary('AI is summarizing constituent grievances, aggregating upvotes, and evaluating priority indices...');
     
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
     const complaintsText = matchingDemands.map((d, index) => 
       `Complaint #${index+1}: Category: ${d.category}, Location: ${d.address}, Support Signatures: ${d.upvotes || 1}, Description: ${d.items?.[0]?.content || d.items?.[0]?.speechTranscript || 'No details'}`
     ).join('\n');
@@ -183,11 +183,7 @@ function MPApp() {
     `;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
+      const response = await fetchGemini({ contents: [{ parts: [{ text: prompt }] }] });
 
       if (!response.ok) throw new Error("API error");
       const resData = await response.json();
@@ -209,7 +205,6 @@ function MPApp() {
     setGeneratingSpeech(true);
     setSpeechDraft('AI is writing a Lok Sabha speech draft and splitting it into slide outlines...');
 
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
     const complaintsText = matchingDemands.slice(0, 5).map((d, index) => 
       `Issue #${index+1} (${d.category}): Located at ${d.address} with ${d.upvotes || 1} signatures.`
     ).join('\n');
@@ -232,11 +227,7 @@ function MPApp() {
     `;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
+      const response = await fetchGemini({ contents: [{ parts: [{ text: prompt }] }] });
 
       if (!response.ok) throw new Error("API error");
       const resData = await response.json();
@@ -267,8 +258,6 @@ function MPApp() {
     setIsAuditingAction(true);
     setAiActionAuditReport("🤖 Gemini is conducting a Parliamentary Action & Local Grievance Alignment Audit...");
 
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
-    
     const raisedDemands = matchingDemands;
     const raisedDemandsCount = raisedDemands.length;
 
@@ -318,11 +307,7 @@ function MPApp() {
     }
 
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      });
+      const res = await fetchGemini({ contents: [{ parts: [{ text: prompt }] }] });
       if (!res.ok) throw new Error("API failure");
       const resData = await res.json();
       const report = resData.candidates?.[0]?.content?.parts?.[0]?.text || 'Audit completed with no output.';
@@ -1006,6 +991,7 @@ function MPApp() {
           <div className="footer-sub">
             Built for MP Constituency Development Planning • Smart India Hackathon Track 1 • All Rights Reserved
           </div>
+          <GeminiKeysFooter />
         </div>
       </footer>
     </>
