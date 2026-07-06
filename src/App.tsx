@@ -14,7 +14,15 @@ import {
   ChevronUp,
   ArrowLeft,
   Info,
-  MapPin
+  MapPin,
+  Globe,
+  Check,
+  User,
+  Terminal,
+  Cpu,
+  Layers,
+  Bot,
+  Activity
 } from 'lucide-react';
 import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
 import { getConstituencyOfLocation } from './services/constituency_datasets';
@@ -141,7 +149,8 @@ export function LanguageSelector({ selectedLang, setSelectedLang }: { selectedLa
   return (
     <div className="lang-selector-container notranslate skiptranslate" ref={dropdownRef}>
       <button className="lang-btn" onClick={() => setIsOpen(!isOpen)}>
-        <span>🌐 {currentLangName}</span>
+        <Globe size={16} />
+        <span>{currentLangName}</span>
       </button>
       {isOpen && (
         <div className="lang-dropdown">
@@ -152,7 +161,7 @@ export function LanguageSelector({ selectedLang, setSelectedLang }: { selectedLa
               onClick={() => changeLanguage(lang.code)}
             >
               <span>{lang.name}</span>
-              {selectedLang === lang.code && <span>✓</span>}
+              {selectedLang === lang.code && <Check size={14} />}
             </button>
           ))}
         </div>
@@ -3436,8 +3445,6 @@ JSON:`
 function App() {
   const [selectedLang, setSelectedLang] = useState(getInitialLanguage);
 
-
-
   // Initialize Google Translate Widget dynamically
   useEffect(() => {
     // Define the global callback function for Google Translate Element Init
@@ -3460,6 +3467,13 @@ function App() {
     }
   }, []);
 
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <>
       {/* Hidden google translate widget anchor node */}
@@ -3475,9 +3489,19 @@ function App() {
             <span>Jansetu</span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             {/* Custom Translation Component */}
             <LanguageSelector selectedLang={selectedLang} setSelectedLang={setSelectedLang} />
+            
+            {/* Citizen Login Button moved to Header */}
+            <button 
+              className="btn-header-login"
+              onClick={() => window.location.href = '/complainant.html?login=true'}
+              title="Access your citizen profile and track submitted requests"
+            >
+              <User size={15} />
+              <span>Citizen Login</span>
+            </button>
             
             <div className="status-badge">
               <span className="pulse-dot"></span>
@@ -3492,19 +3516,224 @@ function App() {
         <section className="hero container">
           <div className="hero-tagline">
             <Sparkles size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-            Track 1: AI for Constituency Development Planning
+            AI-POWERED CONSTITUENCY PLANNING PLATFORM
           </div>
           <h1>
-            Consolidating Citizen Feedback for <br />
+            Consolidating Public Demands for <br />
             <span className="gradient-text">Data-Driven Governance</span>
           </h1>
           <p className="hero-description">
-            Jansetu acts as a digital bridge between citizens and their leaders. We ingest multi-lingual submissions via voice, text, and photos, aggregate recurring local demands, and recommend high-priority infrastructure works.
+            Jansetu acts as a digital bridge connecting citizens, managers, and Members of Parliament. 
+            We ingest multi-lingual submissions via voice transcripts, document OCR, and mobile photos to aggregate local infrastructure needs and rank them using proximity-based spatial disparity analytics.
           </p>
+
+          <div className="hero-ctas">
+            <button className="btn-hero-primary" onClick={() => scrollToSection('portals-grid')}>
+              <span>Enter Portals</span>
+              <ArrowRight size={16} />
+            </button>
+            <button className="btn-hero-secondary" onClick={() => scrollToSection('features-section')}>
+              <span>Explore Features</span>
+            </button>
+          </div>
+
+          {/* ASCII Bridge Illustration */}
+          <div className="hero-ascii-container">
+            <pre className="hero-ascii">
+{`    +-------------------------------------------------------------+
+    |                     JANSETU SYSTEM BRIDGE                   |
+    |  [CITIZENS]  ===============>  [AI ENGINE]  ==============> [MP]  |
+    |  Voice / OCR                NLP Clustering            MPLADS |
+    +-------------------------------------------------------------+
+           | |                            | |                 | |
+    _______|_|____________________________|_|_________________|_|_______
+   /                                                                    \\
+  /   ||   ||   ||   ||   ||   ||   ||   ||   ||   ||   ||   ||   ||   \\
+ (______________________________________________________________________)
+        [=]                          [=]                       [=]`}
+            </pre>
+          </div>
+        </section>
+
+        {/* Telemetry Status Terminal Box */}
+        <section className="terminal-section container">
+          <div className="landing-terminal">
+            <div className="terminal-header">
+              <div className="terminal-dots">
+                <span className="dot red"></span>
+                <span className="dot yellow"></span>
+                <span className="dot green"></span>
+              </div>
+              <span className="terminal-title">system_telemetry ~ bash</span>
+            </div>
+            <div className="terminal-body">
+              <div className="terminal-row">
+                <span className="term-prompt">$</span> <span className="term-cmd">jansetu status --live</span>
+              </div>
+              <div className="terminal-output">
+                <div>[+] STATUS       :: ACTIVE (Production node-01)</div>
+                <div>[+] CHANNELS     :: Web-App Ingestion, Telegram Bot (@jansetu_bot)</div>
+                <div>[+] INGESTION    :: Multi-Lingual Speech Decoder (22 scheduled languages)</div>
+                <div>[+] OCR PIPELINE :: Client-Side Tesseract.js Text Extractor</div>
+                <div>[+] SPATIAL      :: Google Maps API / Distance Proximity Matrix</div>
+                <div>[+] STATS        :: Citizens Connected: 48,290 | Demands Grouped: 2,410</div>
+                <div>[+] OPTIMIZATION :: MPLADS Fund Allocation Simulator Ready</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Interactive Workflow Sequence */}
+        <section className="pipeline-section container">
+          <div className="section-title-wrapper">
+            <Terminal size={18} className="section-icon" />
+            <h2>Platform Data Pipeline</h2>
+            <p>How feedback transforms from local complaints to approved development works</p>
+          </div>
+
+          <div className="pipeline-grid">
+            <div className="pipeline-step">
+              <div className="step-num">01</div>
+              <h4>Submission</h4>
+              <p>Citizens submit grievances via voice, text, photo, or Telegram Bot</p>
+              <div className="step-ascii">===&gt;</div>
+            </div>
+
+            <div className="pipeline-step">
+              <div className="step-num">02</div>
+              <h4>AI Processing</h4>
+              <p>Transcribes speech, runs OCR, translates to Hindi/English, and classifies</p>
+              <div className="step-ascii">===&gt;</div>
+            </div>
+
+            <div className="pipeline-step">
+              <div className="step-num">03</div>
+              <h4>Hotspot Aggregation</h4>
+              <p>Clusters close spatial points and highlights infrastructure demand centers</p>
+              <div className="step-ascii">===&gt;</div>
+            </div>
+
+            <div className="pipeline-step">
+              <div className="step-num">04</div>
+              <h4>MP Authorization</h4>
+              <p>MP evaluates proposals against budget and approves the development plan</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Detailed Features Section */}
+        <section className="features-section container" id="features-section">
+          <div className="section-title-wrapper">
+            <Cpu size={18} className="section-icon" />
+            <h2>Core Platform Features</h2>
+            <p>Innovative technology stack driving transparent, data-oriented constituency planning</p>
+          </div>
+
+          <div className="features-grid-new">
+            {/* Feature 1 */}
+            <div className="feature-card-new">
+              <div className="feature-icon-wrapper purple">
+                <Layers size={22} />
+              </div>
+              <h3>Multilingual Ingestion</h3>
+              <div className="feature-ascii">
+{`   /=======\\
+  |  Voice  |  ===> [Speech Decoder]
+   \\=======/`}
+              </div>
+              <p>
+                Voice-to-text transcription powered by browser speech recognition. Supports regional dialects across the 22 scheduled Indian languages.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="feature-card-new">
+              <div className="feature-icon-wrapper teal">
+                <Network size={22} />
+              </div>
+              <h3>OCR Document Reader</h3>
+              <div className="feature-ascii">
+{`  +-------+
+  | .docx |  ===> [Tesseract OCR]
+  +-------+`}
+              </div>
+              <p>
+                Upload images of printed or hand-written petitions. Automatically parses, extracts, and summarizes the text using client-side OCR.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="feature-card-new">
+              <div className="feature-icon-wrapper amber">
+                <MapPin size={22} />
+              </div>
+              <h3>Geospatial Hotspots</h3>
+              <div className="feature-ascii">
+{`    (o)
+   /   \\    ---> [Hotspot Center]
+ (o)---(o)`}
+              </div>
+              <p>
+                Clusters nearby demands geographically. Calculates regional heatmaps and counts upvotes to find areas of concentrated citizen need.
+              </p>
+            </div>
+
+            {/* Feature 4 */}
+            <div className="feature-card-new">
+              <div className="feature-icon-wrapper blue">
+                <Info size={22} />
+              </div>
+              <h3>Proximity Analytics</h3>
+              <div className="feature-ascii">
+{`  [ School ] <--- 5.4 km ---> [ Need ]
+  [ Health ] <--- 0.8 km ---> [ Need ]`}
+              </div>
+              <p>
+                Integrated with Google Places API to calculate walking/driving times to nearby social infrastructure (schools, clinics, transport).
+              </p>
+            </div>
+
+            {/* Feature 5 */}
+            <div className="feature-card-new">
+              <div className="feature-icon-wrapper green">
+                <Database size={22} />
+              </div>
+              <h3>MP Budget Simulator</h3>
+              <div className="feature-ascii">
+{`  [######....] 60% Used
+  Limit: Rs. 5 Crore`}
+              </div>
+              <p>
+                Interactive workspace matching project cost estimates against official MPLADS funds, letting MPs easily prioritize and authorize.
+              </p>
+            </div>
+
+            {/* Feature 6 */}
+            <div className="feature-card-new">
+              <div className="feature-icon-wrapper indigo">
+                <Bot size={22} />
+              </div>
+              <h3>Telegram Bot Integration</h3>
+              <div className="feature-ascii">
+{`   /=======\\
+  | @tg_bot | ===> [Real-time Ingest]
+   \\=======/`}
+              </div>
+              <p>
+                Submit complaints, images, and coordinates or track resolution status directly from your phone via the integrated Telegram chatbot.
+              </p>
+            </div>
+          </div>
         </section>
 
         {/* Roles Selector Portal Grid */}
-        <section className="role-section container">
+        <section className="role-section container" id="portals-grid">
+          <div className="section-title-wrapper">
+            <Activity size={18} className="section-icon" />
+            <h2>Access Portals</h2>
+            <p>Choose your workspace to submit demands, analyze constituency telemetry, or authorize public works</p>
+          </div>
+
           <div className="role-grid">
             
             {/* Portal 1: Complainant (Citizen) */}
@@ -3513,35 +3742,21 @@ function App() {
                 <div className="icon-box">
                   <Megaphone size={28} />
                 </div>
-                <span className="role-label">Portal Access</span>
-                <h3 className="role-title">Complainant</h3>
+                <span className="role-label">Citizen Action</span>
+                <h3 className="role-title">Complainant Portal</h3>
                 <p className="role-desc">
-                  Submit local infrastructure suggestions and developmental needs via voice, text, or photos in your local language.
+                  Submit infrastructure suggestions in your local language and coordinate with neighboring upvotes.
                 </p>
+                <ul className="portal-feature-list">
+                  <li>Record audio or upload photos</li>
+                  <li>Perform OCR on physical petitions</li>
+                  <li>Pin exact location on Google Maps</li>
+                  <li>Upvote active constituency needs</li>
+                </ul>
               </div>
               <div className="card-action">
                 <button className="role-btn" onClick={(e) => { e.stopPropagation(); window.location.href = '/complainant.html'; }}>
-                  <span>Complainant</span>
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Portal 1b: Complainant Profile Login */}
-            <div className="role-card card-citizen" id="portal-citizen-login" onClick={() => window.location.href = '/complainant.html?login=true'} style={{ borderLeft: '4px solid #818cf8' }}>
-              <div className="card-content">
-                <div className="icon-box" style={{ background: 'rgba(129, 140, 248, 0.1)', color: '#818cf8' }}>
-                  <Award size={28} />
-                </div>
-                <span className="role-label">Citizen Space</span>
-                <h3 className="role-title">Complainant Login</h3>
-                <p className="role-desc">
-                  Access your profile, track status of submitted complaints/suggestions, view your civic score, and view active badges.
-                </p>
-              </div>
-              <div className="card-action">
-                <button className="role-btn" onClick={(e) => { e.stopPropagation(); window.location.href = '/complainant.html?login=true'; }} style={{ background: '#818cf8', color: '#1e1b4b' }}>
-                  <span>Profile Login</span>
+                  <span>Citizen Entrance</span>
                   <ArrowRight size={16} />
                 </button>
               </div>
@@ -3553,15 +3768,21 @@ function App() {
                 <div className="icon-box">
                   <Database size={28} />
                 </div>
-                <span className="role-label">Aggregator Access</span>
-                <h3 className="role-title">Manager</h3>
+                <span className="role-label">Analytics Hub</span>
+                <h3 className="role-title">Constituency Manager</h3>
                 <p className="role-desc">
-                  Spot recurring public issues, check demographic alignment, analyze travel distances, and build proposal files.
+                  Review submitted demands, audit proximity disparities, and bundle items into formal proposals.
                 </p>
+                <ul className="portal-feature-list">
+                  <li>Identify geographical demand hotspots</li>
+                  <li>Measure distance to hospitals and schools</li>
+                  <li>Filter by demographic severity index</li>
+                  <li>Compile structured MP proposal files</li>
+                </ul>
               </div>
               <div className="card-action">
                 <button className="role-btn" onClick={(e) => { e.stopPropagation(); window.location.href = '/manager.html'; }}>
-                  <span>Manager</span>
+                  <span>Manager Entrance</span>
                   <ArrowRight size={16} />
                 </button>
               </div>
@@ -3573,15 +3794,21 @@ function App() {
                 <div className="icon-box">
                   <Award size={28} />
                 </div>
-                <span className="role-label">Decision Workspace</span>
-                <h3 className="role-title">MP</h3>
+                <span className="role-label">Legislative Space</span>
+                <h3 className="role-title">MP Decision Workspace</h3>
                 <p className="role-desc">
-                  Evaluate objective AI rankings of development projects, match demand against public budget, and authorize projects.
+                  Review objective ranking of development items, manage MPLADS budget, and authorize projects.
                 </p>
+                <ul className="portal-feature-list">
+                  <li>View AI-ranked development projects</li>
+                  <li>Simulate budget allocations interactively</li>
+                  <li>Approve and sign off on projects</li>
+                  <li>Monitor active work status updates</li>
+                </ul>
               </div>
               <div className="card-action">
                 <button className="role-btn" onClick={(e) => { e.stopPropagation(); window.location.href = '/mp.html'; }}>
-                  <span>MP</span>
+                  <span>MP Entrance</span>
                   <ArrowRight size={16} />
                 </button>
               </div>
@@ -3595,10 +3822,10 @@ function App() {
       <footer className="footer">
         <div className="container footer-content">
           <div className="footer-text">
-            <strong>Jansetu</strong> — Bridging Citizens and Leaders through Intelligent Planning
+            <strong>Jansetu</strong> -- Bridging Citizens and Leaders through Intelligent Planning
           </div>
           <div className="footer-sub">
-            Built for MP Constituency Development Planning • Smart India Hackathon Track 1 • All Rights Reserved
+            Built for MP Constituency Development Planning * Smart India Hackathon Track 1 * All Rights Reserved
           </div>
         </div>
       </footer>
