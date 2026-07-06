@@ -5,7 +5,6 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
   collection, 
-  addDoc, 
   getDocs, 
   query, 
   where, 
@@ -127,6 +126,20 @@ const cleanPayload = (obj: any): any => {
   return JSON.parse(JSON.stringify(obj));
 };
 
+export function generateComplaintNumber(constituency?: string): string {
+  const cleanConst = constituency ? constituency.replace(/[^a-zA-Z]/g, '') : '';
+  const prefix = cleanConst.length >= 2 
+    ? cleanConst.slice(0, 3).toUpperCase() 
+    : 'GEN';
+  const year = new Date().getFullYear();
+  const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let randomPart = '';
+  for (let i = 0; i < 5; i++) {
+    randomPart += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return `JS-${prefix}-${year}-${randomPart}`;
+}
+
 /**
  * Submits a new citizen complaint/demand.
  * Scales by loading media to Firebase Storage and saving light documents to Firestore.
@@ -138,8 +151,11 @@ export async function submitDemand(data: SubmissionData): Promise<string> {
     data.scope === 'ward' ? 5000 : 100000
   );
 
+  const ticketCode = generateComplaintNumber(data.constituency);
+
   const docData = {
     ...data,
+    id: ticketCode,
     estimatedImpact,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -147,12 +163,12 @@ export async function submitDemand(data: SubmissionData): Promise<string> {
     upvotes: 1
   };
 
-  let createdId = 'local_' + Date.now();
+  let createdId = ticketCode;
 
   try {
     if (db) {
-      const docRef = await addDoc(collection(db, 'demands'), cleanPayload(docData));
-      createdId = docRef.id;
+      await setDoc(doc(db, 'demands', ticketCode), cleanPayload(docData));
+      createdId = ticketCode;
     }
   } catch (e) {
     console.error("Firestore submit failed, using local storage fallback: ", e);
@@ -160,7 +176,7 @@ export async function submitDemand(data: SubmissionData): Promise<string> {
 
   // Always write to local storage mirror
   const localDb = getLocalEmulatorData();
-  localDb.push({ id: createdId, ...docData });
+  localDb.push(docData);
   saveLocalEmulatorData(localDb);
 
   return createdId;

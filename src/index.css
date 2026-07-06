@@ -1329,10 +1329,10 @@ body {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  display: grid;
+  place-items: center;
+  padding: 40px 20px;
+  overflow-y: auto;
 }
 
 .modal-content {
@@ -1344,6 +1344,14 @@ body {
   width: 100%;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
   animation: modalScaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 24px 16px;
+    border-radius: 16px;
+  }
 }
 
 @keyframes modalScaleIn {

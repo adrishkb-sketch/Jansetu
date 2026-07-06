@@ -21,6 +21,7 @@ const {
   addDoc, 
   getDoc, 
   doc, 
+  setDoc,
   updateDoc, 
   getDocs, 
   query, 
@@ -669,12 +670,28 @@ function cleanUndefined(obj) {
   return result;
 }
 
+function generateComplaintNumber(constituency) {
+  const cleanConst = constituency ? constituency.replace(/[^a-zA-Z]/g, '') : '';
+  const prefix = cleanConst.length >= 2 
+    ? cleanConst.slice(0, 3).toUpperCase() 
+    : 'GEN';
+  const year = new Date().getFullYear();
+  const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let randomPart = '';
+  for (let i = 0; i < 5; i++) {
+    randomPart += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return `JS-${prefix}-${year}-${randomPart}`;
+}
+
 // Write to Firestore & generate tracking outputs
 async function submitFinalComplaint(chatId, session) {
   const sub = session.tempSubmission;
   const lang = session.lang || 'en';
+  const ticketId = generateComplaintNumber(session.constituency || sub.constituency);
   
   const docData = {
+    id: ticketId,
     ticketType: sub.type || 'complaint',
     category: sub.category || 'others',
     scope: sub.scope || 'ward',
@@ -710,8 +727,7 @@ async function submitFinalComplaint(chatId, session) {
 
   try {
     const cleaned = cleanUndefined(docData);
-    const docRef = await addDoc(collection(db, 'demands'), cleaned);
-    const ticketId = docRef.id;
+    await setDoc(doc(db, 'demands', ticketId), cleaned);
     
     const trackingUrl = `https://jansetu-ef57d.web.app/track.html?id=${ticketId}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(trackingUrl)}`;
