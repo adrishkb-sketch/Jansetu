@@ -517,13 +517,13 @@ You must return your output strictly as a valid JSON object matching this struct
       const isSug = complaint.ticketType === 'suggestion';
       const score = Math.floor(Math.random() * 40) + (isSug ? 35 : 60);
       const mockOverview = {
-        brief: `Data-driven audit of citizen ${complaint.category} ticket in ${complaint.address.split(',')[0]}. Identifies municipal maintenance needs.`,
+        brief: `Data-driven audit of citizen ${complaint.category} ticket in ${(complaint.address || 'Submitted via Chatbot').split(',')[0]}. Identifies municipal maintenance needs.`,
         priorityScore: score,
         safetyRisk: score > 75 ? 'High' : 'Moderate',
         estimatedBudget: complaint.category === 'water' ? '₹8 Lakhs - ₹12 Lakhs' : complaint.category === 'roads' ? '₹20 Lakhs - ₹35 Lakhs' : '₹3 Lakhs - ₹5 Lakhs',
         urgency: score > 75 ? 'Critical' : score > 50 ? 'High' : 'Normal',
         fundingSource: complaint.category === 'water' ? 'Jal Jeevan Mission' : complaint.category === 'roads' ? 'PMGSY' : 'MPLADS Fund',
-        citizenResponse: `Dear Citizen, thank you for submitting your feedback regarding ${complaint.category} issues at ${complaint.address.split(',')[0]}. Our technical planning teams have verified the hotspot location. We have queued this request for inclusion in our upcoming ward project review. We appreciate your partnership in building a better community.`
+        citizenResponse: `Dear Citizen, thank you for submitting your feedback regarding ${complaint.category} issues at ${(complaint.address || 'Submitted via Chatbot').split(',')[0]}. Our technical planning teams have verified the hotspot location. We have queued this request for inclusion in our upcoming ward project review. We appreciate your partnership in building a better community.`
       };
 
       await updateDemandDetails(complaint.id, { 
@@ -697,7 +697,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
 
         return {
           id: d.id,
-          title: `Project ${index + 1}: ${d.category.charAt(0).toUpperCase() + d.category.slice(1)} Intervention at ${d.address.split(',')[0]}`,
+          title: `Project ${index + 1}: ${d.category.charAt(0).toUpperCase() + d.category.slice(1)} Intervention at ${(d.address || 'Submitted via Chatbot').split(',')[0]}`,
           description: `A data-driven project to address infrastructure gaps in ${segment.name}. Action description: ${desc}. Assessed against Ministry Guidelines.`,
           cost: cost,
           timeline: d.scope === 'constituency' ? '90 Days' : d.scope === 'ward' ? '45 Days' : '15 Days',
@@ -871,8 +871,8 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
   // Filtering with interactive sliders parameters
   const filteredDemands = demands.filter(d => {
     const matchesSearch = 
-      d.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.address || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (d.items && d.items.some((item: any) => 
         (item.content && item.content.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (item.speechTranscript && item.speechTranscript.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -1060,7 +1060,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
   filteredDemands.forEach(d => {
     const wardKey = `Ward Zone (${d.location.lat.toFixed(2)}, ${d.location.lng.toFixed(2)})`;
     if (!zones[wardKey]) {
-      zones[wardKey] = { name: wardKey, address: d.address.split(',')[0], water: 0, roads: 0, education: 0, health: 0, power: 0, others: 0, total: 0 };
+      zones[wardKey] = { name: wardKey, address: (d.address || 'Submitted via Chatbot').split(',')[0], water: 0, roads: 0, education: 0, health: 0, power: 0, others: 0, total: 0 };
     }
     const cat = d.category;
     if (['water', 'roads', 'education', 'health', 'power'].includes(cat)) {
@@ -1594,7 +1594,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
               </h4>
               <div style={{ height: '480px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <GoogleMapComponent
-                  apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw'}
+                  apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
                   onLocationSelect={() => {}}
                   selectedLocation={selectedDemand?.location || { lat: 28.803, lng: 79.025 }}
                   nearbyHotspots={filteredDemands.map(fd => ({
@@ -2178,7 +2178,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                     </strong>
                     <div style={{ height: '260px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
                       <GoogleMapComponent
-                        apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw'}
+                        apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
                         onLocationSelect={() => {}}
                         selectedLocation={selectedComplaint.location}
                         nearbyHotspots={[]}
@@ -3090,7 +3090,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                                 )}
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'left', color: 'var(--text-desc)' }}>
-                                📍 {d.address.split(',')[0]}
+                                📍 {(d.address || 'Submitted via Chatbot').split(',')[0]}
                                 <span style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)' }}>{gapDetails.assemblyName}</span>
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'center' }}>👍 {d.upvotes || 1}</td>
