@@ -649,6 +649,32 @@ body {
   gap: 32px;
 }
 
+.proposal-grid {
+  display: grid;
+  grid-template-columns: 440px 1fr;
+  gap: 24px;
+}
+
+.manager-dashboard-grid {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 24px;
+}
+
+.mp-dashboard-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .proposal-grid,
+  .manager-dashboard-grid,
+  .mp-dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 @media (max-width: 968px) {
   .portal-grid {
     grid-template-columns: 1fr !important;

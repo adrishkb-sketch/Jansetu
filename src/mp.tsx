@@ -584,7 +584,7 @@ function MPApp() {
         </div>
 
         {/* SECTION 2: SEARCH CONSTITUENCY VS SEARCH BY ISSUE */}
-        <div className="portal-grid" style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '24px', marginBottom: '24px' }}>
+        <div className="mp-dashboard-grid" style={{ marginBottom: '24px' }}>
           
           {/* Left Block: Search Panel */}
           <div className="form-card" style={{ padding: '24px 20px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '16px' }}>

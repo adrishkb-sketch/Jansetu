@@ -1974,7 +1974,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
 
         {/* Content Layout Grid (Only for All Submitted Complaints View) */}
         {activeTab === 'complaints' && (
-          <div className="portal-grid" style={{ gridTemplateColumns: '400px 1fr' }}>
+          <div className="manager-dashboard-grid">
             
             {/* Left Column: Direct Submissions List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '680px', paddingRight: '4px' }}>
@@ -3208,7 +3208,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
             </div>
 
             {/* Web View workspace layout */}
-            <div className="portal-grid no-print" style={{ gridTemplateColumns: '440px 1fr', gap: '24px', textAlign: 'left' }}>
+            <div className="proposal-grid no-print" style={{ textAlign: 'left' }}>
               
               {/* Left Column: Plan and Budget workspace panel */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -3441,7 +3441,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flexGrow: 1 }}>
                       
                       {/* Meta Profile Inputs */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold' }}>PLAN TITLE</label>
                           <input 
@@ -3449,17 +3449,17 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                             value={actionPlan.planName}
                             disabled={actionPlan.isApproved}
                             onChange={e => setActionPlan({ ...actionPlan, planName: e.target.value })}
-                            style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', borderRadius: '6px', fontSize: '13px' }}
+                            style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', borderRadius: '6px', fontSize: '13px', width: '100%' }}
                           />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold' }}>EXECUTIVE PLAN SUMMARY</label>
                           <textarea 
                             value={actionPlan.summary}
-                            rows={1}
+                            rows={4}
                             disabled={actionPlan.isApproved}
                             onChange={e => setActionPlan({ ...actionPlan, summary: e.target.value })}
-                            style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', borderRadius: '6px', fontSize: '13px', resize: 'vertical' }}
+                            style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', borderRadius: '6px', fontSize: '13px', resize: 'vertical', width: '100%' }}
                           />
                         </div>
                       </div>
@@ -3474,7 +3474,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                             <React.Fragment key={idx}>
                               <div style={{
                                 background: 'rgba(20, 184, 166, 0.08)', border: '1px solid rgba(20, 184, 166, 0.3)',
-                                borderRadius: '12px', padding: '12px', minWidth: '200px', flex: '1', textAlign: 'left',
+                                borderRadius: '12px', padding: '12px', minWidth: '260px', flex: '1', textAlign: 'left',
                                 position: 'relative'
                               }}>
                                 <span style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: 'bold', display: 'block', textTransform: 'uppercase' }}>
@@ -3489,11 +3489,11 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                                     nextFlow[idx] = { ...step, phase: e.target.value };
                                     setActionPlan({ ...actionPlan, flowchart: nextFlow });
                                   }}
-                                  style={{ background: 'none', border: 'none', color: 'white', fontWeight: 'bold', fontSize: '12px', margin: '4px 0 2px 0', padding: 0, width: '100%' }}
+                                  style={{ background: 'none', border: 'none', color: 'white', fontWeight: 'bold', fontSize: '12.5px', margin: '4px 0 2px 0', padding: 0, width: '100%' }}
                                 />
                                 <textarea
                                   value={step.description}
-                                  rows={2}
+                                  rows={4}
                                   disabled={actionPlan.isApproved}
                                   onChange={e => {
                                     const nextFlow = [...actionPlan.flowchart];
@@ -3520,7 +3520,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '280px', paddingRight: '4px' }}>
                           {actionPlan.detailedSteps.map((step: any, idx: number) => (
                             <div key={idx} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-light)', padding: '14px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '12px' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                                 <input 
                                   type="text"
                                   value={step.title}
@@ -3561,7 +3561,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                               </div>
                               <textarea 
                                 value={step.description}
-                                rows={2}
+                                rows={3}
                                 disabled={actionPlan.isApproved}
                                 onChange={e => {
                                   const nextSteps = [...actionPlan.detailedSteps];
