@@ -651,7 +651,10 @@ body {
 
 @media (max-width: 968px) {
   .portal-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+  }
+  .role-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 

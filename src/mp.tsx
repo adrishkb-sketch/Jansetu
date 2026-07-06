@@ -584,7 +584,7 @@ function MPApp() {
         </div>
 
         {/* SECTION 2: SEARCH CONSTITUENCY VS SEARCH BY ISSUE */}
-        <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '24px', marginBottom: '24px' }}>
+        <div className="portal-grid" style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '24px', marginBottom: '24px' }}>
           
           {/* Left Block: Search Panel */}
           <div className="form-card" style={{ padding: '24px 20px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -705,7 +705,7 @@ function MPApp() {
 
               {speechDraft && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '16px' }}>
+                  <div className="portal-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '16px' }}>
                     <div style={{ background: '#0e0d24', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)', fontSize: '13px', lineHeight: '1.6', color: 'white', maxHeight: '240px', overflowY: 'auto' }}>
                       <strong style={{ display: 'block', marginBottom: '6px', color: '#818cf8' }}>🎤 Speech Script Draft:</strong>
                       <p style={{ margin: 0, fontStyle: 'serif', whiteSpace: 'pre-line' }}>{speechDraft}</p>
