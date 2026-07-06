@@ -430,10 +430,10 @@ Text: "${text}"`;
   return text;
 }
 
-// Stateless user conversation flow manager using Firestore 'demands' collection (hidden via isConfig: true)
+// Stateless user conversation flow manager using Firestore 'demands' collection (hidden via isBotSession: true)
 async function getUserSession(chatId) {
   try {
-    const docRef = doc(db, "demands", `bot_session_${chatId}`);
+    const docRef = doc(db, "demands", `JS-BOT-${chatId}`);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return docSnap.data();
@@ -444,8 +444,8 @@ async function getUserSession(chatId) {
 
 async function saveUserSession(chatId, session) {
   try {
-    const docRef = doc(db, "demands", `bot_session_${chatId}`);
-    await setDoc(docRef, { ...session, isBotSession: true });
+    const docRef = doc(db, "demands", `JS-BOT-${chatId}`);
+    await setDoc(docRef, { ...session, isBotSession: true, ticketType: "bot_session" });
   } catch (err) {
     console.error("[Jansetu Bot] Error saving user session:", err);
   }
