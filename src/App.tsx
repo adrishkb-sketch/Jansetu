@@ -750,6 +750,15 @@ interface SubmissionItem {
   audioMimeType?: string;
 }
 
+const safeJsonParse = (text: string) => {
+  let cleanText = text.trim();
+  const match = cleanText.match(/```json\s*([\s\S]*?)\s*```/) || cleanText.match(/```\s*([\s\S]*?)\s*```/);
+  if (match) {
+    cleanText = match[1];
+  }
+  return JSON.parse(cleanText.trim());
+};
+
 interface ComplainantPortalProps {
   selectedLang: string;
   onBack: () => void;
@@ -1201,10 +1210,7 @@ JSON:`
         body: JSON.stringify({
           contents: [{
             parts: promptParts
-          }],
-          generationConfig: {
-            responseMimeType: "application/json"
-          }
+          }]
         })
       });
 
@@ -1214,7 +1220,7 @@ JSON:`
       }
       const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) {
-        const result = JSON.parse(text);
+        const result = safeJsonParse(text);
         
         if (result.originalTranscript || result.translatedText) {
           setItems(prevItems => {
@@ -1606,17 +1612,14 @@ JSON:`
                 text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight, blocked drainage), output a detailed description of the problem in English. In addition, localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`
               }
             ]
-          }],
-          generationConfig: {
-            responseMimeType: "application/json"
-          }
+          }]
         })
       });
 
       const json = await response.json();
       const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) {
-        return JSON.parse(text);
+        return safeJsonParse(text);
       }
       return null;
     } catch (e) {

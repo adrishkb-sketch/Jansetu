@@ -28,6 +28,15 @@ import {
   ChevronUp,
   Loader2
 } from 'lucide-react';
+
+const safeJsonParse = (text: string) => {
+  let cleanText = text.trim();
+  const match = cleanText.match(/```json\s*([\s\S]*?)\s*```/) || cleanText.match(/```\s*([\s\S]*?)\s*```/);
+  if (match) {
+    cleanText = match[1];
+  }
+  return JSON.parse(cleanText.trim());
+};
 import { getAllDemands, updateDemandStatus, saveActionPlan, getActionPlan, updateDemandDetails, getAllActionPlans, saveActionPlanByConstituency, getActionPlanByConstituency, clearDatabaseCollections } from './services/db';
 import { LanguageSelector, getInitialLanguage, GoogleMapComponent } from './App';
 import { AuthModal } from './AuthModal';
@@ -274,17 +283,14 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
           body: JSON.stringify({
             contents: [{
               parts: [{ text: prompt }]
-            }],
-            generationConfig: {
-              responseMimeType: "application/json"
-            }
+            }]
           })
         });
 
         const json = await response.json();
         const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          const parsed = JSON.parse(text.trim());
+          const parsed = safeJsonParse(text);
           setClusteringResults(parsed);
           setIsClustering(false);
           return;
@@ -445,15 +451,14 @@ You must return your output strictly as a valid JSON object matching this struct
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
+            contents: [{ parts: [{ text: prompt }] }]
           })
         });
 
         const json = await response.json();
         const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          const parsed = JSON.parse(text.trim());
+          const parsed = safeJsonParse(text);
           parsed.estimatedBudget = parsed.estimatedBudget || "₹5 - ₹10 Lakhs";
           parsed.safetyRisk = parsed.safetyRisk || "Moderate";
           
@@ -635,17 +640,13 @@ Provide your response ONLY as a valid JSON object matching the following schema.
           body: JSON.stringify({
             contents: [{
               parts: [{ text: prompt }]
-            }],
-            generationConfig: {
-              responseMimeType: "application/json"
-            }
+            }]
           })
         });
 
         const json = await response.json();
         let responseText = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const parsedPlan = JSON.parse(responseText);
+        const parsedPlan = safeJsonParse(responseText);
         
         if (parsedPlan && parsedPlan.planName) {
           parsedPlan.isApproved = false;
@@ -778,16 +779,14 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
+            contents: [{ parts: [{ text: prompt }] }]
           })
         });
 
         if (response.ok) {
           const json = await response.json();
           let responseText = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-          const parsedPlan = JSON.parse(responseText);
+          const parsedPlan = safeJsonParse(responseText);
           if (parsedPlan && parsedPlan.planName) {
             responsePlan = {
               ...actionPlan,
@@ -3988,8 +3987,7 @@ function ClubbedDetailPanel({ group, onClose, loadData }: ClubbedDetailPanelProp
 
       const resData = await response.json();
       const text = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsedPlan = JSON.parse(cleanJson);
+      const parsedPlan = safeJsonParse(text);
       
       parsedPlan.associatedComplaintIds = group.demands.map((d: any) => d.id);
       parsedPlan.constituency = group.constituency;
