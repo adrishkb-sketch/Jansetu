@@ -44,6 +44,7 @@ import {
   evaluateInfrastructureGap, 
   calculateCombinedPriorityIndex, 
   getClosestConstituencySegment,
+  getConstituencyOfLocation,
   ALL_CONSTITUENCIES_DATA,
   getConstituencySegments
 } from './services/constituency_datasets';
@@ -214,6 +215,21 @@ function ManagerConsole() {
     const data = await getAllDemands();
     // Sort by date newest first
     data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // Retroactively backfill constituency for existing complaints that are missing it
+    const backfillPromises = data
+      .filter(d => !d.constituency && d.location?.lat && d.location?.lng)
+      .map(async d => {
+        const detectedConstituency = getConstituencyOfLocation(d.location.lat, d.location.lng, d.address || '');
+        d.constituency = detectedConstituency; // mutate in-memory immediately
+        try {
+          await updateDemandDetails(d.id, { constituency: detectedConstituency });
+        } catch (e) {
+          console.warn('Backfill constituency write failed for', d.id, e);
+        }
+      });
+    await Promise.all(backfillPromises);
+
     setDemands(data);
     if (data.length > 0) {
       setSelectedDemand(data[0]);
@@ -1553,10 +1569,10 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
               <select
                 value={filterConstituency}
                 onChange={e => setFilterConstituency(e.target.value)}
-                style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: '600', maxWidth: '180px' }}
+                style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: '600', maxWidth: '200px' }}
               >
-                <option value="all">📍 All Constituencies</option>
-                {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
+                <option value="all">🏛️ All Constituencies</option>
+                {Array.from(new Set(demands.map(d => d.constituency).filter(Boolean))).sort().map(cName => (
                   <option key={cName} value={cName}>{cName}</option>
                 ))}
               </select>
@@ -2078,6 +2094,22 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-desc)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           📍 {d.address}
                         </p>
+                        {d.constituency && (
+                          <span style={{
+                            display: 'inline-block',
+                            marginTop: '5px',
+                            fontSize: '0.7rem',
+                            background: 'rgba(99,102,241,0.18)',
+                            color: '#a5b4fc',
+                            border: '1px solid rgba(99,102,241,0.35)',
+                            padding: '1px 7px',
+                            borderRadius: '20px',
+                            fontWeight: '600',
+                            letterSpacing: '0.01em'
+                          }}>
+                            🏛️ {d.constituency}
+                          </span>
+                        )}
                         <div style={{ display: 'flex', gap: '12px', marginTop: '10px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           <span>👍 {d.upvotes || 1} support signatures</span>
                           <span><Calendar size={12} style={{ marginRight: '4px', verticalAlign: 'middle', color: '#14b8a6' }} /> {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : 'N/A'}</span>
