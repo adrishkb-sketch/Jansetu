@@ -65,6 +65,29 @@ function MPApp() {
   const [approvedPlan, setApprovedPlan] = useState<any | null>(null);
  
   // Load MP Funds & Demands
+  // Google Translate widget initialization
+  useEffect(() => {
+    (window as any).googleTranslateElementInit = () => {
+      new (window as any).google.translate.TranslateElement({
+        pageLanguage: 'en',
+        includedLanguages: 'en,hi,bn,te,mr,ta,gu,kn,ml,or,pa,as,ur,sa,ne,sd,kok',
+        layout: (window as any).google.translate.TranslateElement.InlineLayout.SIMPLE,
+        autoDisplay: false
+      }, 'google_translate_element');
+    };
+
+    if (!document.getElementById('google-translate-script')) {
+      const script = document.createElement('script');
+      script.id = 'google-translate-script';
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      script.async = true;
+      document.body.appendChild(script);
+    } else if ((window as any).google && (window as any).google.translate) {
+      // Re-trigger immediately if script is already present
+      (window as any).googleTranslateElementInit();
+    }
+  }, []);
+
   useEffect(() => {
     if (isAuthenticated) {
       loadFundsConfig();
@@ -429,22 +452,60 @@ function MPApp() {
     });
   };
 
-  // Play audio morning briefing
-  const handlePlayBriefing = () => {
+  // Play audio morning briefing (Dynamically translated by Gemini)
+  const handlePlayBriefing = async () => {
     if (!('speechSynthesis' in window)) {
       alert("Text-to-Speech is not supported in this browser.");
       return;
     }
     window.speechSynthesis.cancel();
     const count = matchingDemands.length;
-    const text = `Honorable Member of Parliament, you have ${count} critical issues logged in ${selectedConstituency}. Your remaining available fund is ${ (mpladsFunds/100000).toFixed(1) } Lakhs. Please review the recommended AI Action plans to authorize work orders.`;
-    const utterance = new SpeechSynthesisUtterance(text);
+    const baseText = `Honorable Member of Parliament, you have ${count} critical issues logged in ${selectedConstituency}. Your remaining available fund is ${(mpladsFunds/100000).toFixed(1)} Lakhs. Please review the recommended AI Action plans to authorize work orders.`;
+    
+    let speakText = baseText;
+
+    if (selectedLang && selectedLang !== 'en') {
+      try {
+        const langNames: Record<string, string> = {
+          hi: 'Hindi', bn: 'Bengali', te: 'Telugu', mr: 'Marathi', ta: 'Tamil',
+          gu: 'Gujarati', kn: 'Kannada', ml: 'Malayalam', or: 'Odia', pa: 'Punjabi',
+          ur: 'Urdu', sa: 'Sanskrit', ne: 'Nepali', sd: 'Sindhi', kok: 'Konkani', as: 'Assamese'
+        };
+        const targetLang = langNames[selectedLang] || 'Hindi';
+        const prompt = `Translate the following text into natural, spoken ${targetLang}. Return ONLY the translated speech text, nothing else:\n\n"${baseText}"`;
+        
+        const response = await fetchGemini({ contents: [{ parts: [{ text: prompt }] }] });
+        if (response.ok) {
+          const resData = await response.json();
+          const translated = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (translated) {
+            speakText = translated.trim();
+          }
+        }
+      } catch (e) {
+        console.error("Gemini TTS translation failed: ", e);
+      }
+    }
+
+    const utterance = new SpeechSynthesisUtterance(speakText);
     utterance.rate = 0.95;
+
+    try {
+      const voices = window.speechSynthesis.getVoices();
+      const langPrefix = selectedLang === 'en' ? 'en' : selectedLang;
+      const matchingVoice = voices.find(v => v.lang.startsWith(langPrefix) || v.lang.includes(`-${langPrefix.toUpperCase()}`));
+      if (matchingVoice) {
+        utterance.voice = matchingVoice;
+        utterance.lang = matchingVoice.lang;
+      }
+    } catch (_) {}
+
     window.speechSynthesis.speak(utterance);
   };
 
   return (
     <>
+      <div id="google_translate_element" style={{ display: 'none' }}></div>
       {!isAuthenticated && <AuthModal role="mp" onSuccess={() => setIsAuthenticated(true)} onClose={() => window.location.href = '/'} />}
       
       <header className="header no-print">
@@ -665,25 +726,128 @@ function MPApp() {
               </div>
             )}
 
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
-              <span style={{ fontSize: '11px', color: '#8e90b3' }}>Matching Citizen Reports</span>
-              <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                {matchingDemands.length === 0 ? (
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No reports match this criteria.</span>
-                ) : (
-                  matchingDemands.map(d => (
-                    <div key={d.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', padding: '8px 12px', borderRadius: '6px', fontSize: '11.5px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8e90b3' }}>
-                        <span>📍 {d.address.slice(0, 20)}... {d.source === 'telegram' ? '✈️' : '🌐'}</span>
-                        <span>👍 {d.upvotes || 1}</span>
-                      </div>
-                      <p style={{ margin: '2px 0 0 0', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {d.items?.[0]?.content || d.items?.[0]?.speechTranscript}
-                      </p>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {/* Grievance Inbox (Awaiting Review) */}
+              {(() => {
+                const list = matchingDemands.filter(d => !d.status || ['pending', 'needs_info'].includes(d.status));
+                return (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '11px', color: '#fbbf24', fontWeight: 'bold' }}>📥 Grievance Inbox (New)</span>
+                      <span style={{ fontSize: '9px', background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24', padding: '1px 6px', borderRadius: '10px', fontWeight: 'bold' }}>{list.length}</span>
                     </div>
-                  ))
-                )}
-              </div>
+                    <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {list.length === 0 ? (
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No new issues.</span>
+                      ) : (
+                        list.map(d => (
+                          <div key={d.id} style={{ background: 'rgba(251,191,36,0.03)', border: '1px solid rgba(251,191,36,0.12)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8e90b3' }}>
+                              <span>📍 {d.address.slice(0, 18)}... {d.source === 'telegram' ? '✈️' : '🌐'}</span>
+                              <span>👍 {d.upvotes || 1}</span>
+                            </div>
+                            <p style={{ margin: '2px 0 0 0', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {d.items?.[0]?.content || d.items?.[0]?.speechTranscript}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Raised in Parliament */}
+              {(() => {
+                const list = matchingDemands.filter(d => d.status === 'raised');
+                return (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '11px', color: '#818cf8', fontWeight: 'bold' }}>🏛️ Raised in Lok Sabha</span>
+                      <span style={{ fontSize: '9px', background: 'rgba(129, 140, 248, 0.15)', color: '#818cf8', padding: '1px 6px', borderRadius: '10px', fontWeight: 'bold' }}>{list.length}</span>
+                    </div>
+                    <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {list.length === 0 ? (
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No raised issues.</span>
+                      ) : (
+                        list.map(d => (
+                          <div key={d.id} style={{ background: 'rgba(129,140,248,0.03)', border: '1px solid rgba(129,140,248,0.12)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8e90b3' }}>
+                              <span>📍 {d.address.slice(0, 18)}...</span>
+                              <span>👍 {d.upvotes || 1}</span>
+                            </div>
+                            <p style={{ margin: '2px 0 0 0', color: '#c7d2fe', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {d.items?.[0]?.content || d.items?.[0]?.speechTranscript}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Funded & Active Work */}
+              {(() => {
+                const list = matchingDemands.filter(d => ['funded', 'work_started'].includes(d.status));
+                return (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '11px', color: '#60a5fa', fontWeight: 'bold' }}>💰 Funded & Active Work</span>
+                      <span style={{ fontSize: '9px', background: 'rgba(96, 165, 250, 0.15)', color: '#60a5fa', padding: '1px 6px', borderRadius: '10px', fontWeight: 'bold' }}>{list.length}</span>
+                    </div>
+                    <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {list.length === 0 ? (
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No active projects.</span>
+                      ) : (
+                        list.map(d => (
+                          <div key={d.id} style={{ background: 'rgba(96,165,250,0.03)', border: '1px solid rgba(96,165,250,0.12)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8e90b3' }}>
+                              <span>📍 {d.address.slice(0, 18)}...</span>
+                              <span>👍 {d.upvotes || 1}</span>
+                            </div>
+                            <p style={{ margin: '2px 0 0 0', color: '#93c5fd', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {d.items?.[0]?.content || d.items?.[0]?.speechTranscript}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Resolved & Completed */}
+              {(() => {
+                const list = matchingDemands.filter(d => ['completed', 'solved'].includes(d.status));
+                return (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 'bold' }}>✅ Resolved & Completed</span>
+                      <span style={{ fontSize: '9px', background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '1px 6px', borderRadius: '10px', fontWeight: 'bold' }}>{list.length}</span>
+                    </div>
+                    <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {list.length === 0 ? (
+                        <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No completed issues.</span>
+                      ) : (
+                        list.map(d => (
+                          <div key={d.id} style={{ background: 'rgba(52,211,153,0.03)', border: '1px solid rgba(52,211,153,0.12)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#8e90b3' }}>
+                              <span>📍 {d.address.slice(0, 18)}...</span>
+                              <span>👍 {d.upvotes || 1}</span>
+                            </div>
+                            <p style={{ margin: '2px 0 0 0', color: '#a7f3d0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {d.items?.[0]?.content || d.items?.[0]?.speechTranscript}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
             </div>
           </div>
 

@@ -973,6 +973,8 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
       script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
       script.async = true;
       document.body.appendChild(script);
+    } else if ((window as any).google && (window as any).google.translate) {
+      (window as any).googleTranslateElementInit();
     }
   }, []);
 
