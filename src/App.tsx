@@ -505,6 +505,9 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
     hotspotCirclesRef.current = [];
 
     nearbyHotspots.forEach(hotspot => {
+      if (!hotspot.location || hotspot.location.lat === undefined || hotspot.location.lng === undefined) {
+        return;
+      }
       if (selectedLocation && 
           Math.abs(hotspot.location.lat - selectedLocation.lat) < 0.0001 && 
           Math.abs(hotspot.location.lng - selectedLocation.lng) < 0.0001) {
