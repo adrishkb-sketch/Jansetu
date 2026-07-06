@@ -888,6 +888,16 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    
+    // Auto-sync Gemini API key from URL parameter (cross-device/mobile convenience)
+    const urlGeminiKey = params.get('gemini_key');
+    if (urlGeminiKey) {
+      localStorage.setItem('jansetu_gemini_key', urlGeminiKey);
+      setGeminiKey(urlGeminiKey);
+      setTempGeminiKey(urlGeminiKey);
+      alert('🔑 Custom Gemini API Key synchronized successfully from URL!');
+    }
+
     const pid = params.get('petitionId');
     if (pid) {
       setPetitionId(pid);
@@ -899,6 +909,12 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
           alert("Could not load the specified petition.");
         }
       });
+    }
+
+    // Clean URL query parameters if synced
+    if (urlGeminiKey) {
+      const cleanUrl = window.location.pathname + (pid ? `?petitionId=${pid}` : '');
+      window.history.replaceState({}, document.title, cleanUrl);
     }
   }, []);
 
@@ -2466,10 +2482,45 @@ JSON:`
                     onChange={e => setTempGeminiKey(e.target.value)}
                   />
                 </div>
+
+                <div style={{ 
+                  marginTop: '10px',
+                  background: (!geminiKey || geminiKey === 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)', 
+                  border: (!geminiKey || geminiKey === 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(16, 185, 129, 0.25)', 
+                  padding: '10px', 
+                  borderRadius: '8px',
+                  textAlign: 'left'
+                }}>
+                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: (!geminiKey || geminiKey === 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') ? '#ef4444' : '#10b981', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                    {(!geminiKey || geminiKey === 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') ? '⚠️ Using Shared Developer Key (Heavily throttled)' : '✅ Using Custom Key (Bypassing rate limits)'}
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#c7d2fe', lineHeight: '1.4', display: 'block' }}>
+                    {(!geminiKey || geminiKey === 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg')
+                      ? 'This key is shared globally by all demo users. If it gets rate limited by Google, please enter your own Google AI Studio key above.'
+                      : `Active: ${geminiKey.substring(0, 10)}...${geminiKey.substring(geminiKey.length - 4)}`}
+                  </span>
+                </div>
+
                 <button type="button" className="btn-add-action" style={{ marginTop: '12px', width: '100%' }} onClick={handleSaveApiKeys}>
                   Apply API Credentials
                 </button>
                 <p className="api-help">If empty, loads with default credentials for fast prototyping.</p>
+
+                {geminiKey && geminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg' && (
+                  <div style={{ marginTop: '14px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '11px', color: '#a5b4fc', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                      📲 Scan to Sync Key to Mobile Device
+                    </span>
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(window.location.origin + window.location.pathname + '?gemini_key=' + geminiKey)}`}
+                      alt="Sync API Key QR" 
+                      style={{ width: '120px', height: '120px', borderRadius: '8px', border: '1px solid #4f46e5', background: 'white', padding: '4px', margin: '0 auto', display: 'block' }}
+                    />
+                    <p style={{ fontSize: '10px', color: '#8e90b3', margin: '6px 0 0 0', lineHeight: '1.4' }}>
+                      Scan this with your mobile camera to instantly transfer and save your Gemini credentials on your phone.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
