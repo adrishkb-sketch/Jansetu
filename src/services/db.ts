@@ -631,14 +631,10 @@ export async function getMPFunds(constituency: string): Promise<any | null> {
 }
 
 export async function clearDatabaseCollections(): Promise<void> {
-  // Clear localStorage
-  localStorage.removeItem('jansetu_mock_db');
-  localStorage.removeItem('jansetu_draft_plan');
-  localStorage.removeItem('jansetu_approved_plan');
   const keysToRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && (key.startsWith('jansetu_plan_') || key.startsWith('jansetu_mp_funds_'))) {
+    if (key && key.startsWith('jansetu_')) {
       keysToRemove.push(key);
     }
   }
