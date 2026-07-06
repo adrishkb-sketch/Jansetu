@@ -286,11 +286,12 @@ function TrackComplaint() {
               { icon: '📍', label: 'Scope', value: complaint.scope?.toUpperCase() || 'WARD' },
               { icon: '👥', label: 'Impact', value: `~${(complaint.estimatedImpact || 0).toLocaleString()} citizens` },
               { icon: complaint.source === 'telegram' ? '✈️' : '🌐', label: 'Source', value: complaint.source === 'telegram' ? 'Telegram Bot' : 'Web Portal' },
+              { icon: '👍', label: 'Community Support', value: `${complaint.upvotes || 1} vote${(complaint.upvotes || 1) !== 1 ? 's' : ''}` },
             ].map(s => (
-              <div key={s.label} style={{ flex: '1', minWidth: '120px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '12px 14px' }}>
+              <div key={s.label} style={{ flex: '1', minWidth: '110px', background: s.label === 'Community Support' ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.04)', border: s.label === 'Community Support' ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '12px 14px' }}>
                 <div style={{ fontSize: '18px', marginBottom: '4px' }}>{s.icon}</div>
-                <div style={{ fontSize: '10px', color: '#8e90b3', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'white', marginTop: '2px' }}>{s.value}</div>
+                <div style={{ fontSize: '10px', color: s.label === 'Community Support' ? '#a5b4fc' : '#8e90b3', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: s.label === 'Community Support' ? '#a5b4fc' : 'white', marginTop: '2px' }}>{s.value}</div>
               </div>
             ))}
           </div>
@@ -324,6 +325,37 @@ function TrackComplaint() {
             </div>
           </div>
         )}
+
+        {/* ── Community Support Card ── */}
+        <div className="track-card" style={{ marginBottom: '20px', background: 'rgba(99,102,241,0.05)', borderColor: 'rgba(99,102,241,0.25)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '24px' }}>👍</span>
+              <div>
+                <div style={{ fontWeight: 700, color: '#a5b4fc', fontSize: '14px' }}>Community Support</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Neighbours who have upvoted / signed this issue</div>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#a5b4fc', lineHeight: 1 }}>{complaint.upvotes || 1}</div>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>total vote{(complaint.upvotes || 1) !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
+          {/* Progress bar — rough milestone thresholds */}
+          <div style={{ marginTop: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#6b7280', marginBottom: '6px' }}>
+              <span>0</span><span>5 — Manager notices</span><span>25 — High priority</span><span>100+</span>
+            </div>
+            <div style={{ height: '6px', background: 'rgba(255,255,255,0.07)', borderRadius: '6px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${Math.min(100, ((complaint.upvotes || 1) / 100) * 100)}%`, background: 'linear-gradient(90deg,#6366f1,#8b5cf6)', borderRadius: '6px', transition: 'width 0.6s ease' }} />
+            </div>
+            <div style={{ fontSize: '11px', color: '#8e90b3', marginTop: '8px' }}>
+              {(complaint.upvotes || 1) >= 25 ? '🔥 High community demand — strong case for escalation!' :
+               (complaint.upvotes || 1) >= 5  ? '📈 Building momentum — share petition to grow support.' :
+               '📣 Share the petition link with neighbours to build support.'}
+            </div>
+          </div>
+        </div>
 
         {/* ── AI Cluster / Action Plan Card ── */}
         {linkedPlan ? (

@@ -6,14 +6,11 @@ import {
   persistentMultipleTabManager,
   collection, 
   getDocs, 
-  query, 
-  where, 
   updateDoc, 
   doc, 
   getDoc,
   setDoc,
   increment,
-  limit,
   deleteDoc
 } from 'firebase/firestore';
 
@@ -404,58 +401,39 @@ export async function contributeToDemand(id: string, newItems: any[], extraData?
  * Loads demands within a bounding box (approx 1km) for de-duplication and hotspots.
  */
 export async function getNearbyHotspots(lat: number, lng: number): Promise<any[]> {
-  const latOffset = 0.015; // Approx 1.5 km
-  const lngOffset = 0.015;
-
-  let firestoreResults: any[] = [];
-  let hasFirestore = false;
+  const latOffset = 0.027; // ~3km radius for better coverage
+  const lngOffset = 0.027;
 
   try {
     if (db) {
-      const q = query(
-        collection(db, 'demands'),
-        where('location.lat', '>=', lat - latOffset),
-        where('location.lat', '<=', lat + latOffset),
-        limit(50)
-      );
-      const querySnapshot = await getDocs(q);
+      // Full scan + client-side filter (avoids composite index requirement)
+      const querySnapshot = await getDocs(collection(db, 'demands'));
+      const results: any[] = [];
       querySnapshot.forEach((docSnap) => {
         const item = docSnap.data();
-        if (item.location.lng >= lng - lngOffset && item.location.lng <= lng + lngOffset) {
-          firestoreResults.push({ id: docSnap.id, ...item });
+        // Skip config and bot session docs
+        if (docSnap.id === 'config_gemini' || item.isConfig || item.isBotSession) return;
+        // Skip docs with no location
+        if (!item.location?.lat || !item.location?.lng) return;
+        // Client-side bounding box filter
+        if (
+          Math.abs(item.location.lat - lat) <= latOffset &&
+          Math.abs(item.location.lng - lng) <= lngOffset
+        ) {
+          results.push({ id: docSnap.id, ...item });
         }
       });
-      hasFirestore = true;
+      return results;
     }
   } catch (e) {
-    console.error("Firestore fetch failed, using local emulator data: ", e);
+    console.error('getNearbyHotspots Firestore fetch failed:', e);
   }
 
-  const localResults = getLocalEmulatorData().filter(item => 
+  // Fallback to local emulator data
+  return getLocalEmulatorData().filter(item =>
     Math.abs(item.location.lat - lat) <= latOffset &&
     Math.abs(item.location.lng - lng) <= lngOffset
   );
-
-  if (hasFirestore && firestoreResults.length > 0) {
-    const merged: Record<string, any> = {};
-    localResults.forEach(d => {
-      merged[d.id] = d;
-    });
-    firestoreResults.forEach(d => {
-      const existing = merged[d.id];
-      if (existing) {
-        const firestoreTime = new Date(d.updatedAt || d.createdAt || 0).getTime();
-        const localTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
-        if (firestoreTime >= localTime) {
-          merged[d.id] = d;
-        }
-      } else {
-        merged[d.id] = d;
-      }
-    });
-    return Object.values(merged);
-  }
-  return localResults;
 }
 
 /**

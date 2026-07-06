@@ -399,6 +399,7 @@ const T = {
       `*Category:* ${(d.category || "general").toUpperCase()}  |  *Scope:* ${(d.scope || "ward").toUpperCase()}`,
       `*Constituency:* ${d.constituency || "N/A"}`,
       `*Submitted:* ${d.createdAt ? new Date(d.createdAt).toLocaleDateString("en-IN") : "N/A"}`,
+      `*👍 Community Support:* ${d.upvotes || 1} neighbour${(d.upvotes || 1) !== 1 ? "s" : ""} have upvoted this`,
       ``,
       `📊 *Milestone Progress:*`,
       `${check("pending")} Complaint Submitted`,
