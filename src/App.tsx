@@ -10,10 +10,11 @@ import {
   Loader2,
   CheckCircle,
   Upload,
+  ChevronDown,
+  ChevronUp,
   ArrowLeft,
   Info,
-  MapPin,
-  AlertTriangle
+  MapPin
 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
@@ -795,7 +796,11 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   
   const [location, setLocation] = useState<Location | null>(null);
   const [address, setAddress] = useState('');
-  const [apiKey] = useState(() => localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg');
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg');
+  const [tempApiKey, setTempApiKey] = useState(apiKey);
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw');
+  const [tempGeminiKey, setTempGeminiKey] = useState(geminiKey);
+  const [showApiSettings, setShowApiSettings] = useState(false);
 
   // New structured metadata states
   const [category, setCategory] = useState('others');
@@ -812,7 +817,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   const [isRecording, setIsRecording] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
   const [micSharingBlocked, setMicSharingBlocked] = useState(false);
-  const [localFallbackUsed, setLocalFallbackUsed] = useState(false);
+
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -882,6 +887,16 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    
+    // Auto-sync Gemini API key from URL parameter (cross-device/mobile convenience)
+    const urlGeminiKey = params.get('gemini_key');
+    if (urlGeminiKey) {
+      localStorage.setItem('jansetu_gemini_key', urlGeminiKey);
+      setGeminiKey(urlGeminiKey);
+      setTempGeminiKey(urlGeminiKey);
+      alert('🔑 Custom Gemini API Key synchronized successfully from URL!');
+    }
+
     const pid = params.get('petitionId');
     if (pid) {
       setPetitionId(pid);
@@ -893,6 +908,12 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
           alert("Could not load the specified petition.");
         }
       });
+    }
+
+    // Clean URL query parameters if synced
+    if (urlGeminiKey) {
+      const cleanUrl = window.location.pathname + (pid ? `?petitionId=${pid}` : '');
+      window.history.replaceState({}, document.title, cleanUrl);
     }
   }, []);
 
@@ -962,6 +983,15 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     if (locInsights) {
       setInsights(locInsights);
     }
+  };
+
+  const handleSaveApiKeys = () => {
+    localStorage.setItem('jansetu_gmaps_key', tempApiKey);
+    localStorage.setItem('jansetu_gemini_key', tempGeminiKey);
+    setApiKey(tempApiKey);
+    setGeminiKey(tempGeminiKey);
+    alert('API Settings saved. Reloading the page to apply...');
+    window.location.reload();
   };
 
 
@@ -1037,7 +1067,6 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     if (!activeKey) return;
 
     setAiError(null);
-    setLocalFallbackUsed(false);
     setAiIndicator({ active: true, message: 'AI translating content...' });
     setIsAiAnalyzing(true);
 
@@ -1360,70 +1389,11 @@ JSON:`
       }
       setIsAiAnalyzing(false);
     } catch (e: any) {
-      console.warn("Gemini AI extraction failed, running Local AI Heuristics fallback...", e);
-      setAiIndicator({ active: true, message: 'ℹ️ Local AI fallback active (Rate limit bypassed)' });
-      setTimeout(() => setAiIndicator({ active: false, message: '' }), 5000);
+      console.error("Gemini AI extraction failed: ", e);
+      setAiIndicator({ active: false, message: '' });
       setIsAiAnalyzing(false);
-      setAiError(null);
-      setLocalFallbackUsed(true);
-
-      const lowerText = textToAnalyze.toLowerCase();
-      let detectedCategory = 'others';
-      if (lowerText.includes('water') || lowerText.includes('drain') || lowerText.includes('pipe') || lowerText.includes('leak') || lowerText.includes('flood') || lowerText.includes('sewer') || lowerText.includes('clog')) {
-        detectedCategory = 'water';
-      } else if (lowerText.includes('road') || lowerText.includes('pothole') || lowerText.includes('street') || lowerText.includes('highway') || lowerText.includes('tar') || lowerText.includes('bridge')) {
-        detectedCategory = 'roads';
-      } else if (lowerText.includes('school') || lowerText.includes('education') || lowerText.includes('teacher') || lowerText.includes('class') || lowerText.includes('student')) {
-        detectedCategory = 'education';
-      } else if (lowerText.includes('hospital') || lowerText.includes('clinic') || lowerText.includes('doctor') || lowerText.includes('health') || lowerText.includes('medical') || lowerText.includes('medicine')) {
-        detectedCategory = 'health';
-      } else if (lowerText.includes('power') || lowerText.includes('electricity') || lowerText.includes('light') || lowerText.includes('blackout') || lowerText.includes('transformer')) {
-        detectedCategory = 'power';
-      } else if (lowerText.includes('trash') || lowerText.includes('garbage') || lowerText.includes('dump') || lowerText.includes('waste') || lowerText.includes('clean') || lowerText.includes('litter')) {
-        detectedCategory = 'environment';
-      }
-
-      let detectedScope = 'street';
-      if (lowerText.includes('district') || lowerText.includes('constituency') || lowerText.includes('city') || lowerText.includes('town')) {
-        detectedScope = 'constituency';
-      } else if (lowerText.includes('ward') || lowerText.includes('block') || lowerText.includes('neighborhood')) {
-        detectedScope = 'ward';
-      } else if (lowerText.includes('house') || lowerText.includes('family') || lowerText.includes('home') || lowerText.includes('room')) {
-        detectedScope = 'household';
-      }
-
-      setCategory(detectedCategory);
-      setScope(detectedScope);
-      setAiPopulationAffected(120);
-      setUrgency('moderate');
-      setAssetType('others');
-      setFundingSource('constituency_development_fund');
-
-      setItems(prevItems => {
-        return prevItems.map(item => {
-          if (item.type === 'audio' && (!item.speechTranscript || item.speechTranscript === '')) {
-            const fallbackText = "Voice note recorded (Processed via Local AI fallback)";
-            return {
-              ...item,
-              content: fallbackText,
-              speechTranscript: fallbackText
-            };
-          }
-          return item;
-        });
-      });
-
-      setAiOverview({
-        brief: textToAnalyze.substring(0, 120) || "Civic request processed using local AI heuristics analyzer.",
-        priorityScore: 65,
-        priorityLabel: 'Medium Priority',
-        estimatedBudget: 'Medium Budget',
-        safetyRisk: 'Low Risk'
-      });
-
-      setAiClarificationQuestion(null);
-      setAiUnderstood(true);
-      setShowAiAutoDetectSection(true);
+      setAiError(e.message || "Failed to analyze with Gemini API");
+      setAiUnderstood(false);
     }
   };
 
@@ -1671,14 +1641,8 @@ JSON:`
       }
       return null;
     } catch (e) {
-      console.warn("Gemini image analysis failed, using Local Heuristic fallback:", e);
-      return {
-        description: "Public infrastructure issue captured in photo (Local AI fallback)",
-        requiresMoreContext: false,
-        boundingBoxes: [
-          { x: 25, y: 35, width: 50, height: 35, label: "damaged area", severity: "Moderate" }
-        ]
-      };
+      console.error("Gemini image analysis failed:", e);
+      return null;
     }
   };
 
@@ -2422,7 +2386,42 @@ JSON:`
           <div ref={mapContainerRef} className="form-card" style={{ marginTop: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3>2. Map Selection (Compulsory)</h3>
+              <button
+                type="button"
+                className="btn-toggle-settings"
+                onClick={() => setShowApiSettings(!showApiSettings)}
+              >
+                {showApiSettings ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                <span>API Settings</span>
+              </button>
             </div>
+
+            {showApiSettings && (
+              <div className="api-key-panel">
+                <div className="input-group">
+                  <label>Google Maps API Key</label>
+                  <input
+                    type="text"
+                    placeholder="AIzaSy..."
+                    value={tempApiKey}
+                    onChange={e => setTempApiKey(e.target.value)}
+                  />
+                </div>
+                <div className="input-group" style={{ marginTop: '10px' }}>
+                  <label>Google Gemini API Key (Google AI Studio)</label>
+                  <input
+                    type="text"
+                    placeholder="AIzaSy..."
+                    value={tempGeminiKey}
+                    onChange={e => setTempGeminiKey(e.target.value)}
+                  />
+                </div>
+                <button type="button" className="btn-add-action" style={{ marginTop: '12px', width: '100%' }} onClick={handleSaveApiKeys}>
+                  Apply API Credentials
+                </button>
+                <p className="api-help">If empty, loads with default credentials for fast prototyping.</p>
+              </div>
+            )}
 
             <div className="address-display">
               <span className="address-label">📍 Pinplaced Location:</span>
@@ -3224,12 +3223,7 @@ JSON:`
                 </h4>
 
                 <div style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '12px', padding: '16px' }}>
-                  {localFallbackUsed && (
-                    <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', color: '#fbbf24', borderRadius: '8px', padding: '8px 12px', fontSize: '11px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px', textAlign: 'left' }}>
-                      <AlertTriangle size={14} />
-                      <span>Gemini API rate limits bypassed successfully using Local AI Heuristics fallback engine.</span>
-                    </div>
-                  )}
+
                   {/* Brief Description */}
                   <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#c7d2fe', lineHeight: '1.5', textAlign: 'left' }}>
                     <strong>Problem Summary:</strong> {aiOverview.brief}
