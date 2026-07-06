@@ -33,6 +33,12 @@ function MPApp() {
   
   // Constituency Selection
   const [selectedConstituency, setSelectedConstituency] = useState<string>('Rampur');
+  const [constituencySearchQuery, setConstituencySearchQuery] = useState<string>('Rampur');
+  const [showConstituencyDropdown, setShowConstituencyDropdown] = useState<boolean>(false);
+
+  useEffect(() => {
+    setConstituencySearchQuery(selectedConstituency);
+  }, [selectedConstituency]);
   
   // Funds Configuration State
   const [mpladsFunds, setMpladsFunds] = useState<number>(0);
@@ -560,11 +566,11 @@ function MPApp() {
           <p className="portal-subtitle">Configure regional constituency funds, review clubbed citizen grievances, draft speech scripts, and authorize project budgets</p>
         </div>
 
-        {/* MP Hero Stats Bar */}
+         {/* MP Hero Stats Bar */}
         {(() => {
           const constDemands = matchingDemands;
-          const pending = constDemands.filter((d: any) => !['completed','solved'].includes(d.status)).length;
-          const resolved = constDemands.filter((d: any) => ['completed','solved'].includes(d.status)).length;
+          const pendingToRaise = constDemands.filter((d: any) => !d.status || ['pending','needs_info'].includes(d.status)).length;
+          const alreadyRaised = constDemands.filter((d: any) => ['raised','funded','work_started','completed','solved'].includes(d.status)).length;
           const totalImpact = constDemands.reduce((s: number, d: any) => s + (d.estimatedImpact || 1), 0);
           return (
             <div style={{
@@ -578,9 +584,9 @@ function MPApp() {
               overflow: 'hidden'
             }}>
               {[
-                { label: 'Open Issues', value: pending, color: '#fbbf24', icon: '⏳', sub: 'Awaiting action' },
+                { label: 'Pending to be Raised', value: pendingToRaise, color: '#fbbf24', icon: '⏳', sub: 'Awaiting parliament' },
                 { label: 'Citizens Impacted', value: totalImpact.toLocaleString(), color: '#818cf8', icon: '👥', sub: selectedConstituency },
-                { label: 'Completed', value: resolved, color: '#34d399', icon: '✅', sub: 'Issues resolved' },
+                { label: 'Already Raised', value: alreadyRaised, color: '#34d399', icon: '🏛️', sub: 'Raised in Lok Sabha' },
                 { label: 'MPLADS Funds Left', value: `₹${(mpladsFunds/100000).toFixed(1)}L`, color: '#f87171', icon: '💰', sub: 'Available budget' },
               ].map((stat, i) => (
                 <div key={i} style={{
@@ -604,20 +610,89 @@ function MPApp() {
             ⚙️ Constituency Ledger & MPLADS Configuration
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
               <label style={{ fontSize: '12.5px', color: '#c7d2fe', fontWeight: 'bold' }}>Select Constituency</label>
-              <select
-                value={selectedConstituency}
+              {showConstituencyDropdown && (
+                <div 
+                  style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} 
+                  onClick={() => setShowConstituencyDropdown(false)} 
+                />
+              )}
+              <input
+                type="text"
+                value={constituencySearchQuery}
+                placeholder="🔍 Type to search constituency..."
                 onChange={e => {
-                  setSelectedConstituency(e.target.value);
-                  setSearchConstituencyName(e.target.value);
+                  setConstituencySearchQuery(e.target.value);
+                  setShowConstituencyDropdown(true);
                 }}
-                style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '10px 14px', borderRadius: '8px', fontWeight: '600' }}
-              >
-                {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
-                  <option key={cName} value={cName}>{cName}</option>
-                ))}
-              </select>
+                onFocus={() => setShowConstituencyDropdown(true)}
+                style={{ 
+                  background: '#0e0d24', 
+                  border: '1px solid var(--border-light)', 
+                  color: 'white', 
+                  padding: '10px 14px', 
+                  borderRadius: '8px', 
+                  fontWeight: '600',
+                  boxSizing: 'border-box',
+                  fontSize: '13.5px',
+                  width: '100%',
+                  position: 'relative',
+                  zIndex: 1000
+                }}
+              />
+              {showConstituencyDropdown && (() => {
+                const filtered = Object.keys(ALL_CONSTITUENCIES_DATA)
+                  .filter(c => c.toLowerCase().includes(constituencySearchQuery.toLowerCase()))
+                  .sort();
+                return (
+                  <div style={{ 
+                    position: 'absolute', 
+                    top: '100%', 
+                    left: 0, 
+                    right: 0, 
+                    background: '#0d0c22', 
+                    border: '1px solid rgba(255,255,255,0.15)', 
+                    borderRadius: '8px', 
+                    maxHeight: '220px', 
+                    overflowY: 'auto', 
+                    zIndex: 1001, 
+                    marginTop: '4px',
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.5)'
+                  }}>
+                    {filtered.length > 0 ? (
+                      filtered.map(cName => (
+                        <div 
+                          key={cName}
+                          onClick={() => {
+                            setSelectedConstituency(cName);
+                            setConstituencySearchQuery(cName);
+                            setShowConstituencyDropdown(false);
+                          }}
+                          style={{
+                            padding: '10px 14px',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            background: selectedConstituency === cName ? 'rgba(217, 119, 6, 0.2)' : 'transparent',
+                            textAlign: 'left'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                          onMouseLeave={e => e.currentTarget.style.background = selectedConstituency === cName ? 'rgba(217, 119, 6, 0.2)' : 'transparent'}
+                        >
+                          🏛️ {cName}
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '12.5px', fontStyle: 'italic' }}>
+                        No constituency found
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
