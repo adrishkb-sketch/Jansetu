@@ -179,35 +179,48 @@ function normalizeBoxes(rawBoxes) {
   }).filter(Boolean);
 }
 
-// Text-only fallback (no vision)
+// Text-only fallback — tries all keys across multiple models (same strategy as fetchGeminiVision)
 async function fetchGeminiWithFallback(contents) {
   await syncKeysFromFirestore();
-  const maxRetries = Math.max(3, geminiKeys.length);
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const key = getActiveGeminiKey();
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents }),
-      });
-      if (!response.ok) {
-        rotateGeminiKey();
-        continue;
+  const TEXT_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b"
+  ];
+
+  for (const model of TEXT_MODELS) {
+    for (let i = 0; i < geminiKeys.length; i++) {
+      const key = geminiKeys[(currentKeyIndex + i) % geminiKeys.length];
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents,
+            generationConfig: { temperature: 0.3, maxOutputTokens: 2048 }
+          }),
+        });
+        if (!response.ok) {
+          const errBody = await response.text().catch(() => "");
+          console.warn(`[Gemini] ${model} key[${i}] HTTP ${response.status}: ${errBody.slice(0, 120)}`);
+          continue;
+        }
+        const json = await response.json();
+        if (!json.candidates || json.candidates.length === 0) {
+          console.warn(`[Gemini] ${model} key[${i}] returned empty candidates`);
+          continue;
+        }
+        const jsonStr = JSON.stringify(json);
+        return { json: async () => JSON.parse(jsonStr), ok: true };
+      } catch (err) {
+        console.warn(`[Gemini] ${model} key[${i}] threw: ${err.message}`);
       }
-      const json = await response.json();
-      if (!json.candidates || json.candidates.length === 0) {
-        rotateGeminiKey();
-        continue;
-      }
-      const jsonStr = JSON.stringify(json);
-      return { json: async () => JSON.parse(jsonStr), ok: true };
-    } catch (err) {
-      rotateGeminiKey();
     }
   }
-  throw new Error("All Gemini API keys exhausted or failed.");
+  throw new Error("All Gemini API keys and models exhausted.");
 }
 
 // Vision-specific cascade
