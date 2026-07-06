@@ -247,7 +247,7 @@ function ManagerConsole() {
 
   const runThematicClustering = async () => {
     // 1. Only verified complaints are eligible for AI clustering
-    let filteredDemands = demands.filter(d => d.status === 'verified');
+    let filteredDemands = demands.filter(d => d.status === 'verified' || d.status === 'approved');
 
     // 2. Apply constituency or category filter
     if (aiClusterMode === 'constituency') {
