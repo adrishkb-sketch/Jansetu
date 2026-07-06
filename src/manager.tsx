@@ -216,8 +216,11 @@ function ManagerConsole() {
 
   const loadData = async () => {
     const data = await getAllDemands();
-    // Sort by date newest first
-    data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    data.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+      const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+      return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+    });
 
     // Retroactively backfill constituency for existing complaints that are missing it
     const backfillPromises = data
@@ -244,7 +247,7 @@ function ManagerConsole() {
 
   const runThematicClustering = async () => {
     // 1. Only verified complaints are eligible for AI clustering
-    let filteredDemands = demands.filter(d => d.status === 'verified');
+    let filteredDemands = demands.filter(d => d.status === 'verified' || d.status === 'approved');
 
     // 2. Apply constituency or category filter
     if (aiClusterMode === 'constituency') {
@@ -517,13 +520,13 @@ You must return your output strictly as a valid JSON object matching this struct
       const isSug = complaint.ticketType === 'suggestion';
       const score = Math.floor(Math.random() * 40) + (isSug ? 35 : 60);
       const mockOverview = {
-        brief: `Data-driven audit of citizen ${complaint.category} ticket in ${complaint.address.split(',')[0]}. Identifies municipal maintenance needs.`,
+        brief: `Data-driven audit of citizen ${complaint.category} ticket in ${(complaint.address || 'Submitted via Chatbot').split(',')[0]}. Identifies municipal maintenance needs.`,
         priorityScore: score,
         safetyRisk: score > 75 ? 'High' : 'Moderate',
         estimatedBudget: complaint.category === 'water' ? '₹8 Lakhs - ₹12 Lakhs' : complaint.category === 'roads' ? '₹20 Lakhs - ₹35 Lakhs' : '₹3 Lakhs - ₹5 Lakhs',
         urgency: score > 75 ? 'Critical' : score > 50 ? 'High' : 'Normal',
         fundingSource: complaint.category === 'water' ? 'Jal Jeevan Mission' : complaint.category === 'roads' ? 'PMGSY' : 'MPLADS Fund',
-        citizenResponse: `Dear Citizen, thank you for submitting your feedback regarding ${complaint.category} issues at ${complaint.address.split(',')[0]}. Our technical planning teams have verified the hotspot location. We have queued this request for inclusion in our upcoming ward project review. We appreciate your partnership in building a better community.`
+        citizenResponse: `Dear Citizen, thank you for submitting your feedback regarding ${complaint.category} issues at ${(complaint.address || 'Submitted via Chatbot').split(',')[0]}. Our technical planning teams have verified the hotspot location. We have queued this request for inclusion in our upcoming ward project review. We appreciate your partnership in building a better community.`
       };
 
       await updateDemandDetails(complaint.id, { 
@@ -588,7 +591,8 @@ You must return your output strictly as a valid JSON object matching this struct
     const planConstituency = selectedDemands[0]?.constituency || 'Rampur';
 
     const compiledItemsText = selectedDemands.map((d, index) => {
-      const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
+      const loc = d.location || { lat: 28.803, lng: 79.025 };
+      const segment = getClosestConstituencySegment(loc.lat, loc.lng);
       return `Item #${index + 1}:
 - ID: ${d.id}
 - Category: ${d.category}
@@ -686,7 +690,8 @@ Provide your response ONLY as a valid JSON object matching the following schema.
     setTimeout(async () => {
       const mockDetailedSteps = selectedDemands.map((d, index) => {
         const cost = getProjectCostEstimate(d.category, d.scope);
-        const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
+        const loc = d.location || { lat: 28.803, lng: 79.025 };
+        const segment = getClosestConstituencySegment(loc.lat, loc.lng);
         const desc = d.items?.[0]?.content || d.items?.[0]?.speechTranscript || `Remediation for ${d.category} issues in ${segment.name}`;
         
         let agency = 'District Development Authority';
@@ -697,7 +702,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
 
         return {
           id: d.id,
-          title: `Project ${index + 1}: ${d.category.charAt(0).toUpperCase() + d.category.slice(1)} Intervention at ${d.address.split(',')[0]}`,
+          title: `Project ${index + 1}: ${d.category.charAt(0).toUpperCase() + d.category.slice(1)} Intervention at ${(d.address || 'Submitted via Chatbot').split(',')[0]}`,
           description: `A data-driven project to address infrastructure gaps in ${segment.name}. Action description: ${desc}. Assessed against Ministry Guidelines.`,
           cost: cost,
           timeline: d.scope === 'constituency' ? '90 Days' : d.scope === 'ward' ? '45 Days' : '15 Days',
@@ -871,8 +876,8 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
   // Filtering with interactive sliders parameters
   const filteredDemands = demands.filter(d => {
     const matchesSearch = 
-      d.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.address || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (d.items && d.items.some((item: any) => 
         (item.content && item.content.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (item.speechTranscript && item.speechTranscript.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -936,7 +941,11 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
     } else if (sortBy === 'upvotes') {
       sourceDemands.sort((a, b) => (b.upvotes || 1) - (a.upvotes || 1));
     } else {
-      sourceDemands.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      sourceDemands.sort((a, b) => {
+        const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+        const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+        return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+      });
     }
 
     sourceDemands.forEach(d => {
@@ -1058,9 +1067,10 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
 
   const zones: any = {};
   filteredDemands.forEach(d => {
-    const wardKey = `Ward Zone (${d.location.lat.toFixed(2)}, ${d.location.lng.toFixed(2)})`;
+    const loc = d.location || { lat: 28.803, lng: 79.025 };
+    const wardKey = `Ward Zone (${loc.lat.toFixed(2)}, ${loc.lng.toFixed(2)})`;
     if (!zones[wardKey]) {
-      zones[wardKey] = { name: wardKey, address: d.address.split(',')[0], water: 0, roads: 0, education: 0, health: 0, power: 0, others: 0, total: 0 };
+      zones[wardKey] = { name: wardKey, address: (d.address || 'Submitted via Chatbot').split(',')[0], water: 0, roads: 0, education: 0, health: 0, power: 0, others: 0, total: 0 };
     }
     const cat = d.category;
     if (['water', 'roads', 'education', 'health', 'power'].includes(cat)) {
@@ -1594,7 +1604,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
               </h4>
               <div style={{ height: '480px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <GoogleMapComponent
-                  apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw'}
+                  apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
                   onLocationSelect={() => {}}
                   selectedLocation={selectedDemand?.location || { lat: 28.803, lng: 79.025 }}
                   nearbyHotspots={filteredDemands.map(fd => ({
@@ -2042,9 +2052,20 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                         }}
                       >
                         <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '0.75rem', background: isSug ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSug ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                            {isSug ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
-                          </span>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', background: isSug ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSug ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                              {isSug ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
+                            </span>
+                            {d.source === 'telegram' ? (
+                              <span style={{ fontSize: '0.7rem', background: 'rgba(56, 189, 248, 0.18)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                ✈️ Telegram
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.7rem', background: 'rgba(232, 121, 249, 0.18)', color: '#e879f9', border: '1px solid rgba(232, 121, 249, 0.35)', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                🌐 Website
+                              </span>
+                            )}
+                          </div>
                           <span style={{ 
                             fontSize: '0.75rem', 
                             background: d.status === 'approved' ? 'rgba(52, 211, 153, 0.15)' : d.status === 'pending' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(255, 255, 255, 0.08)',
@@ -2167,16 +2188,16 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                     </strong>
                     <div style={{ height: '260px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
                       <GoogleMapComponent
-                        apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw'}
+                        apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
                         onLocationSelect={() => {}}
-                        selectedLocation={selectedComplaint.location}
+                        selectedLocation={selectedComplaint.location || { lat: 28.803, lng: 79.025 }}
                         nearbyHotspots={[]}
-                        focusedPlace={{ lat: selectedComplaint.location.lat, lng: selectedComplaint.location.lng, name: selectedComplaint.associatedPlace?.name || 'Citizen Location' }}
-                        circleData={selectedComplaint.circleData || { lat: selectedComplaint.location.lat, lng: selectedComplaint.location.lng, radius: 100 }}
+                        focusedPlace={{ lat: (selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lat, lng: (selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lng, name: selectedComplaint.associatedPlace?.name || 'Citizen Location' }}
+                        circleData={selectedComplaint.circleData || { lat: (selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lat, lng: (selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lng, radius: 100 }}
                       />
                     </div>
                     <span style={{ fontSize: '12px', color: '#8e90b3', display: 'block', marginTop: '6px' }}>
-                      📍 Geocoded Address: <strong>{selectedComplaint.address}</strong> (Coords: {selectedComplaint.location.lat.toFixed(5)}, {selectedComplaint.location.lng.toFixed(5)})
+                      📍 Geocoded Address: <strong>{selectedComplaint.address || 'Submitted via Chatbot'}</strong> (Coords: ({(selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lat.toFixed(5)}), ({(selectedComplaint.location || { lat: 28.803, lng: 79.025 }).lng.toFixed(5)}))
                     </span>
                   </div>
 
@@ -3056,14 +3077,19 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                     </thead>
                     <tbody>
                       {[...filteredDemands]
-                        .map(d => ({ ...d, cpi: calculateCombinedPriorityIndex(d, selectedGlobalConstituency) }))
+                        .map(d => ({ ...d, cpi: calculateCombinedPriorityIndex(d, d.constituency) }))
                         .sort((a, b) => b.cpi - a.cpi)
                         .map(d => {
-                          const gapDetails = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category, selectedGlobalConstituency);
+                          const loc = d.location || { lat: 28.803, lng: 79.025 };
+                          const gapDetails = evaluateInfrastructureGap(loc.lat, loc.lng, d.category, d.constituency);
 
                           
                           // CPI Color code
                           const cpiColor = d.cpi > 75 ? '#ef4444' : d.cpi > 50 ? '#fbbf24' : '#2dd4bf';
+
+                          const segment = (d.constituency && ALL_CONSTITUENCIES_DATA[d.constituency]) 
+                            ? ALL_CONSTITUENCIES_DATA[d.constituency] 
+                            : getClosestConstituencySegment(loc.lat, loc.lng);
 
                           return (
                             <tr key={d.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
@@ -3072,9 +3098,14 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                                 <span style={{ textTransform: 'capitalize' }}>
                                   {d.ticketType === 'suggestion' ? '💡' : '⚠️'} {d.category}
                                 </span>
+                                {d.source === 'telegram' ? (
+                                  <span style={{ marginLeft: '6px', fontSize: '9px', background: 'rgba(56, 189, 248, 0.18)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)', padding: '1px 5px', borderRadius: '10px', fontWeight: '600' }}>✈️ Telegram</span>
+                                ) : (
+                                  <span style={{ marginLeft: '6px', fontSize: '9px', background: 'rgba(232, 121, 249, 0.18)', color: '#e879f9', border: '1px solid rgba(232, 121, 249, 0.35)', padding: '1px 5px', borderRadius: '10px', fontWeight: '600' }}>🌐 Web</span>
+                                )}
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'left', color: 'var(--text-desc)' }}>
-                                📍 {d.address.split(',')[0]}
+                                📍 {(d.address || 'Submitted via Chatbot').split(',')[0]}
                                 <span style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)' }}>{gapDetails.assemblyName}</span>
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'center' }}>👍 {d.upvotes || 1}</td>
@@ -3083,7 +3114,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                                 <span style={{ display: 'block', fontSize: '9px', color: 'var(--text-muted)' }}>({gapDetails.localMetric})</span>
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'center', color: 'var(--text-desc)' }}>
-                                {getClosestConstituencySegment(d.location.lat, d.location.lng).scStPercentage > 18 ? 'High SC/ST' : 'General Rural'}
+                                {segment.scStPercentage > 18 ? 'High SC/ST' : 'General Rural'}
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'center', background: 'rgba(255,255,255,0.01)' }}>
                                 <span style={{ display: 'inline-block', background: `${cpiColor}15`, color: cpiColor, border: `1px solid ${cpiColor}`, padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold', fontSize: '13px' }}>

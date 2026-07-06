@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
 import { getConstituencyOfLocation, ALL_CONSTITUENCIES_DATA } from './services/constituency_datasets';
-import { fetchGemini } from './services/gemini_api';
+import { fetchGemini, fetchGeminiVision, detectMimeType } from './services/gemini_api';
 
 // ISO 639-1 / Google Translate codes for the 22 Scheduled Indian Languages + English
 const INDIAN_LANGUAGES = [
@@ -1069,6 +1069,17 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   };
 
   const translateToEnglish = async (text: string): Promise<string> => {
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`);
+      if (res.ok) {
+        const json = await res.json();
+        const translated = json[0].map((x: any) => x[0]).join('');
+        if (translated) return translated.trim();
+      }
+    } catch (err) {
+      console.warn("Google Translate to English failed, falling back to Gemini:", err);
+    }
+
     const payload = {
       contents: [{
         parts: [{
@@ -1082,13 +1093,24 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
       const translated = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
       return translated.trim();
     } catch (e) {
-      console.error("translateToEnglish error:", e);
+      console.error("translateToEnglish fallback error:", e);
       throw e;
     }
   };
 
   const translateFromEnglish = async (text: string, targetLangCode: string): Promise<string> => {
     if (targetLangCode === 'en') return text;
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLangCode}&dt=t&q=${encodeURIComponent(text)}`);
+      if (res.ok) {
+        const json = await res.json();
+        const translated = json[0].map((x: any) => x[0]).join('');
+        if (translated) return translated.trim();
+      }
+    } catch (err) {
+      console.warn(`Google Translate to ${targetLangCode} failed, falling back to Gemini:`, err);
+    }
+
     const langName = INDIAN_LANGUAGES.find(l => l.code === targetLangCode)?.name || 'Hindi';
     const payload = {
       contents: [{
@@ -1103,7 +1125,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
       const translated = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
       return translated.trim();
     } catch (e) {
-      console.error("translateFromEnglish error:", e);
+      console.error("translateFromEnglish fallback error:", e);
       throw e;
     }
   };
@@ -1499,16 +1521,53 @@ JSON:`
 
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
+        reader.onloadend = async () => {
           const base64data = (reader.result as string).split(',')[1];
           const cleanMime = (audioBlob.type || 'audio/webm').split(';')[0];
+
+          let resolvedTranscript = finalTranscript || '';
+
+          if (!resolvedTranscript.trim()) {
+            setAiIndicator({ active: true, message: 'AI checking audio for spoken content...' });
+            try {
+              const checkResponse = await fetchGemini({
+                contents: [{
+                  parts: [
+                    { inlineData: { mimeType: cleanMime, data: base64data } },
+                    { text: "Analyze this audio. Is there any actual spoken speech or voice content in it? (Silence, static, wind, or background noise do not count). Reply strictly with either 'YES' or 'NO'. Do not add any other words." }
+                  ]
+                }]
+              });
+              const checkJson = await checkResponse.json();
+              const checkText = (checkJson.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
+
+              if (checkText.includes('YES')) {
+                setAiIndicator({ active: true, message: 'AI transcribing voice note...' });
+                const transResponse = await fetchGemini({
+                  contents: [{
+                    parts: [
+                      { inlineData: { mimeType: cleanMime, data: base64data } },
+                      { text: "You are the audio transcriber for Jansetu. Please transcribe this audio file verbatim in the spoken language (which may be any Indian language or English). Output ONLY the verbatim transcription, no other text." }
+                    ]
+                  }]
+                });
+                const transJson = await transResponse.json();
+                const transText = (transJson.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+                if (transText) {
+                  resolvedTranscript = transText;
+                }
+              }
+            } catch (err) {
+              console.error("Audio fallback transcription failed:", err);
+            }
+          }
 
           const newItem: SubmissionItem = {
             id: Date.now().toString(),
             type: 'audio',
-            content: finalTranscript || 'Voice recording (Transcribing...)',
+            content: resolvedTranscript || 'Silence/No speech detected',
             fileUrl: audioUrl,
-            speechTranscript: finalTranscript || '',
+            speechTranscript: resolvedTranscript,
             audioBase64: base64data,
             audioMimeType: cleanMime
           };
@@ -1521,7 +1580,7 @@ JSON:`
 
           stream.getTracks().forEach(track => track.stop());
 
-          const voiceLower = (finalTranscript || '').toLowerCase();
+          const voiceLower = (resolvedTranscript || '').toLowerCase();
           const isRefusal = voiceLower.includes("dont know") || voiceLower.includes("don't know") || voiceLower.includes("no idea") || voiceLower.includes("submit as is") || voiceLower.includes("submit anyway") || voiceLower.includes("cannot say") || voiceLower.includes("can't say") || voiceLower.includes("cant tell") || voiceLower.includes("can't tell") || voiceLower.includes("dont tell");
           if (isRefusal) {
             setClarificationRefusals(prev => {
@@ -1639,31 +1698,110 @@ JSON:`
   const runGeminiImageAnalysis = async (base64Data: string, mimeType: string): Promise<{ description: string; requiresMoreContext: boolean; boundingBoxes?: any[] } | null> => {
     setAiIndicator({ active: true, message: 'AI analyzing uploaded image context...' });
 
-    try {
-      const response = await fetchGemini({
-        contents: [{
-          parts: [
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data
-              }
-            },
-            {
-              text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight, blocked drainage), output a detailed description of the problem in English. In your description, make sure to describe both the visual nature of the damage (e.g. size, severity, environment) and read any visible text, signs, placards, banners, or markers in the image that might provide context (e.g. names of roads, projects, or municipalities). In addition, localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`
-            }
-          ]
-        }]
-      });
+    // Always auto-detect MIME type from actual file header — prevents sending PNG as jpeg etc.
+    const resolvedMime = detectMimeType(base64Data) || mimeType || 'image/jpeg';
 
-      const json = await response.json();
-      const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        return safeJsonParse(text);
+    const imgPromptText = `You are the AI engine of Jansetu, an Indian civic grievance platform. Analyze this image of a reported public issue.
+
+If you can identify a clear civic or infrastructure problem (e.g. potholes, open drain, garbage dump, broken pipe, cracked road, damaged school wall, flooded area, broken streetlight, leaking water supply, unmaintained park, illegal construction), do the following:
+1. Write a detailed description in English covering: the type of issue, severity, approximate scale, surrounding environment, and any visible text/signs/placards that provide location context.
+2. Generate bounding box estimates (as % of image dimensions 0–100) for the key damage/issue areas. For each box: x, y, width, height (integers), label (concise name), severity ("Immediate Attention", "Moderate", or "Minor").
+3. Set requiresMoreContext to false.
+
+If the image is unclear, too blurry, dark, doesn't show a public issue, or is ambiguous:
+- Set requiresMoreContext to true and provide a brief description of what you can see.
+
+IMPORTANT: Output ONLY valid JSON. No markdown. No explanation outside JSON.
+Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
+
+    const normalizeBoxes = (rawBoxes: any[]): any[] => {
+      if (!Array.isArray(rawBoxes)) return [];
+      return rawBoxes.map(b => {
+        if (Array.isArray(b) && b.length >= 4) {
+          const is1000 = Math.max(...b) > 100;
+          const scale = is1000 ? 10 : 1;
+          const y1 = b[0] / scale;
+          const x1 = b[1] / scale;
+          const y2 = b[2] / scale;
+          const x2 = b[3] / scale;
+          return {
+            x: Math.round(x1),
+            y: Math.round(y1),
+            width: Math.round(x2 - x1),
+            height: Math.round(y2 - y1),
+            label: 'Issue',
+            severity: 'Immediate Attention'
+          };
+        }
+        if (typeof b === 'object' && b !== null) {
+          let x = b.x !== undefined ? Number(b.x) : (b.xmin !== undefined ? Number(b.xmin) : (b.left !== undefined ? Number(b.left) : 0));
+          let y = b.y !== undefined ? Number(b.y) : (b.ymin !== undefined ? Number(b.ymin) : (b.top !== undefined ? Number(b.top) : 0));
+          let w = b.width !== undefined ? Number(b.width) : (b.w !== undefined ? Number(b.w) : -1);
+          let h = b.height !== undefined ? Number(b.height) : (b.h !== undefined ? Number(b.h) : -1);
+
+          if (w === -1 && b.xmax !== undefined) w = Number(b.xmax) - x;
+          if (h === -1 && b.ymax !== undefined) h = Number(b.ymax) - y;
+          if (w === -1 && b.right !== undefined) w = Number(b.right) - x;
+          if (h === -1 && b.bottom !== undefined) h = Number(b.bottom) - y;
+
+          if (w === -1) w = 20;
+          if (h === -1) h = 20;
+
+          if (x > 100 || y > 100 || w > 100 || h > 100) {
+            x = Math.round(x / 10);
+            y = Math.round(y / 10);
+            w = Math.round(w / 10);
+            h = Math.round(h / 10);
+          }
+
+          return {
+            x: Math.max(0, Math.min(100, Math.round(x))),
+            y: Math.max(0, Math.min(100, Math.round(y))),
+            width: Math.max(1, Math.min(100, Math.round(w))),
+            height: Math.max(1, Math.min(100, Math.round(h))),
+            label: b.label || b.name || 'Issue',
+            severity: b.severity || 'Immediate Attention'
+          };
+        }
+        return null;
+      }).filter(Boolean);
+    };
+
+    try {
+      const parts = [
+        { inlineData: { mimeType: resolvedMime, data: base64Data } },
+        { text: imgPromptText }
+      ];
+
+      const result = await fetchGeminiVision(parts);
+      if (!result?.text) return null;
+
+      // Try to parse JSON — strip markdown fences if model adds them
+      const cleaned = result.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (_) {
+        // Second-pass: ask Gemini to fix malformed JSON
+        console.warn('[Jansetu Vision] Initial JSON parse failed, attempting repair...');
+        const repairResult = await fetchGeminiVision([
+          { text: `The following text is supposed to be valid JSON but has errors. Fix it and return ONLY valid JSON, no explanation:\n${cleaned}` }
+        ]);
+        if (repairResult?.text) {
+          try {
+            parsed = JSON.parse(repairResult.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim());
+          } catch (_) {}
+        }
+      }
+
+      if (parsed) {
+        const rawBoxes = parsed.boundingBoxes || parsed.bounding_boxes || parsed.boxes || [];
+        parsed.boundingBoxes = normalizeBoxes(rawBoxes);
+        return parsed;
       }
       return null;
     } catch (e) {
-      console.error("Gemini image analysis failed:", e);
+      console.error('[Jansetu Vision] Image analysis failed entirely:', e);
       return null;
     }
   };
@@ -1854,6 +1992,7 @@ JSON:`
       ticketType,
       category,
       scope,
+      source: 'web',
       location: location || { lat: 0, lng: 0 },
       address,
       constituency: detectedConstituency || getConstituencyOfLocation(
@@ -4162,7 +4301,7 @@ function App() {
 
 export function GeminiKeysFooter() {
   const [keysInput, setKeysInput] = useState(() => {
-    return localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
+    return localStorage.getItem('jansetu_gemini_key') || 'AIzaSyDummyKeyForJansetuFastPrototypeScale';
   });
   const [isOpen, setIsOpen] = useState(false);
 
@@ -4172,7 +4311,7 @@ export function GeminiKeysFooter() {
       .map(k => k.trim())
       .filter(k => k.length > 0)
       .join('\n');
-    localStorage.setItem('jansetu_gemini_key', cleaned || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw');
+    localStorage.setItem('jansetu_gemini_key', cleaned || 'AIzaSyDummyKeyForJansetuFastPrototypeScale');
     alert('Gemini API Keys saved. Your changes are synchronized across all pages.');
     window.location.reload();
   };

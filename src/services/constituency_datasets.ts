@@ -442,19 +442,20 @@ export function calculateCombinedPriorityIndex(d: any, constituencyName?: string
 
   // 3. Base Priority Score (from Gemini audited overview if present, otherwise from local infrastructure gap)
   let basePriority = 50; // default middle
+  const loc = d.location || { lat: 28.803, lng: 79.025 };
   if (d.overview?.priorityScore !== undefined) {
     basePriority = d.overview.priorityScore;
   } else if (d.aiOverview?.priorityScore !== undefined) {
     basePriority = d.aiOverview.priorityScore;
   } else {
-    const gapResult = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category, constituencyName);
+    const gapResult = evaluateInfrastructureGap(loc.lat, loc.lng, d.category, constituencyName);
     basePriority = gapResult.gapPercentage;
   }
 
   // 4. Demographic Vulnerability Score
   const segment = (constituencyName && ALL_CONSTITUENCIES_DATA[constituencyName]) 
     ? ALL_CONSTITUENCIES_DATA[constituencyName] 
-    : getClosestConstituencySegment(d.location.lat, d.location.lng);
+    : getClosestConstituencySegment(loc.lat, loc.lng);
   const literacyVuln = Math.max(0, 100 - segment.literacyRate);
   const scstVuln = segment.scStPercentage;
   const ruralVuln = 100 - segment.urbanization;
