@@ -237,7 +237,7 @@ function ManagerConsole() {
     }
 
     setIsClustering(true);
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     const submissionsForClustering = filteredDemands.map(d => ({
       id: d.id,
@@ -249,7 +249,7 @@ function ManagerConsole() {
       upvotes: d.upvotes || 1
     }));
 
-    if (geminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
+    if (geminiKey) {
       try {
         const prompt = `You are an AI data scientist specializing in civic technology and constituency development.
 We have a set of citizen submissions (both complaints and suggestions) containing categories, addresses, descriptions, and user upvotes.
@@ -364,7 +364,7 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
     if (!plan) return;
     setIsAuditingProgress(true);
     setProgressAuditResult('Evaluating MP parliamentary activity and dedicated funds...');
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     const planSummary = `
       Plan Name: ${plan.planName}
@@ -407,7 +407,7 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
   const runGeminiGrievanceAudit = async (complaint: any) => {
     if (!complaint) return;
     setIsAuditing(true);
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     const compiledEvidence = (complaint.items || []).map((item: any, index: number) => {
       let details = `[Item #${index + 1} - Type: ${item.type}]`;
@@ -425,7 +425,7 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
       allSubmissionsAndFollowUps: compiledEvidence
     };
 
-    if (geminiKey && geminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
+    if (geminiKey) {
       try {
         const prompt = `You are an AI civic auditor evaluating municipal and infrastructure grievances.
 Please analyze the following citizen submission details:
@@ -555,7 +555,7 @@ You must return your output strictly as a valid JSON object matching this struct
 
   const generateParliamentBrief = async () => {
     setIsGeneratingProposal(true);
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     const selectedDemands = demands.filter(d => selectedPlanIds.includes(d.id));
     if (selectedDemands.length === 0) {
@@ -578,7 +578,7 @@ You must return your output strictly as a valid JSON object matching this struct
 - Local Government Metric: ${segment.waterCoverage}% JJM tap water coverage, ${segment.unconnectedHabitations} unconnected PMGSY habitations, ${segment.avgDistanceToPHC}km average distance to healthcare PHC.`;
     }).join('\n\n');
 
-    if (geminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
+    if (geminiKey) {
       try {
         const prompt = proposalType === 'constituency'
           ? `You are a constituency development expert. Create a structured step-by-step action plan for ${planConstituency} Lok Sabha constituency based on these selected citizen priorities:
@@ -736,7 +736,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
   const handleUpdatePlanWithGemini = async () => {
     if (!actionPlan) return;
     setIsGeneratingProposal(true);
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     try {
       const prompt = `You are a constituency development expert. The user (manager) has typed manual changes or updates to the action plan. Here is the current state of the plan:
@@ -774,7 +774,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
 
       let responsePlan = actionPlan;
 
-      if (geminiKey && geminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
+      if (geminiKey) {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1610,7 +1610,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
               </h4>
               <div style={{ height: '480px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <GoogleMapComponent
-                  apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
+                  apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw'}
                   onLocationSelect={() => {}}
                   selectedLocation={selectedDemand?.location || { lat: 28.803, lng: 79.025 }}
                   nearbyHotspots={filteredDemands.map(fd => ({
@@ -2150,7 +2150,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                     </strong>
                     <div style={{ height: '260px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
                       <GoogleMapComponent
-                        apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
+                        apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw'}
                         onLocationSelect={() => {}}
                         selectedLocation={selectedComplaint.location}
                         nearbyHotspots={[]}
@@ -3915,7 +3915,7 @@ function ClubbedDetailPanel({ group, onClose, loadData }: ClubbedDetailPanelProp
   const handleGeneratePlan = async () => {
     setIsGenerating(true);
     setAiError(null);
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
 
     try {
       const complaintsText = group.demands.map((d: any, idx: number) => 

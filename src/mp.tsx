@@ -163,7 +163,7 @@ function MPApp() {
     setGeneratingSummary(true);
     setProblemSummary('AI is summarizing constituent grievances, aggregating upvotes, and evaluating priority indices...');
     
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
     const complaintsText = matchingDemands.map((d, index) => 
       `Complaint #${index+1}: Category: ${d.category}, Location: ${d.address}, Support Signatures: ${d.upvotes || 1}, Description: ${d.items?.[0]?.content || d.items?.[0]?.speechTranscript || 'No details'}`
     ).join('\n');
@@ -208,7 +208,7 @@ function MPApp() {
     setGeneratingSpeech(true);
     setSpeechDraft('AI is writing a Lok Sabha speech draft and splitting it into slide outlines...');
 
-    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
     const complaintsText = matchingDemands.slice(0, 5).map((d, index) => 
       `Issue #${index+1} (${d.category}): Located at ${d.address} with ${d.upvotes || 1} signatures.`
     ).join('\n');
