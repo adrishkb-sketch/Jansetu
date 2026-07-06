@@ -746,6 +746,8 @@ interface SubmissionItem {
   ocrText?: string;
   speechTranscript?: string;
   boundingBoxes?: Array<{ label: string; x: number; y: number; width: number; height: number; severity: string }>;
+  audioBase64?: string;
+  audioMimeType?: string;
 }
 
 interface ComplainantPortalProps {
@@ -1010,8 +1012,6 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
           formatted_address: r.formatted_address
         }));
         setSearchResultPlaces(mapped);
-      } else {
-        alert("No results found for your search query.");
       }
     });
   };
@@ -1033,7 +1033,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     mapContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const runAIAttachmentAnalysis = async (textToAnalyze: string) => {
+  const runAIAttachmentAnalysis = async (textToAnalyze: string, currentItems: SubmissionItem[]) => {
     if (!location) return;
     const activeKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
     if (!activeKey) return;
@@ -1046,7 +1046,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     
     // Check if the text contains non-English characters (indicative of a regional language or mixed script)
     const isEnglishOnly = /^[\u0000-\u007F]*$/.test(textToAnalyze);
-    if (!isEnglishOnly) {
+    if (!isEnglishOnly && textToAnalyze.trim().length > 10) {
       try {
         const translatePrompt = `You are a translation assistant for Jansetu.
 Translate the following regional Indian language user input into clear, standard English. 
@@ -1104,16 +1104,11 @@ Text to translate:
         content: h.items?.[0]?.content || h.address
       }));
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are the AI engine of Jansetu Citizen Complainant & Suggestion Portal. 
-Analyze the following transcript of a citizen's contribution (which is submitted as a ${ticketType.toUpperCase()}).
+      // Build base prompt parts
+      const promptParts: any[] = [
+        {
+          text: `You are the AI engine of Jansetu Citizen Complainant & Suggestion Portal. 
+Analyze the citizen's contribution (which is submitted as a ${ticketType.toUpperCase()}).
 
 Current selected map pin coordinates: Lat: ${location?.lat || 28.6139}, Lng: ${location?.lng || 77.2090}
 
@@ -1121,7 +1116,7 @@ Verify the user's ${ticketType} against the Ground Truth Local Infrastructure li
 ${insightsText}
 
 You must:
-1. Translate it to English if it is in another Indian language or written in regional mixed dialects (such as Hinglish, Banglish, or other languages mixed with English terms, local slang, or local spelling variations). Normalise all local slang and abbreviations into standard English. Provide this standard English translation in the 'translatedText' field.
+1. Listen to any attached audio files (transcribing the speech to English, even if spoken in regional languages like Hindi, Bengali, etc.), and read the transcript. Translate all inputs to English if they are in another Indian language or written in regional mixed dialects (such as Hinglish, Banglish, or other languages mixed with English terms, local slang, or local spelling variations). Normalise all local slang and abbreviations into standard English. Provide this standard English translation in the 'translatedText' field.
 2. Determine the category: Choose exactly one from: ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"].
 3. Determine the impact scope: Choose exactly one from: ["household", "street", "ward", "constituency"].
 4. Estimate the population affected: Return a numerical estimate of how many citizens are affected (e.g. 5, 150, 2000, etc.) in the 'estimatedPopulation' field.
@@ -1130,47 +1125,28 @@ ${JSON.stringify(hotspotsList)}
 Determine if the citizen's complaint matches any of these active issues (i.e. is the same core issue at the same general place).
 If a match is found, return the matching issue's ID in 'matchedHotspotId'. Otherwise, return null.
 6. Verify against Ground Truth infrastructure:
-- If the user complains that a facility type (e.g. school, hospital, police station, park, transit station, railway station, post office) is completely missing, absent, or not nearby, but the Ground Truth list above shows that such a facility actually exists within 5.0 km, you must set 'requiresClarification' to true and write a helpful question in 'clarificationQuestion' asking the user to specify what exactly is deficient, missing, or broken at that specific facility (e.g. "We noticed XYZ Hospital is only 1.2 km away. Could you please clarify what exact facilities, staff, or equipment are missing or broken at XYZ Hospital?").
-- If the user complains about waterlogging, drainage, flooding, or water supply, but has not specified the approximate location, street name, or nearby boundaries in the input transcript, set 'requiresClarification' to true and write a request in 'clarificationQuestion' asking them to describe the approximate area (e.g. "between the market and the school" or "near the railway gates") so we can identify and circle the affected zone on the map.
+- If the user complains that a facility type (e.g. school, hospital, police station, park, transit station, railway station, post office) is completely missing, absent, or not nearby, but the Ground Truth list above shows that such a facility actually exists within 5.0 km, you must set 'requiresClarification' to true and write a helpful question in 'clarificationQuestion' asking the user to specify what exactly is deficient, missing, or broken at that specific facility.
+- If the user complains about waterlogging, drainage, flooding, or water supply, but has not specified the approximate location, street name, or nearby boundaries in the input transcript, set 'requiresClarification' to true and write a request in 'clarificationQuestion' asking them to describe the approximate area.
 - Dynamic Specific Data Collection: For all category tags, evaluate if the input contains necessary specific details to resolve it:
   * water: Ask about waterlogging depth, water smell, color, duration of outage, or pressure.
   * roads: Ask about approximate pothole dimensions (depth/width), street blockages, sidewalk cracks, or length of road affected.
-  * education: Ask about lack of classrooms, desks, textbooks, sanitation/toilets, or teacher absenteeism.
-  * health: Ask about lack of medicines, vaccine shortages, clean drinking water, waiting hours, or staff availability.
-  * power: Ask about daily power cut duration, sparked cables, transformers, or street lighting failures.
-  * agriculture: Ask about canal leakage, fertilizer shortages, pest breakouts, or irrigation timing.
-  * safety: Ask about streetlighting failures, dark spots, absence of patrolling, or safety hazards.
-  * environment: Ask about waste accumulation size, open burning of plastics, smoke sources, or tree-felling.
-  * welfare: Ask about pending pensions list, community center damage, or ration shop shortages.
-  * housing: Ask about building wall cracks, lift malfunctions, sewer backups, or fire alarm failures.
-  * anticorruption: Ask about exact department names, bribe amounts, or delay durations.
-  * digital: Ask about internet/broadband downtime, server failure signs, or lack of computer access.
-  * disaster: Ask about flood water levels, fire hazards, blockages, or collapsed structures.
-  * women: Ask about dark lanes lacking streetlights, transport safety issues, or security patrols.
-  * consumer: Ask about adulterated food, overpricing, or false weighing scales.
-  * others: Ask for a clear explanation of what is malfunctioning, broken, or missing.
-- Auditing suggestions: If the ticketType is SUGGESTION, check if the input includes key details for proposed new infrastructure:
-  * water suggestion: proposed pipeline route, purification tech, or tank capacity.
-  * roads suggestion: bypass paths, pedestrian crossings, or lane count expansions.
-  * education/health suggestion: mobile health clinic hours, smart classroom assets, library size.
-  * power suggestion: solar panels square footage, LED streetlight locations.
   * other suggestions: proposed execution timeline, community benefits, target group.
   If these details are missing, set 'requiresClarification' to true and formulate a request in 'clarificationQuestion' asking for these suggestion details.
 - If the user's input is extremely brief, vague, or contains only search terms (e.g. "dirty", "repair", "help"), set 'requiresClarification' to true and ask them to explain the problem/suggestion in a full sentence.
 - If the input is specific and valid (e.g. "broken bench at Central Park" or "no clean drinking water at Government School" or "road broken near railway station"), set 'requiresClarification' to false and 'clarificationQuestion' to null.
-7. Mentioned Landmark Identification: Check if the user's transcript mentions, refers to, or describes an issue happening near any specific place, establishment, shop, street, road, landmark, school, hospital, park, temple, or facility (either from the Ground Truth list above or general text). If yes, extract and return the exact name of that landmark, shop, street, road, temple, or establishment in the 'mentionedLandmarkName' field (e.g. "Hatpukur Kali Temple", "Joy Maa Store", "Netaji Road", "Dasnagar Market"). If no specific place or landmark is mentioned, return null.
+7. Mentioned Landmark Identification: Check if the user's transcript or audio mentions, refers to, or describes an issue happening near any specific place, establishment, shop, street, road, landmark, school, hospital, park, temple, or facility (either from the Ground Truth list above or general text). If yes, extract and return the exact name of that landmark, shop, street, road, temple, or establishment in the 'mentionedLandmarkName' field. If no specific place or landmark is mentioned, return null.
 8. Extra Classifications:
 - Determine urgency: Choose exactly one from: ["immediate", "moderate", "long_term"]
 - Determine assetType: Choose exactly one from: ["roadway", "drainage", "building", "electrical_grid", "waste_management", "public_safety_asset", "social_facility", "others"]
 - Determine fundingSource: Choose exactly one from: ["municipality", "constituency_development_fund", "state_government", "private_partnership"]
 9. Problem Overview:
-- Create a concise summary (problemBrief) of the issue briefing everything identified (including details gathered from text and vision/photos).
+- Create a concise summary (problemBrief) of the issue briefing everything identified (including details gathered from text, audio, and vision/photos).
 - Rate the priorityScore from 0 to 100 based on severity and impact.
 - Set priorityLabel: Choose exactly one from: ["Low Priority", "Medium Priority", "High Priority", "Critical Priority"]
 - Set estimatedBudget: Choose exactly one from: ["Low Budget", "Medium Budget", "High Budget", "Mega Project"]
 - Set safetyRisk: Choose exactly one from: ["No Threat", "Low Risk", "Medium Risk", "High Threat / Hazard"]
 10. Resolved Circle Calculation:
-- If the complaint describes an approximate area, street segment, or boundaries (e.g. "between the school and the station" or "near Rampur Hospital gates"), lookup the coordinates of those landmarks in the list provided or calculate relative offsets from the pin coordinates (${location?.lat || 28.6139}, ${location?.lng || 77.2090}), and return the absolute latitude/longitude center and estimated radius (in meters) of this region in fields 'resolvedCircleLat' (number), 'resolvedCircleLng' (number), and 'resolvedCircleRadius' (number). If no location descriptions are present, return null for these three fields.
+- If the complaint describes an approximate area, street segment, or boundaries, lookup the coordinates of those landmarks in the list provided or calculate relative offsets from the pin coordinates (${location?.lat || 28.6139}, ${location?.lng || 77.2090}), and return the absolute latitude/longitude center and estimated radius (in meters) of this region in fields 'resolvedCircleLat' (number), 'resolvedCircleLng' (number), and 'resolvedCircleRadius' (number). If no location descriptions are present, return null for these three fields.
 
 Format the output strictly as a JSON object with keys:
 {
@@ -1195,9 +1171,34 @@ Format the output strictly as a JSON object with keys:
   "resolvedCircleRadius": 150 or null
 }
 
-Transcript: "${translatedText}"
+Citizen's Input details:
+${translatedText}
+
 JSON:`
-            }]
+        }
+      ];
+
+      // Add actual base64 audio attachment to Gemini call if present
+      currentItems.forEach(item => {
+        if (item.type === 'audio' && item.audioBase64) {
+          const cleanMime = (item.audioMimeType || 'audio/webm').split(';')[0];
+          promptParts.push({
+            inlineData: {
+              mimeType: cleanMime,
+              data: item.audioBase64
+            }
+          });
+        }
+      });
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: promptParts
           }],
           generationConfig: {
             responseMimeType: "application/json"
@@ -1373,7 +1374,7 @@ JSON:`
       .join('\n');
 
     if (combinedText.trim()) {
-      runAIAttachmentAnalysis(combinedText);
+      runAIAttachmentAnalysis(combinedText, currentItems);
     }
   };
 
@@ -1423,35 +1424,44 @@ JSON:`
         const audioUrl = URL.createObjectURL(audioBlob);
         const finalTranscript = liveTranscriptRef.current;
 
-        const newItem: SubmissionItem = {
-          id: Date.now().toString(),
-          type: 'audio',
-          content: finalTranscript || 'Voice recording',
-          fileUrl: audioUrl,
-          speechTranscript: finalTranscript || '(No speech transcript generated)'
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64data = (reader.result as string).split(',')[1];
+          const cleanMime = (audioBlob.type || 'audio/webm').split(';')[0];
+
+          const newItem: SubmissionItem = {
+            id: Date.now().toString(),
+            type: 'audio',
+            content: finalTranscript || 'Voice recording',
+            fileUrl: audioUrl,
+            speechTranscript: finalTranscript || '',
+            audioBase64: base64data,
+            audioMimeType: cleanMime
+          };
+
+          const nextItems = [...items, newItem];
+          setItems(nextItems);
+          setLiveTranscript('');
+          liveTranscriptRef.current = '';
+
+          stream.getTracks().forEach(track => track.stop());
+
+          const voiceLower = (finalTranscript || '').toLowerCase();
+          const isRefusal = voiceLower.includes("dont know") || voiceLower.includes("don't know") || voiceLower.includes("no idea") || voiceLower.includes("submit as is") || voiceLower.includes("submit anyway") || voiceLower.includes("cannot say") || voiceLower.includes("can't say") || voiceLower.includes("cant tell") || voiceLower.includes("can't tell") || voiceLower.includes("dont tell");
+          if (isRefusal) {
+            setClarificationRefusals(prev => {
+              const nextVal = prev + 1;
+              if (nextVal >= 2) {
+                setAiUnderstood(true);
+                setAiClarificationQuestion(null);
+              }
+              return nextVal;
+            });
+          }
+
+          triggerGlobalAIAnalysis(nextItems);
         };
-
-        const nextItems = [...items, newItem];
-        setItems(nextItems);
-        setLiveTranscript('');
-        liveTranscriptRef.current = '';
-
-        stream.getTracks().forEach(track => track.stop());
-
-        const voiceLower = (finalTranscript || '').toLowerCase();
-        const isRefusal = voiceLower.includes("dont know") || voiceLower.includes("don't know") || voiceLower.includes("no idea") || voiceLower.includes("submit as is") || voiceLower.includes("submit anyway") || voiceLower.includes("cannot say") || voiceLower.includes("can't say") || voiceLower.includes("cant tell") || voiceLower.includes("can't tell") || voiceLower.includes("dont tell");
-        if (isRefusal) {
-          setClarificationRefusals(prev => {
-            const nextVal = prev + 1;
-            if (nextVal >= 2) {
-              setAiUnderstood(true);
-              setAiClarificationQuestion(null);
-            }
-            return nextVal;
-          });
-        }
-
-        triggerGlobalAIAnalysis(nextItems);
       };
 
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
