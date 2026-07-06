@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const TelegramBot = require("node-telegram-bot-api");
+const TelegramBot = require("node-telegram-bot-api").default || require("node-telegram-bot-api").TelegramBot || require("node-telegram-bot-api");
 const { initializeApp } = require("firebase/app");
 const {
   getFirestore,
@@ -40,7 +40,7 @@ async function getGeminiKey() {
   try {
     const docRef = doc(db, "demands", "config_gemini");
     const docSnap = await getDoc(docRef);
-    if (docSnap.exists) {
+    if (docSnap.exists()) {
       const data = docSnap.data();
       const keys = data.geminiKeys || [];
       if (keys.length > 0 && keys[0] && keys[0] !== "AIzaSyDummyKeyForJansetuFastPrototypeScale") {
