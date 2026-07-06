@@ -206,6 +206,20 @@ async function translateBotText(text, targetLang) {
     return translationCache[cacheKey];
   }
 
+  try {
+    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`);
+    if (res.ok) {
+      const json = await res.json();
+      const translated = json[0].map(x => x[0]).join('');
+      if (translated) {
+        translationCache[cacheKey] = translated.trim();
+        return translated.trim();
+      }
+    }
+  } catch (err) {
+    console.warn("Google Translate failed on chatbot, falling back to Gemini:", err);
+  }
+
   // Find language name
   const langObj = LANGUAGES.find(l => l.code === targetLang);
   const langName = langObj ? langObj.name : targetLang;

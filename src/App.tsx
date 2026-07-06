@@ -1069,6 +1069,17 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   };
 
   const translateToEnglish = async (text: string): Promise<string> => {
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`);
+      if (res.ok) {
+        const json = await res.json();
+        const translated = json[0].map((x: any) => x[0]).join('');
+        if (translated) return translated.trim();
+      }
+    } catch (err) {
+      console.warn("Google Translate to English failed, falling back to Gemini:", err);
+    }
+
     const payload = {
       contents: [{
         parts: [{
@@ -1082,13 +1093,24 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
       const translated = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
       return translated.trim();
     } catch (e) {
-      console.error("translateToEnglish error:", e);
+      console.error("translateToEnglish fallback error:", e);
       throw e;
     }
   };
 
   const translateFromEnglish = async (text: string, targetLangCode: string): Promise<string> => {
     if (targetLangCode === 'en') return text;
+    try {
+      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLangCode}&dt=t&q=${encodeURIComponent(text)}`);
+      if (res.ok) {
+        const json = await res.json();
+        const translated = json[0].map((x: any) => x[0]).join('');
+        if (translated) return translated.trim();
+      }
+    } catch (err) {
+      console.warn(`Google Translate to ${targetLangCode} failed, falling back to Gemini:`, err);
+    }
+
     const langName = INDIAN_LANGUAGES.find(l => l.code === targetLangCode)?.name || 'Hindi';
     const payload = {
       contents: [{
@@ -1103,7 +1125,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
       const translated = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
       return translated.trim();
     } catch (e) {
-      console.error("translateFromEnglish error:", e);
+      console.error("translateFromEnglish fallback error:", e);
       throw e;
     }
   };
