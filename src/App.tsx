@@ -1562,6 +1562,12 @@ JSON:`
             }
           }
 
+          if (!resolvedTranscript || !resolvedTranscript.trim()) {
+            resolvedTranscript = "";
+            setAiClarificationQuestion("I couldn't hear or understand any spoken words in the voice note. Please describe your complaint in detail so we can process it.");
+            setAiUnderstood(false);
+          }
+
           const newItem: SubmissionItem = {
             id: Date.now().toString(),
             type: 'audio',

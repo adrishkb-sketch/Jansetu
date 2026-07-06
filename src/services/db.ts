@@ -500,7 +500,7 @@ export async function getAllDemands(): Promise<any[]> {
       const qSnapshot = await getDocs(collection(db, 'demands'));
       qSnapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        if (docSnap.id !== 'config_gemini' && !data.isConfig) {
+        if (docSnap.id !== 'config_gemini' && !data.isConfig && !data.isBotSession) {
           firestoreDemands.push({ id: docSnap.id, ...data });
         }
       });
@@ -523,7 +523,7 @@ export async function getAllDemands(): Promise<any[]> {
   if (hasFirestore && firestoreDemands.length > 0) {
     const merged: Record<string, any> = {};
     localDemands.forEach(d => {
-      if (d.id && d.id !== 'config_gemini' && !d.isConfig) {
+      if (d.id && d.id !== 'config_gemini' && !d.isConfig && !d.isBotSession) {
         merged[d.id] = d;
       }
     });

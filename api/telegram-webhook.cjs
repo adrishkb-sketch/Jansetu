@@ -445,7 +445,7 @@ async function getUserSession(chatId) {
 async function saveUserSession(chatId, session) {
   try {
     const docRef = doc(db, "demands", `bot_session_${chatId}`);
-    await setDoc(docRef, { ...session, isConfig: true });
+    await setDoc(docRef, { ...session, isBotSession: true });
   } catch (err) {
     console.error("[Jansetu Bot] Error saving user session:", err);
   }
@@ -1036,7 +1036,7 @@ async function handleCallbackQuery(queryData) {
       const list = [];
       snap.forEach(docSnap => {
         const item = docSnap.data();
-        if (docSnap.id === "config_gemini" || item.isConfig) return;
+        if (docSnap.id === "config_gemini" || item.isConfig || item.isBotSession) return;
         if (item.status === "pending" || item.status === "needs_info") {
           list.push({ id: docSnap.id, ...item });
         }
