@@ -707,7 +707,8 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
         }
         console.error("Geolocation failed: ", errorMsg);
         fallbackToDefault(errorMsg);
-      }
+      },
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
     );
   };
 
