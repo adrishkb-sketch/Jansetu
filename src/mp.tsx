@@ -60,7 +60,9 @@ function MPApp() {
 
   // Action Plan from Manager
   const [approvedPlan, setApprovedPlan] = useState<any | null>(null);
-
+  const [selectedPlanType, setSelectedPlanType] = useState<'constituency' | 'category'>('constituency');
+  const [selectedPlanCategory, setSelectedPlanCategory] = useState<string>('water');
+ 
   // Load MP Funds & Demands
   useEffect(() => {
     if (isAuthenticated) {
@@ -68,14 +70,14 @@ function MPApp() {
       loadData();
     }
   }, [isAuthenticated, selectedConstituency]);
-
+ 
   // Load Action Plan whenever selection or search criteria changes
   useEffect(() => {
     if (isAuthenticated) {
       loadActionPlan();
     }
-  }, [isAuthenticated, selectedConstituency, searchMode, searchIssueQuery]);
-
+  }, [isAuthenticated, selectedConstituency, selectedPlanType, selectedPlanCategory]);
+ 
   const loadFundsConfig = async () => {
     const fundsData = await getMPFunds(selectedConstituency);
     if (fundsData) {
@@ -86,15 +88,15 @@ function MPApp() {
       setResetFrequency('yearly');
     }
   };
-
+ 
   const loadActionPlan = async () => {
     let planKey = '';
-    if (searchMode === 'constituency') {
+    if (selectedPlanType === 'constituency') {
       planKey = selectedConstituency;
     } else {
-      planKey = `category_${searchIssueQuery.toLowerCase()}`;
+      planKey = `category_${selectedPlanCategory.toLowerCase()}`;
     }
-
+ 
     const plan = await getActionPlanByConstituency(planKey);
     if (plan && plan.isApproved) {
       setApprovedPlan(plan);
@@ -102,19 +104,19 @@ function MPApp() {
       setApprovedPlan(null);
     }
   };
-
+ 
   const loadData = async () => {
     const data = await getAllDemands();
     setDemands(data);
   };
-
-  // Filter demands based on search criteria
+ 
+  // Filter demands based on search criteria, scoped to selectedConstituency
   useEffect(() => {
-    let filtered = [...demands];
-    if (searchMode === 'constituency') {
-      filtered = demands.filter(d => (d.constituency || 'Rampur').toLowerCase() === searchConstituencyName.toLowerCase());
-    } else {
-      filtered = demands.filter(d => 
+    setSearchConstituencyName(selectedConstituency);
+    let filtered = demands.filter(d => (d.constituency || 'Rampur').toLowerCase() === selectedConstituency.toLowerCase());
+    
+    if (searchMode === 'issue') {
+      filtered = filtered.filter(d => 
         d.category.toLowerCase().includes(searchIssueQuery.toLowerCase()) || 
         d.address.toLowerCase().includes(searchIssueQuery.toLowerCase()) ||
         (d.items && d.items.some((item: any) => 
@@ -124,7 +126,7 @@ function MPApp() {
       );
     }
     setMatchingDemands(filtered);
-  }, [demands, searchMode, searchConstituencyName, searchIssueQuery]);
+  }, [demands, searchMode, selectedConstituency, searchIssueQuery]);
 
   // Save Funds Configuration
   const handleSaveFunds = async () => {
@@ -267,14 +269,14 @@ function MPApp() {
     }
 
     for (const d of matchingDemands) {
-      await updateDemandStatus(d.id, 'approved');
+      await updateDemandStatus(d.id, 'raised');
     }
 
     if (approvedPlan) {
       const updatedPlan = { ...approvedPlan };
       updatedPlan.detailedSteps = (updatedPlan.detailedSteps || []).map((step: any) => ({
         ...step,
-        status: 'approved'
+        status: 'raised'
       }));
       const planKey = approvedPlan.id ? approvedPlan.id.replace(/^plan_/, '') : selectedConstituency;
       await saveActionPlanByConstituency(planKey, updatedPlan);
@@ -330,6 +332,41 @@ function MPApp() {
     }
 
     alert(`Successfully allocated ₹${totalCostToFund.toLocaleString()}! Entire project has been funded and authorized!`);
+    loadData();
+  };
+
+  // Fund Approved Plan Individual Step
+  const handleFundIndividualStep = async (idx: number) => {
+    if (!approvedPlan) return;
+    const step = approvedPlan.detailedSteps[idx];
+    const cost = step.cost || 0;
+
+    if (mpladsFunds < cost) {
+      alert(`Insufficient funds! This step requires ₹${cost.toLocaleString()} but you only have ₹${mpladsFunds.toLocaleString()} available in your MPLADS ledger.`);
+      return;
+    }
+
+    const remainingFunds = mpladsFunds - cost;
+    setMpladsFunds(remainingFunds);
+    
+    await saveMPFunds(selectedConstituency, {
+      totalFunds: remainingFunds,
+      resetFrequency
+    });
+
+    const updatedPlan = { ...approvedPlan };
+    updatedPlan.detailedSteps[idx].status = 'funded';
+    
+    const planKey = approvedPlan.id ? approvedPlan.id.replace(/^plan_/, '') : selectedConstituency;
+    await saveActionPlanByConstituency(planKey, updatedPlan);
+    setApprovedPlan(updatedPlan);
+
+    // Sync corresponding citizen complaint status to 'funded'
+    if (step.id) {
+      await updateDemandStatus(step.id, 'funded');
+    }
+
+    alert(`Successfully allocated ₹${cost.toLocaleString()} to step "${step.title}"!`);
     loadData();
   };
 
@@ -638,14 +675,60 @@ function MPApp() {
         <div className="form-card" style={{ padding: '24px 30px', textAlign: 'left', marginBottom: '32px' }}>
           <h3 style={{ color: 'white', fontSize: '1.25rem', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Layers size={22} style={{ color: '#2dd4bf' }} />
-            <span>Approved Constituency Development Action Plan & Funding Allocations</span>
+            <span>Approved Development Action Plan & Funding Allocations</span>
           </h3>
+
+          {/* Plan Selector Tab Header */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedPlanType('constituency')}
+              style={{
+                background: selectedPlanType === 'constituency' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(0,0,0,0.2)',
+                border: selectedPlanType === 'constituency' ? '1px solid #14b8a6' : '1px solid rgba(255,255,255,0.1)',
+                color: selectedPlanType === 'constituency' ? '#2dd4bf' : '#8e90b3',
+                padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px'
+              }}
+            >
+              🏛️ Constituency Plan ({selectedConstituency})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedPlanType('category')}
+              style={{
+                background: selectedPlanType === 'category' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(0,0,0,0.2)',
+                border: selectedPlanType === 'category' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)',
+                color: selectedPlanType === 'category' ? '#a5b4fc' : '#8e90b3',
+                padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px'
+              }}
+            >
+              🏷️ General Topic-Wise Plan
+            </button>
+            {selectedPlanType === 'category' && (
+              <select
+                value={selectedPlanCategory}
+                onChange={e => setSelectedPlanCategory(e.target.value)}
+                style={{
+                  background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white',
+                  padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', marginLeft: 'auto'
+                }}
+              >
+                <option value="water">Water</option>
+                <option value="roads">Roads</option>
+                <option value="health">Health</option>
+                <option value="education">Education</option>
+                <option value="power">Power</option>
+                <option value="agriculture">Agriculture</option>
+                <option value="others">Others</option>
+              </select>
+            )}
+          </div>
 
           {!approvedPlan ? (
             <div style={{ textAlign: 'center', padding: '30px 0', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '12px', background: 'rgba(0,0,0,0.1)' }}>
               <Info size={28} style={{ color: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
               <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', margin: 0 }}>
-                No active Approved Development Plan found for constituency <strong>{selectedConstituency}</strong>.
+                No active Approved Action Plan found for the selected {selectedPlanType === 'constituency' ? `constituency "${selectedConstituency}"` : `topic "${selectedPlanCategory}"`}.
               </p>
               <p style={{ color: 'var(--text-desc)', fontSize: '11px', marginTop: '4px' }}>
                 Please have the aggregation manager generate and approve a plan in the Manager portal first.
@@ -692,28 +775,22 @@ function MPApp() {
                   <span style={{ fontSize: '13px', color: '#c7d2fe', fontWeight: 'bold' }}>
                     💼 Total Project Cost: ₹{( (approvedPlan.detailedSteps || []).reduce((acc: any, s: any) => acc + (s.cost || 0), 0) ).toLocaleString()}
                   </span>
-                  {searchMode === 'constituency' ? (
-                    (approvedPlan.detailedSteps || []).every((s: any) => s.status === 'funded' || s.status === 'work_started' || s.status === 'completed') ? (
-                      <span style={{ fontSize: '12px', background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '6px 12px', borderRadius: '6px', fontWeight: 'bold' }}>
-                        ✓ Entire Project Fully Funded
-                      </span>
-                    ) : (
-                      <button
-                        onClick={handleFundEntireProject}
-                        style={{ background: '#10b981', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                      >
-                        <CheckCircle size={14} />
-                        <span>Fund & Authorize Entire Project</span>
-                      </button>
-                    )
-                  ) : (
-                    <span style={{ fontSize: '12px', color: '#f87171', fontWeight: 'bold' }}>
-                      ⚠️ Funding disabled in Topic Search mode. Issues can only be raised in Parliament.
+                  {(approvedPlan.detailedSteps || []).every((s: any) => s.status === 'funded' || s.status === 'work_started' || s.status === 'completed') ? (
+                    <span style={{ fontSize: '12px', background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', padding: '6px 12px', borderRadius: '6px', fontWeight: 'bold' }}>
+                      ✓ Entire Project Fully Funded
                     </span>
+                  ) : (
+                    <button
+                      onClick={handleFundEntireProject}
+                      style={{ background: '#10b981', border: 'none', color: 'white', fontWeight: 'bold', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <CheckCircle size={14} />
+                      <span>Fund & Authorize Entire Project</span>
+                    </button>
                   )}
                 </div>
 
-                <div style={{ overflowX: 'auto', opacity: searchMode === 'constituency' ? 1 : 0.5, pointerEvents: searchMode === 'constituency' ? 'auto' : 'none' }}>
+                <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#818cf8', fontWeight: 'bold' }}>
@@ -722,7 +799,7 @@ function MPApp() {
                         <th style={{ padding: '8px 10px', textAlign: 'left' }}>Details</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left' }}>Responsible Agency</th>
                         <th style={{ padding: '8px 10px', textAlign: 'center' }}>Cost Estimate</th>
-                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Status</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'center' }}>Status / Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -739,9 +816,22 @@ function MPApp() {
                               ₹{(step.cost || 0).toLocaleString()}
                             </td>
                             <td style={{ padding: '10px', textAlign: 'center' }}>
-                              <span style={{ fontSize: '11px', background: isFunded ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255,255,255,0.08)', color: isFunded ? '#34d399' : 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                                {status}
-                              </span>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', background: isFunded ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255,255,255,0.08)', color: isFunded ? '#34d399' : 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                  {status}
+                                </span>
+                                {!isFunded && (
+                                  <button
+                                    onClick={() => handleFundIndividualStep(idx)}
+                                    style={{
+                                      background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#34d399',
+                                      padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer'
+                                    }}
+                                  >
+                                    Allot Funds
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );

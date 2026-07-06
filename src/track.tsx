@@ -38,6 +38,10 @@ function TrackComplaint() {
       case 'approved': return '#10b981' // Green
       case 'reviewed': return '#f59e0b' // Yellow
       case 'solved': return '#3b82f6' // Blue
+      case 'raised': return '#818cf8' // Indigo/Purple
+      case 'funded': return '#fbbf24' // Amber/Orange
+      case 'work_started': return '#60a5fa' // Blue (Work Started)
+      case 'completed': return '#34d399' // Green (Completed)
       default: return '#6366f1' // Indigo (Pending)
     }
   }
@@ -149,8 +153,7 @@ function TrackComplaint() {
               <Info className="w-5 h-5 text-indigo-400" />
               Resolution Updates
             </h3>
-            
-            {complaint.status === 'pending' && (
+                        {complaint.status === 'pending' && (
               <p className="text-gray-400 p-4 bg-white/5 rounded-lg border border-white/5">
                 Your complaint has been received and is awaiting review by constituency managers. Please check back later.
               </p>
@@ -168,8 +171,32 @@ function TrackComplaint() {
               </p>
             )}
             
-            {complaint.status === 'solved' && (
+            {complaint.status === 'raised' && (
+              <p className="text-indigo-400 p-4 bg-indigo-400/10 rounded-lg border border-indigo-400/20">
+                This issue has been formally raised in Parliament by your Member of Parliament (MP). A proposal question/brief has been submitted to the Lok Sabha.
+              </p>
+            )}
+            
+            {complaint.status === 'funded' && (
+              <p className="text-yellow-500 p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                Funding has been allocated from the MP's available MPLADS ledger. Work orders have been successfully authorized.
+              </p>
+            )}
+            
+            {complaint.status === 'work_started' && (
               <p className="text-blue-400 p-4 bg-blue-400/10 rounded-lg border border-blue-400/20">
+                Work has officially started on-site by the responsible government agency.
+              </p>
+            )}
+            
+            {complaint.status === 'completed' && (
+              <p className="text-green-400 p-4 bg-green-400/10 rounded-lg border border-green-400/20">
+                This issue has been successfully resolved and construction/installation is complete! Thank you for helping improve your constituency.
+              </p>
+            )}
+            
+            {complaint.status === 'solved' && (
+              <p className="text-green-400 p-4 bg-green-400/10 rounded-lg border border-green-400/20">
                 This issue has been successfully resolved! Thank you for helping improve your constituency.
               </p>
             )}

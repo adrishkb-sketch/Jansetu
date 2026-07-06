@@ -93,12 +93,70 @@ function ManagerConsole() {
   const [showAiClusterConstituencyDropdown, setShowAiClusterConstituencyDropdown] = useState(false);
 
   // Constituency Plan & Proposal Builder States
-  const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>(() => {
+  const [selectedConstituencyPlanIds, setSelectedConstituencyPlanIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('jansetu_plan_ids');
+      const saved = localStorage.getItem('jansetu_constituency_plan_ids');
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+  const [selectedCategoryPlanIds, setSelectedCategoryPlanIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('jansetu_category_plan_ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [proposalType, setProposalType] = useState<'constituency' | 'category'>('constituency');
+  const [targetPlanCategory, setTargetPlanCategory] = useState<string>('water');
+
+  const selectedPlanIds = proposalType === 'constituency' ? selectedConstituencyPlanIds : selectedCategoryPlanIds;
+
+  const setSelectedPlanIds = (val: string[] | ((prev: string[]) => string[])) => {
+    if (proposalType === 'constituency') {
+      if (typeof val === 'function') {
+        setSelectedConstituencyPlanIds(prev => val(prev));
+      } else {
+        setSelectedConstituencyPlanIds(val);
+      }
+    } else {
+      if (typeof val === 'function') {
+        setSelectedCategoryPlanIds(prev => val(prev));
+      } else {
+        setSelectedCategoryPlanIds(val);
+      }
+    }
+  };
+
+  const handleTogglePin = (tid: string, pinType: 'constituency' | 'category') => {
+    const demandItem = demands.find(d => d.id === tid);
+    if (!demandItem) return;
+
+    if (pinType === 'constituency') {
+      const isPinned = selectedConstituencyPlanIds.includes(tid);
+      if (isPinned) {
+        setSelectedConstituencyPlanIds(prev => prev.filter(id => id !== tid));
+      } else {
+        // Validation check
+        const currentConstituency = selectedConstituencyPlanIds.length > 0
+          ? demands.find(d => d.id === selectedConstituencyPlanIds[0])?.constituency || 'Rampur'
+          : null;
+        const itemConstituency = demandItem.constituency || 'Rampur';
+        
+        if (currentConstituency && currentConstituency.toLowerCase() !== itemConstituency.toLowerCase()) {
+          alert(`You cannot mix different constituencies in a Constituency-Based Action Plan.\n\nCurrent plan constituency: ${currentConstituency}\nNew item constituency: ${itemConstituency}\n\nPlease use a Category-Based Plan or clear the current list.`);
+          return;
+        }
+        setSelectedConstituencyPlanIds(prev => [...prev, tid]);
+      }
+    } else {
+      const isPinned = selectedCategoryPlanIds.includes(tid);
+      if (isPinned) {
+        setSelectedCategoryPlanIds(prev => prev.filter(id => id !== tid));
+      } else {
+        setSelectedCategoryPlanIds(prev => [...prev, tid]);
+      }
+    }
+  };
+
   const [actionPlan, setActionPlan] = useState<any | null>(null);
   const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
   const [isAuditing, setIsAuditing] = useState(false);
@@ -119,8 +177,12 @@ function ManagerConsole() {
 
   // Persist Plan states
   useEffect(() => {
-    localStorage.setItem('jansetu_plan_ids', JSON.stringify(selectedPlanIds));
-  }, [selectedPlanIds]);
+    localStorage.setItem('jansetu_constituency_plan_ids', JSON.stringify(selectedConstituencyPlanIds));
+  }, [selectedConstituencyPlanIds]);
+
+  useEffect(() => {
+    localStorage.setItem('jansetu_category_plan_ids', JSON.stringify(selectedCategoryPlanIds));
+  }, [selectedCategoryPlanIds]);
 
   useEffect(() => {
     localStorage.setItem('jansetu_plan_name', customPlanName);
@@ -455,16 +517,49 @@ You must return your output strictly as a valid JSON object matching this struct
     }, 1200);
   };
 
+  const handleSaveActivePlan = async (planToSave: any) => {
+    if (!planToSave) return;
+    const selectedDemands = demands.filter(d => selectedPlanIds.includes(d.id));
+    const planConstituency = planToSave.constituency || selectedDemands[0]?.constituency || 'Rampur';
+    
+    let planKey = '';
+    const updatedPlan = {
+      ...planToSave,
+      planType: proposalType,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (proposalType === 'constituency') {
+      planKey = planConstituency;
+      updatedPlan.constituency = planConstituency;
+      updatedPlan.id = `plan_${planConstituency.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    } else {
+      planKey = `category_${targetPlanCategory.toLowerCase()}`;
+      updatedPlan.category = targetPlanCategory;
+      updatedPlan.id = `plan_category_${targetPlanCategory.toLowerCase()}`;
+    }
+
+    // Save draft or approved
+    await saveActionPlan(updatedPlan); // compatibility
+    await saveActionPlanByConstituency(planKey, updatedPlan);
+
+    // Refresh local list of plans
+    const plans = await getAllActionPlans();
+    setAllActionPlans(plans);
+  };
+
   const generateParliamentBrief = async () => {
     setIsGeneratingProposal(true);
     const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
 
     const selectedDemands = demands.filter(d => selectedPlanIds.includes(d.id));
     if (selectedDemands.length === 0) {
-      alert("No issues selected in your Constituency Plan. Please select at least one item first!");
+      alert("No issues selected in your plan. Please select at least one item first!");
       setIsGeneratingProposal(false);
       return;
     }
+
+    const planConstituency = selectedDemands[0]?.constituency || 'Rampur';
 
     const compiledItemsText = selectedDemands.map((d, index) => {
       const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
@@ -480,7 +575,8 @@ You must return your output strictly as a valid JSON object matching this struct
 
     if (geminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
       try {
-        const prompt = `You are a constituency development expert. Create a structured step-by-step action plan for Rampur Lok Sabha constituency based on these selected citizen priorities:
+        const prompt = proposalType === 'constituency'
+          ? `You are a constituency development expert. Create a structured step-by-step action plan for ${planConstituency} Lok Sabha constituency based on these selected citizen priorities:
 ${compiledItemsText}
 
 Provide your response ONLY as a valid JSON object matching the following schema. Do NOT include markdown blocks or any text outside the JSON.
@@ -502,6 +598,31 @@ Provide your response ONLY as a valid JSON object matching the following schema.
       "cost": number (Estimated cost in Rupees),
       "timeline": "Duration (e.g. 30 Days)",
       "agency": "Government body responsible (e.g. Public Works Department (PWD))"
+    }
+  ]
+}`
+          : `You are a public policy expert. Create a general topic-based structured action plan focusing on category "${targetPlanCategory}" across multiple regions, based on these selected citizen priorities:
+${compiledItemsText}
+
+Provide your response ONLY as a valid JSON object matching the following schema. Do NOT include markdown blocks or any text outside the JSON.
+{
+  "planName": "Title of the plan",
+  "summary": "Brief executive summary paragraph detailing target guidelines and inter-agency efforts",
+  "flowchart": [
+    {
+      "phase": "Phase Title (e.g. Phase 1: Mobilization)",
+      "duration": "Timeline range (e.g. Weeks 1-2)",
+      "description": "Specific action details"
+    }
+  ],
+  "detailedSteps": [
+    {
+      "id": "Matching Ticket ID from the compiled items",
+      "title": "Specific Project Name",
+      "description": "Step-by-step implementation details comparing against ministry norms (Jal Jeevan, PMGSY, NHM, RTE)",
+      "cost": number (Estimated cost in Rupees),
+      "timeline": "Duration (e.g. 30 Days)",
+      "agency": "Government body responsible"
     }
   ]
 }`;
@@ -528,8 +649,15 @@ Provide your response ONLY as a valid JSON object matching the following schema.
         
         if (parsedPlan && parsedPlan.planName) {
           parsedPlan.isApproved = false;
+          parsedPlan.planType = proposalType;
+          if (proposalType === 'constituency') {
+            parsedPlan.constituency = planConstituency;
+          } else {
+            parsedPlan.category = targetPlanCategory;
+          }
+          parsedPlan.associatedComplaintIds = selectedDemands.map(d => d.id);
           setActionPlan(parsedPlan);
-          saveActionPlan(parsedPlan);
+          await handleSaveActivePlan(parsedPlan);
           setIsGeneratingProposal(false);
           return;
         }
@@ -539,7 +667,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
     }
 
     // Dynamic Mock Fallback action plan builder:
-    setTimeout(() => {
+    setTimeout(async () => {
       const mockDetailedSteps = selectedDemands.map((d, index) => {
         const cost = getProjectCostEstimate(d.category, d.scope);
         const segment = getClosestConstituencySegment(d.location.lat, d.location.lng);
@@ -565,37 +693,130 @@ Provide your response ONLY as a valid JSON object matching the following schema.
         {
           phase: "Phase 1: Mobilization & Feasibility",
           duration: "Weeks 1-2",
-          description: "Initiating surveys, land clearance checks, and soil stability audits for selected road/water sites in Rampur."
+          description: `Initiating surveys, land clearance checks, and soil stability audits for selected sites in ${planConstituency}.`
         },
         {
           phase: "Phase 2: Budget Sanction & Tender",
           duration: "Weeks 3-4",
-          description: "Allocating ₹" + (totalPlannedCost / 100000).toFixed(1) + " Lakhs from MPLADS and initiating transparent digital bids."
+          description: "Allocating funds and initiating transparent digital bids."
         },
         {
           phase: "Phase 3: Civil Construction",
           duration: "Months 2-3",
-          description: "Execution of concrete layering, pipe laying, and primary health centre equipment installation."
+          description: "Execution of civil works, concrete layering, and pipe laying on-site."
         },
         {
           phase: "Phase 4: Inspection & Verification",
           duration: "Month 4",
-          description: "Verification of works against RTE, JJM, and national road safety standards prior to handover."
+          description: "Verification of works against RTE, JJM, and national safety standards prior to handover."
         }
       ];
 
       const mockPlan = {
-        planName: customPlanName || "Rampur Lok Sabha Constituency Action Plan",
-        summary: `A data-driven development blueprint prioritizing ${selectedDemands.length} civic gaps. Resolves critical deficiencies using MPLADS funding compared against state benchmarks.`,
+        planName: customPlanName || (proposalType === 'constituency' ? `${planConstituency} Constituency Development Plan` : `General ${targetPlanCategory.charAt(0).toUpperCase() + targetPlanCategory.slice(1)} Action Plan`),
+        summary: proposalType === 'constituency'
+          ? `A data-driven development blueprint prioritizing ${selectedDemands.length} civic gaps in ${planConstituency} constituency. Resolves critical deficiencies using MPLADS funding compared against state benchmarks.`
+          : `A policy action brief addressing category ${targetPlanCategory} across multiple regions. Compiles ministry guidelines and outlines targets for coordinated inter-agency execution.`,
         flowchart: mockFlowchart,
         detailedSteps: mockDetailedSteps,
-        isApproved: false
+        isApproved: false,
+        planType: proposalType,
+        constituency: proposalType === 'constituency' ? planConstituency : undefined,
+        category: proposalType === 'category' ? targetPlanCategory : undefined,
+        associatedComplaintIds: selectedDemands.map(d => d.id)
       };
 
       setActionPlan(mockPlan);
-      saveActionPlan(mockPlan);
+      await handleSaveActivePlan(mockPlan);
       setIsGeneratingProposal(false);
     }, 1500);
+  };
+
+  const handleUpdatePlanWithGemini = async () => {
+    if (!actionPlan) return;
+    setIsGeneratingProposal(true);
+    const geminiKey = localStorage.getItem('jansetu_gemini_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+
+    try {
+      const prompt = `You are a constituency development expert. The user (manager) has typed manual changes or updates to the action plan. Here is the current state of the plan:
+${JSON.stringify(actionPlan, null, 2)}
+
+Please review these updates. Use your AI intelligence to:
+1. Understand the manager's changes.
+2. Refine the executive summary to match the new details and keep it highly professional.
+3. Align any descriptions with ministry norms (Jal Jeevan, PMGSY, NHM, RTE) where applicable.
+4. Ensure the flowchart timelines match the detailed steps.
+5. output the updated plan.
+
+Return ONLY a clean JSON object matching the original schema. Do NOT include markdown blocks or any text outside the JSON.
+{
+  "planName": "Title of the plan",
+  "summary": "Refined executive summary paragraph",
+  "flowchart": [
+    {
+      "phase": "Phase Title",
+      "duration": "Timeline range",
+      "description": "Specific action details"
+    }
+  ],
+  "detailedSteps": [
+    {
+      "id": "Matching Ticket ID",
+      "title": "Specific Project Name",
+      "description": "Details aligned with ministry guidelines",
+      "cost": number (Cost in Rupees),
+      "timeline": "Duration",
+      "agency": "Responsible government body"
+    }
+  ]
+}`;
+
+      let responsePlan = actionPlan;
+
+      if (geminiKey && geminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" }
+          })
+        });
+
+        if (response.ok) {
+          const json = await response.json();
+          let responseText = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+          const parsedPlan = JSON.parse(responseText);
+          if (parsedPlan && parsedPlan.planName) {
+            responsePlan = {
+              ...actionPlan,
+              ...parsedPlan,
+              isApproved: false // Keep draft status
+            };
+          }
+        } else {
+          throw new Error(`API error: HTTP ${response.status}`);
+        }
+      } else {
+        // Mock fallback if default/dummy key is used
+        alert("Using Gemini offline simulation. Plan changes have been analyzed and synced locally.");
+        responsePlan = {
+          ...actionPlan,
+          summary: `[AI Simulated Audit] Refined plan summary matching ${actionPlan.detailedSteps.length} projects. Audited against Jal Jeevan and NHM standards.`,
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      setActionPlan(responsePlan);
+      await handleSaveActivePlan(responsePlan);
+      alert("Gemini AI successfully processed and refined the updated plan!");
+    } catch (e: any) {
+      console.error("Gemini plan update failed: ", e);
+      alert(`Gemini was unable to parse the updated plan. Please check your inputs or try again. Error: ${e.message}`);
+    } finally {
+      setIsGeneratingProposal(false);
+    }
   };
 
   // Google Translate
@@ -907,8 +1128,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
     return 300000; // ₹3 L
   };
 
-  const selectedDemandsList = demands.filter(d => selectedPlanIds.includes(d.id));
-  const totalPlannedCost = selectedDemandsList.reduce((acc, curr) => acc + getProjectCostEstimate(curr.category, curr.scope), 0);
+
 
   return (
     <>
@@ -2437,7 +2657,6 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                           {c.ticketIds.map((tid: string) => {
                             const matchDemand = demands.find(d => d.id === tid);
                             if (!matchDemand) return null;
-                            const isSelected = selectedPlanIds.includes(tid);
                             return (
                               <div 
                                 key={tid} 
@@ -2461,20 +2680,25 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                                   <span style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 'bold' }}>👍 {matchDemand.upvotes || 1} votes</span>
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      if (isSelected) {
-                                        setSelectedPlanIds(prev => prev.filter(id => id !== tid));
-                                      } else {
-                                        setSelectedPlanIds(prev => [...prev, tid]);
-                                      }
-                                    }}
+                                    onClick={() => handleTogglePin(tid, 'constituency')}
                                     style={{
                                       background: 'none', border: 'none', cursor: 'pointer',
-                                      color: isSelected ? '#10b981' : 'var(--text-muted)'
+                                      color: selectedConstituencyPlanIds.includes(tid) ? '#2dd4bf' : 'var(--text-muted)'
                                     }}
-                                    title={isSelected ? "Remove from plan" : "Add to plan"}
+                                    title={selectedConstituencyPlanIds.includes(tid) ? "Remove from Constituency Plan" : "Pin to Constituency Plan"}
                                   >
-                                    <Award size={18} />
+                                    <MapPin size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTogglePin(tid, 'category')}
+                                    style={{
+                                      background: 'none', border: 'none', cursor: 'pointer',
+                                      color: selectedCategoryPlanIds.includes(tid) ? '#a5b4fc' : 'var(--text-muted)'
+                                    }}
+                                    title={selectedCategoryPlanIds.includes(tid) ? "Remove from Category Plan" : "Pin to Category Plan"}
+                                  >
+                                    <FileText size={16} />
                                   </button>
                                 </div>
                               </div>
@@ -2739,7 +2963,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                         .sort((a, b) => b.cpi - a.cpi)
                         .map(d => {
                           const gapDetails = evaluateInfrastructureGap(d.location.lat, d.location.lng, d.category, selectedGlobalConstituency);
-                          const isPinned = selectedPlanIds.includes(d.id);
+
                           
                           // CPI Color code
                           const cpiColor = d.cpi > 75 ? '#ef4444' : d.cpi > 50 ? '#fbbf24' : '#2dd4bf';
@@ -2770,24 +2994,32 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                                 </span>
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'center' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (isPinned) {
-                                      setSelectedPlanIds(prev => prev.filter(id => id !== d.id));
-                                    } else {
-                                      setSelectedPlanIds(prev => [...prev, d.id]);
-                                    }
-                                  }}
-                                  style={{
-                                    background: isPinned ? '#10b981' : 'transparent',
-                                    border: isPinned ? 'none' : '1px solid var(--border-light)',
-                                    color: isPinned ? '#000' : 'white',
-                                    fontWeight: 'bold', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px'
-                                  }}
-                                >
-                                  {isPinned ? '✓ Pinned' : '📌 Pin'}
-                                </button>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTogglePin(d.id, 'constituency')}
+                                    style={{
+                                      background: selectedConstituencyPlanIds.includes(d.id) ? '#14b8a6' : 'transparent',
+                                      border: selectedConstituencyPlanIds.includes(d.id) ? 'none' : '1px solid rgba(20, 184, 166, 0.4)',
+                                      color: selectedConstituencyPlanIds.includes(d.id) ? '#000' : '#2dd4bf',
+                                      fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', width: '130px'
+                                    }}
+                                  >
+                                    {selectedConstituencyPlanIds.includes(d.id) ? '✓ Pinned (Const)' : '🏛️ Pin Constituency'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTogglePin(d.id, 'category')}
+                                    style={{
+                                      background: selectedCategoryPlanIds.includes(d.id) ? '#6366f1' : 'transparent',
+                                      border: selectedCategoryPlanIds.includes(d.id) ? 'none' : '1px solid rgba(99, 102, 241, 0.4)',
+                                      color: selectedCategoryPlanIds.includes(d.id) ? '#000' : '#a5b4fc',
+                                      fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', width: '130px'
+                                    }}
+                                  >
+                                    {selectedCategoryPlanIds.includes(d.id) ? '✓ Pinned (Categ)' : '🏷️ Pin Category'}
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -2805,6 +3037,40 @@ Provide your response ONLY as a valid JSON object matching the following schema.
         {activeTab === 'proposal' && (
           <div style={{ marginBottom: '32px' }}>
             
+            {/* Split Type Selector Tab Header */}
+            <div className="no-print" style={{ display: 'flex', gap: '12px', marginBottom: '20px', borderBottom: '1px solid var(--border-light)', paddingBottom: '14px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setProposalType('constituency');
+                  setActionPlan(null);
+                }}
+                style={{
+                  background: proposalType === 'constituency' ? 'rgba(20, 184, 166, 0.15)' : 'rgba(0,0,0,0.2)',
+                  border: proposalType === 'constituency' ? '1px solid #14b8a6' : '1px solid rgba(255,255,255,0.1)',
+                  color: proposalType === 'constituency' ? '#2dd4bf' : '#8e90b3',
+                  padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                <span>🏛️ Constituency-Based Plan</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setProposalType('category');
+                  setActionPlan(null);
+                }}
+                style={{
+                  background: proposalType === 'category' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(0,0,0,0.2)',
+                  border: proposalType === 'category' ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)',
+                  color: proposalType === 'category' ? '#a5b4fc' : '#8e90b3',
+                  padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                <span>🏷️ Category-Based Plan (Topic)</span>
+              </button>
+            </div>
+
             {/* Web View workspace layout */}
             <div className="portal-grid no-print" style={{ gridTemplateColumns: '440px 1fr', gap: '24px', textAlign: 'left' }}>
               
@@ -2815,7 +3081,9 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                 <div className="form-card" style={{ padding: '20px' }}>
                   <h4 style={{ color: 'white', margin: '0 0 12px 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Briefcase size={18} style={{ color: '#2dd4bf' }} />
-                    <span>Constituency Development Plan Profile</span>
+                    <span>
+                      {proposalType === 'constituency' ? 'Constituency Plan Profile' : 'Category Plan Profile'}
+                    </span>
                   </h4>
                   <div className="input-group">
                     <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Proposal Title / Name</label>
@@ -2826,9 +3094,25 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                       style={{ padding: '10px', borderRadius: '6px', fontSize: '13px' }}
                     />
                   </div>
+                  {proposalType === 'category' && (
+                    <div className="input-group" style={{ marginTop: '10px' }}>
+                      <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Target Category</label>
+                      <select
+                        value={targetPlanCategory}
+                        onChange={e => setTargetPlanCategory(e.target.value)}
+                        style={{ padding: '10px', borderRadius: '6px', fontSize: '13px', background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', width: '100%', fontWeight: '600' }}
+                      >
+                        <option value="water">Water</option>
+                        <option value="roads">Roads</option>
+                        <option value="health">Health</option>
+                        <option value="education">Education</option>
+                        <option value="power">Power</option>
+                        <option value="agriculture">Agriculture</option>
+                        <option value="others">Others</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
-
-
 
                 {/* Selected priorities plan items card */}
                 <div className="form-card" style={{ padding: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
@@ -2839,7 +3123,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                   
                   {selectedPlanIds.length === 0 ? (
                     <div style={{ margin: 'auto 0', padding: '40px 0', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
-                      No items pinned to plan. Visit "Demographic Gaps" or "AI Clustering" tabs to pin priorities.
+                      No items pinned to this plan. Visit "Demographic Gaps" or "AI Clustering" tabs to pin priorities.
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '350px', paddingRight: '4px' }}>
@@ -2858,7 +3142,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                                 {d.ticketType === 'suggestion' ? '💡' : '⚠️'} {d.category} Need (ref: {d.id})
                               </strong>
                               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                Est. Cost: ₹{(cost / 100000).toFixed(1)} Lakhs
+                                Est. Cost: ₹{(cost / 100000).toFixed(1)} Lakhs | {d.constituency || 'Rampur'}
                               </span>
                             </div>
                             <button
@@ -2909,7 +3193,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                     <h3 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.15rem' }}>
                       <Brain size={20} style={{ color: '#2dd4bf' }} />
-                      <span>AI Constituency Development Plan & Action Steps</span>
+                      <span>AI Development Plan & Action Steps</span>
                     </h3>
                     
                     {actionPlan && (
@@ -2917,34 +3201,53 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                         <button
                           type="button"
                           onClick={async () => {
-                            const next = { ...actionPlan, isApproved: !actionPlan.isApproved };
+                            if (actionPlan.isApproved) return; // Disallow toggle/reverting once approved
+                            const next = { ...actionPlan, isApproved: true };
                             setActionPlan(next);
-                            await saveActionPlan(next);
-                            if (next.isApproved) {
-                              alert("Action Plan has been approved and is now visible on the MP's dashboard!");
-                            } else {
-                              alert("Action Plan reverted to draft status.");
+                            await handleSaveActivePlan(next);
+                            
+                            // Synchronize citizen complaints status to 'approved'
+                            for (const id of next.associatedComplaintIds || selectedPlanIds) {
+                              await updateDemandStatus(id, 'approved');
                             }
+                            
+                            alert("Action Plan has been approved and is now visible on the MP's dashboard!");
+                            loadData(); // reload approved plans list at the bottom
                           }}
+                          disabled={actionPlan.isApproved}
                           style={{
                             background: actionPlan.isApproved ? 'rgba(16, 185, 129, 0.15)' : 'rgba(251, 191, 36, 0.1)',
                             border: actionPlan.isApproved ? '1px solid #10b981' : '1px solid rgba(251, 191, 36, 0.4)',
                             color: actionPlan.isApproved ? '#34d399' : '#fbbf24',
-                            padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold'
+                            padding: '8px 16px', borderRadius: '6px', cursor: actionPlan.isApproved ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: 'bold'
                           }}
                         >
-                          {actionPlan.isApproved ? '✓ Approved & Sent' : '⚠️ Pending Approval'}
+                          {actionPlan.isApproved ? '✓ Approved & Sent' : '⚠️ Approve & Publish'}
                         </button>
                         
                         <button
                           type="button"
-                          onClick={async () => {
-                            await saveActionPlan(actionPlan);
-                            alert("Action Plan draft successfully saved to Firestore cloud!");
+                          onClick={handleUpdatePlanWithGemini}
+                          disabled={isGeneratingProposal || actionPlan.isApproved}
+                          style={{
+                            background: 'rgba(129, 140, 248, 0.15)', border: '1px solid rgba(129, 140, 248, 0.4)', color: '#a5b4fc',
+                            padding: '8px 16px', borderRadius: '6px', cursor: actionPlan.isApproved ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px'
                           }}
+                        >
+                          {isGeneratingProposal ? <Loader2 size={12} className="spinner" /> : <Sparkles size={12} />}
+                          <span>Refine Edits with AI</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await handleSaveActivePlan(actionPlan);
+                            alert("Action Plan draft successfully saved!");
+                          }}
+                          disabled={actionPlan.isApproved}
                           style={{
                             background: 'rgba(32, 184, 166, 0.1)', border: '1px solid rgba(32, 184, 166, 0.4)', color: '#2dd4bf',
-                            padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold'
+                            padding: '8px 16px', borderRadius: '6px', cursor: actionPlan.isApproved ? 'not-allowed' : 'pointer', fontSize: '0.8rem', fontWeight: 'bold'
                           }}
                         >
                           💾 Save Draft
@@ -2966,7 +3269,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
 
                   {!actionPlan && !isGeneratingProposal && (
                     <div style={{ margin: 'auto', padding: '60px 0', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
-                      Select plan issues on the left and click "Generate Speech & Proposal Brief" to compile citizen priorities with ministry benchmarks using Gemini.
+                      Select plan issues on the left and click "Generate AI Action Plan" to compile citizen priorities with ministry benchmarks using Gemini.
                     </div>
                   )}
 
@@ -2987,6 +3290,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                           <input 
                             type="text"
                             value={actionPlan.planName}
+                            disabled={actionPlan.isApproved}
                             onChange={e => setActionPlan({ ...actionPlan, planName: e.target.value })}
                             style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', borderRadius: '6px', fontSize: '13px' }}
                           />
@@ -2996,6 +3300,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                           <textarea 
                             value={actionPlan.summary}
                             rows={1}
+                            disabled={actionPlan.isApproved}
                             onChange={e => setActionPlan({ ...actionPlan, summary: e.target.value })}
                             style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', borderRadius: '6px', fontSize: '13px', resize: 'vertical' }}
                           />
@@ -3021,6 +3326,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                                 <input
                                   type="text"
                                   value={step.phase}
+                                  disabled={actionPlan.isApproved}
                                   onChange={e => {
                                     const nextFlow = [...actionPlan.flowchart];
                                     nextFlow[idx] = { ...step, phase: e.target.value };
@@ -3031,6 +3337,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                                 <textarea
                                   value={step.description}
                                   rows={2}
+                                  disabled={actionPlan.isApproved}
                                   onChange={e => {
                                     const nextFlow = [...actionPlan.flowchart];
                                     nextFlow[idx] = { ...step, description: e.target.value };
@@ -3060,6 +3367,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                                 <input 
                                   type="text"
                                   value={step.title}
+                                  disabled={actionPlan.isApproved}
                                   onChange={e => {
                                     const nextSteps = [...actionPlan.detailedSteps];
                                     nextSteps[idx] = { ...step, title: e.target.value };
@@ -3071,6 +3379,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                                   type="text"
                                   value={step.agency}
                                   placeholder="Responsible Agency"
+                                  disabled={actionPlan.isApproved}
                                   onChange={e => {
                                     const nextSteps = [...actionPlan.detailedSteps];
                                     nextSteps[idx] = { ...step, agency: e.target.value };
@@ -3083,6 +3392,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                                   <input 
                                     type="number"
                                     value={step.cost}
+                                    disabled={actionPlan.isApproved}
                                     onChange={e => {
                                       const nextSteps = [...actionPlan.detailedSteps];
                                       nextSteps[idx] = { ...step, cost: parseFloat(e.target.value) || 0 };
@@ -3095,6 +3405,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                               <textarea 
                                 value={step.description}
                                 rows={2}
+                                disabled={actionPlan.isApproved}
                                 onChange={e => {
                                   const nextSteps = [...actionPlan.detailedSteps];
                                   nextSteps[idx] = { ...step, description: e.target.value };
@@ -3114,6 +3425,105 @@ Provide your response ONLY as a valid JSON object matching the following schema.
 
             </div>
 
+            {/* Bottom Section: Approved Action Plans categorized by type */}
+            <div className="form-card no-print" style={{ marginTop: '24px', padding: '24px 30px', textAlign: 'left' }}>
+              <h3 style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 16px 0', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
+                <CheckCircle size={20} style={{ color: '#10b981' }} />
+                <span>Approved Action Plans Ledger</span>
+              </h3>
+              
+              {allActionPlans.filter(p => p.isApproved).length === 0 ? (
+                <div style={{ padding: '30px 0', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
+                  No approved action plans found. Publish a plan above to sync it with the MP Portal.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  
+                  {/* Category 1: Constituency Plans */}
+                  <div>
+                    <h4 style={{ color: '#2dd4bf', fontSize: '14px', margin: '0 0 10px 0', borderBottom: '1px dashed rgba(20, 184, 166, 0.2)', paddingBottom: '6px' }}>
+                      🏛️ Constituency-Based Development Blueprints
+                    </h4>
+                    {allActionPlans.filter(p => p.isApproved && !(p.planType === 'category' || p.id.startsWith('plan_category_'))).length === 0 ? (
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No approved constituency action plans.</span>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                        {allActionPlans.filter(p => p.isApproved && !(p.planType === 'category' || p.id.startsWith('plan_category_'))).map((plan) => (
+                          <div key={plan.id} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(20, 184, 166, 0.3)', padding: '16px', borderRadius: '10px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+                            <div>
+                              <strong style={{ fontSize: '14px', color: 'white', display: 'block' }}>{plan.planName}</strong>
+                              <span style={{ fontSize: '11px', color: '#2dd4bf' }}>Constituency: {plan.constituency}</span>
+                              <p style={{ color: 'var(--text-desc)', fontSize: '12px', margin: '8px 0 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {plan.summary}
+                              </p>
+                            </div>
+                            <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                              <span style={{ fontSize: '12px', color: '#fbbf24', fontWeight: 'bold' }}>
+                                ₹{((plan.detailedSteps || []).reduce((acc: number, s: any) => acc + (s.cost || 0), 0) / 100000).toFixed(1)} Lakhs
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProposalType('constituency');
+                                  setActionPlan(plan);
+                                  setSelectedPlanIds(plan.associatedComplaintIds || []);
+                                }}
+                                style={{ background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.4)', color: '#a5b4fc', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
+                              >
+                                View details
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Category 2: Topic Plans */}
+                  <div>
+                    <h4 style={{ color: '#a5b4fc', fontSize: '14px', margin: '0 0 10px 0', borderBottom: '1px dashed rgba(99, 102, 241, 0.2)', paddingBottom: '6px' }}>
+                      🏷️ Category-Based Topic Plans (Pan-India Context)
+                    </h4>
+                    {allActionPlans.filter(p => p.isApproved && (p.planType === 'category' || p.id.startsWith('plan_category_'))).length === 0 ? (
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No approved category topic action plans.</span>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                        {allActionPlans.filter(p => p.isApproved && (p.planType === 'category' || p.id.startsWith('plan_category_'))).map((plan) => (
+                          <div key={plan.id} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '16px', borderRadius: '10px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+                            <div>
+                              <strong style={{ fontSize: '14px', color: 'white', display: 'block' }}>{plan.planName}</strong>
+                              <span style={{ fontSize: '11px', color: '#a5b4fc', textTransform: 'capitalize' }}>Category Focus: {plan.category}</span>
+                              <p style={{ color: 'var(--text-desc)', fontSize: '12px', margin: '8px 0 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {plan.summary}
+                              </p>
+                            </div>
+                            <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                              <span style={{ fontSize: '12px', color: '#fbbf24', fontWeight: 'bold' }}>
+                                ₹{((plan.detailedSteps || []).reduce((acc: number, s: any) => acc + (s.cost || 0), 0) / 100000).toFixed(1)} Lakhs
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProposalType('category');
+                                  setTargetPlanCategory(plan.category || 'water');
+                                  setActionPlan(plan);
+                                  setSelectedPlanIds(plan.associatedComplaintIds || []);
+                                }}
+                                style={{ background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.4)', color: '#a5b4fc', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
+                              >
+                                View details
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              )}
+            </div>
+
             {/* Hidden Printable Card: Rendered only during window.print() */}
             {actionPlan && (
               <div 
@@ -3128,7 +3538,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                     CONSTITUENCY DEVELOPMENT ACTION PLAN
                   </h1>
                   <h2 style={{ fontSize: '18px', margin: '0 0 4px 0', fontWeight: 'bold', color: '#333' }}>
-                    Rampur Lok Sabha Constituency, Uttar Pradesh
+                    {proposalType === 'constituency' ? `${actionPlan.constituency} Lok Sabha Constituency` : `Topic focus: ${actionPlan.category?.toUpperCase()}`}
                   </h2>
                   <span style={{ fontSize: '12px', color: '#666' }}>
                     Date Approved: {new Date().toLocaleDateString()} | Document Status: APPROVED & SYNCED
@@ -3151,11 +3561,11 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                       </tr>
                       <tr>
                         <td style={{ padding: '6px 0' }}><strong>Planned Project Count:</strong></td>
-                        <td style={{ padding: '6px 0' }}>{actionPlan.detailedSteps.length} target sites</td>
+                        <td style={{ padding: '6px 0' }}>{actionPlan.detailedSteps?.length || 0} target sites</td>
                       </tr>
                       <tr>
                         <td style={{ padding: '6px 0' }}><strong>Total Fund Ledger Cost:</strong></td>
-                        <td style={{ padding: '6px 0', fontWeight: 'bold' }}>₹{(totalPlannedCost / 100000).toFixed(1)} Lakhs</td>
+                        <td style={{ padding: '6px 0', fontWeight: 'bold' }}>₹{(((actionPlan.detailedSteps || []).reduce((acc: number, s: any) => acc + (s.cost || 0), 0)) / 100000).toFixed(1)} Lakhs</td>
                       </tr>
                     </tbody>
                   </table>
@@ -3173,7 +3583,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                       </tr>
                     </thead>
                     <tbody>
-                      {actionPlan.flowchart.map((step: any, idx: number) => (
+                      {(actionPlan.flowchart || []).map((step: any, idx: number) => (
                         <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
                           <td style={{ padding: '8px 6px', border: '1px solid #ddd', fontWeight: 'bold' }}>
                             {step.phase}
@@ -3201,14 +3611,14 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                       </tr>
                     </thead>
                     <tbody>
-                      {actionPlan.detailedSteps.map((step: any, idx: number) => (
+                      {(actionPlan.detailedSteps || []).map((step: any, idx: number) => (
                         <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
                           <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.id}</td>
                           <td style={{ padding: '8px 6px', border: '1px solid #ddd', fontWeight: 'bold' }}>{step.title}</td>
                           <td style={{ padding: '8px 6px', border: '1px solid #ddd' }}>{step.description}</td>
                           <td style={{ padding: '8px 6px', border: '1px solid #ddd', color: '#2b2214' }}>{step.agency}</td>
                           <td style={{ padding: '8px 6px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold' }}>
-                            ₹{(step.cost / 100000).toFixed(1)} L
+                            ₹{((step.cost || 0) / 100000).toFixed(1)} L
                           </td>
                         </tr>
                       ))}
@@ -3283,9 +3693,16 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                   style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '10px 14px', borderRadius: '8px', fontWeight: '600', maxWidth: '400px' }}
                 >
                   <option value="">-- Choose an Approved Action Plan --</option>
-                  {allActionPlans.filter((p, idx, self) => self.findIndex(pl => pl.id === p.id) === idx).map(p => (
-                    <option key={p.id} value={p.id}>{p.planName || p.id} ({p.constituency})</option>
-                  ))}
+                  <optgroup label="🏛️ Constituency-Based Action Plans">
+                    {allActionPlans.filter(p => p.isApproved && !(p.planType === 'category' || p.id.startsWith('plan_category_'))).map(p => (
+                      <option key={p.id} value={p.id}>{p.planName || p.id} ({p.constituency})</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🏷️ Category-Based Topic Plans">
+                    {allActionPlans.filter(p => p.isApproved && (p.planType === 'category' || p.id.startsWith('plan_category_'))).map(p => (
+                      <option key={p.id} value={p.id}>{p.planName || p.id} ({p.category || 'General'})</option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
 
@@ -3355,7 +3772,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
                         if (newStatus === 'completed') complaintStatus = 'completed';
                         else if (newStatus === 'work_started') complaintStatus = 'work_started';
                         else if (newStatus === 'funded') complaintStatus = 'funded';
-                        else if (newStatus === 'raised') complaintStatus = 'approved';
+                        else if (newStatus === 'raised') complaintStatus = 'raised';
 
                         for (const complaintId of selectedTrackingPlan.associatedComplaintIds || []) {
                           await updateDemandStatus(complaintId, complaintStatus);
