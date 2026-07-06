@@ -3077,15 +3077,19 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                     </thead>
                     <tbody>
                       {[...filteredDemands]
-                        .map(d => ({ ...d, cpi: calculateCombinedPriorityIndex(d, selectedGlobalConstituency) }))
+                        .map(d => ({ ...d, cpi: calculateCombinedPriorityIndex(d, d.constituency) }))
                         .sort((a, b) => b.cpi - a.cpi)
                         .map(d => {
                           const loc = d.location || { lat: 28.803, lng: 79.025 };
-                          const gapDetails = evaluateInfrastructureGap(loc.lat, loc.lng, d.category, selectedGlobalConstituency);
+                          const gapDetails = evaluateInfrastructureGap(loc.lat, loc.lng, d.category, d.constituency);
 
                           
                           // CPI Color code
                           const cpiColor = d.cpi > 75 ? '#ef4444' : d.cpi > 50 ? '#fbbf24' : '#2dd4bf';
+
+                          const segment = (d.constituency && ALL_CONSTITUENCIES_DATA[d.constituency]) 
+                            ? ALL_CONSTITUENCIES_DATA[d.constituency] 
+                            : getClosestConstituencySegment(loc.lat, loc.lng);
 
                           return (
                             <tr key={d.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
@@ -3110,7 +3114,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                                 <span style={{ display: 'block', fontSize: '9px', color: 'var(--text-muted)' }}>({gapDetails.localMetric})</span>
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'center', color: 'var(--text-desc)' }}>
-                                {getClosestConstituencySegment(loc.lat, loc.lng).scStPercentage > 18 ? 'High SC/ST' : 'General Rural'}
+                                {segment.scStPercentage > 18 ? 'High SC/ST' : 'General Rural'}
                               </td>
                               <td style={{ padding: '12px 10px', textAlign: 'center', background: 'rgba(255,255,255,0.01)' }}>
                                 <span style={{ display: 'inline-block', background: `${cpiColor}15`, color: cpiColor, border: `1px solid ${cpiColor}`, padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold', fontSize: '13px' }}>
