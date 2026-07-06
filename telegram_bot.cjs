@@ -96,6 +96,59 @@ function detectMimeFromBase64(base64) {
   return 'image/jpeg'; // safe default
 }
 
+function normalizeBoxes(rawBoxes) {
+  if (!Array.isArray(rawBoxes)) return [];
+  return rawBoxes.map(b => {
+    if (Array.isArray(b) && b.length >= 4) {
+      const is1000 = Math.max(...b) > 100;
+      const scale = is1000 ? 10 : 1;
+      const y1 = b[0] / scale;
+      const x1 = b[1] / scale;
+      const y2 = b[2] / scale;
+      const x2 = b[3] / scale;
+      return {
+        x: Math.round(x1),
+        y: Math.round(y1),
+        width: Math.round(x2 - x1),
+        height: Math.round(y2 - y1),
+        label: 'Issue',
+        severity: 'Immediate Attention'
+      };
+    }
+    if (typeof b === 'object' && b !== null) {
+      let x = b.x !== undefined ? Number(b.x) : (b.xmin !== undefined ? Number(b.xmin) : (b.left !== undefined ? Number(b.left) : 0));
+      let y = b.y !== undefined ? Number(b.y) : (b.ymin !== undefined ? Number(b.ymin) : (b.top !== undefined ? Number(b.top) : 0));
+      let w = b.width !== undefined ? Number(b.width) : (b.w !== undefined ? Number(b.w) : -1);
+      let h = b.height !== undefined ? Number(b.height) : (b.h !== undefined ? Number(b.h) : -1);
+
+      if (w === -1 && b.xmax !== undefined) w = Number(b.xmax) - x;
+      if (h === -1 && b.ymax !== undefined) h = Number(b.ymax) - y;
+      if (w === -1 && b.right !== undefined) w = Number(b.right) - x;
+      if (h === -1 && b.bottom !== undefined) h = Number(b.bottom) - y;
+
+      if (w === -1) w = 20;
+      if (h === -1) h = 20;
+
+      if (x > 100 || y > 100 || w > 100 || h > 100) {
+        x = Math.round(x / 10);
+        y = Math.round(y / 10);
+        w = Math.round(w / 10);
+        h = Math.round(h / 10);
+      }
+
+      return {
+        x: Math.max(0, Math.min(100, Math.round(x))),
+        y: Math.max(0, Math.min(100, Math.round(y))),
+        width: Math.max(1, Math.min(100, Math.round(w))),
+        height: Math.max(1, Math.min(100, Math.round(h))),
+        label: b.label || b.name || 'Issue',
+        severity: b.severity || 'Immediate Attention'
+      };
+    }
+    return null;
+  }).filter(Boolean);
+}
+
 // Text-only fallback (no vision) — tries all keys on gemini-2.5-flash
 async function fetchGeminiWithFallback(contents) {
   const maxRetries = Math.max(3, geminiKeys.length);
@@ -590,7 +643,8 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
           content = 'Photo received — AI could not identify a specific issue. Please add a text description.';
         }
 
-        const boundingBoxes = imgResult?.boundingBoxes || [];
+        const rawBoxes = imgResult?.boundingBoxes || imgResult?.bounding_boxes || imgResult?.boxes || [];
+        const boundingBoxes = normalizeBoxes(rawBoxes);
         session.tempSubmission.boundingBoxes = boundingBoxes;
 
         // Overlay boxes and send annotated image to user

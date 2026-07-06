@@ -1713,6 +1713,59 @@ If the image is unclear, too blurry, dark, doesn't show a public issue, or is am
 IMPORTANT: Output ONLY valid JSON. No markdown. No explanation outside JSON.
 Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
 
+    const normalizeBoxes = (rawBoxes: any[]): any[] => {
+      if (!Array.isArray(rawBoxes)) return [];
+      return rawBoxes.map(b => {
+        if (Array.isArray(b) && b.length >= 4) {
+          const is1000 = Math.max(...b) > 100;
+          const scale = is1000 ? 10 : 1;
+          const y1 = b[0] / scale;
+          const x1 = b[1] / scale;
+          const y2 = b[2] / scale;
+          const x2 = b[3] / scale;
+          return {
+            x: Math.round(x1),
+            y: Math.round(y1),
+            width: Math.round(x2 - x1),
+            height: Math.round(y2 - y1),
+            label: 'Issue',
+            severity: 'Immediate Attention'
+          };
+        }
+        if (typeof b === 'object' && b !== null) {
+          let x = b.x !== undefined ? Number(b.x) : (b.xmin !== undefined ? Number(b.xmin) : (b.left !== undefined ? Number(b.left) : 0));
+          let y = b.y !== undefined ? Number(b.y) : (b.ymin !== undefined ? Number(b.ymin) : (b.top !== undefined ? Number(b.top) : 0));
+          let w = b.width !== undefined ? Number(b.width) : (b.w !== undefined ? Number(b.w) : -1);
+          let h = b.height !== undefined ? Number(b.height) : (b.h !== undefined ? Number(b.h) : -1);
+
+          if (w === -1 && b.xmax !== undefined) w = Number(b.xmax) - x;
+          if (h === -1 && b.ymax !== undefined) h = Number(b.ymax) - y;
+          if (w === -1 && b.right !== undefined) w = Number(b.right) - x;
+          if (h === -1 && b.bottom !== undefined) h = Number(b.bottom) - y;
+
+          if (w === -1) w = 20;
+          if (h === -1) h = 20;
+
+          if (x > 100 || y > 100 || w > 100 || h > 100) {
+            x = Math.round(x / 10);
+            y = Math.round(y / 10);
+            w = Math.round(w / 10);
+            h = Math.round(h / 10);
+          }
+
+          return {
+            x: Math.max(0, Math.min(100, Math.round(x))),
+            y: Math.max(0, Math.min(100, Math.round(y))),
+            width: Math.max(1, Math.min(100, Math.round(w))),
+            height: Math.max(1, Math.min(100, Math.round(h))),
+            label: b.label || b.name || 'Issue',
+            severity: b.severity || 'Immediate Attention'
+          };
+        }
+        return null;
+      }).filter(Boolean);
+    };
+
     try {
       const parts = [
         { inlineData: { mimeType: resolvedMime, data: base64Data } },
@@ -1724,22 +1777,28 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
 
       // Try to parse JSON — strip markdown fences if model adds them
       const cleaned = result.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      let parsed: any = null;
       try {
-        const parsed = JSON.parse(cleaned);
-        return parsed;
+        parsed = JSON.parse(cleaned);
       } catch (_) {
         // Second-pass: ask Gemini to fix malformed JSON
         console.warn('[Jansetu Vision] Initial JSON parse failed, attempting repair...');
         const repairResult = await fetchGeminiVision([
           { text: `The following text is supposed to be valid JSON but has errors. Fix it and return ONLY valid JSON, no explanation:\n${cleaned}` }
         ]);
-        if (!repairResult?.text) return null;
-        try {
-          return JSON.parse(repairResult.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim());
-        } catch (_) {
-          return null;
+        if (repairResult?.text) {
+          try {
+            parsed = JSON.parse(repairResult.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim());
+          } catch (_) {}
         }
       }
+
+      if (parsed) {
+        const rawBoxes = parsed.boundingBoxes || parsed.bounding_boxes || parsed.boxes || [];
+        parsed.boundingBoxes = normalizeBoxes(rawBoxes);
+        return parsed;
+      }
+      return null;
     } catch (e) {
       console.error('[Jansetu Vision] Image analysis failed entirely:', e);
       return null;
