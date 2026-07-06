@@ -722,6 +722,49 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
     await sendMainMenu(chatId, lang);
     return;
   }
+
+  // Default handler: If the user types a text message and it is not handled by any step
+  if (userText && userText.trim().length > 0) {
+    if (!session.constituency) {
+      const reqText = await translateBotText(T.locationRequest, lang);
+      const btnText = await translateBotText(T.locationBtn, lang);
+      await bot.sendMessage(chatId, reqText, {
+        reply_markup: {
+          keyboard: [[{ text: btnText, request_location: true }]],
+          resize_keyboard: true,
+          one_time_keyboard: true
+        }
+      });
+      return;
+    }
+
+    session.step = "COMPLAINT_MEDIA";
+    session.tempSubmission = {
+      type: "complaint",
+      inputText: userText,
+      category: "others",
+      scope: "ward",
+      population: 5000,
+      urgency: "🚨 Immediate Attention",
+      fundingSource: "🏦 Municipality Budget",
+      assetType: "🪠 Sanitation & Drainage",
+      priorityScore: 50,
+      priorityLabel: "Medium Priority",
+      safetyRisk: "Low Risk",
+      estimatedBudget: "Medium Budget",
+      aiSummary: "",
+      boundingBoxes: [],
+      photoFileId: null,
+      photoUrl: "",
+      submittedAsIs: false
+    };
+    await saveUserSession(chatId, session);
+    
+    const processText = await translateBotText(T.processing, lang);
+    await bot.sendMessage(chatId, processText);
+    await runBotInputAnalysis(chatId, session);
+    return;
+  }
 }
 
 // AI Input Analysis
