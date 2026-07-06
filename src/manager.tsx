@@ -3924,83 +3924,174 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                     </div>
                   </div>
 
-                  {/* Step list with progress checkmarks */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <h4 style={{ color: 'white', fontSize: '15px', margin: '0 0 4px 0' }}>Plan Implementation Progress Checklist</h4>
+                  {/* Visual Timeline Path */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '10px' }}>
+                    <h4 style={{ color: 'white', fontSize: '16px', fontWeight: 'bold', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      🛤️ Plan Milestone Timeline & Progress Path
+                    </h4>
                     
-                    {(selectedTrackingPlan.detailedSteps || []).map((step: any, idx: number) => {
-                      const currentStatus = step.status || 'proposed';
+                    <div style={{ position: 'relative', paddingLeft: '48px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                      {/* Vertical line indicator */}
+                      <div style={{
+                        position: 'absolute',
+                        left: '19px',
+                        top: '12px',
+                        bottom: '12px',
+                        width: '4px',
+                        background: 'linear-gradient(to bottom, #10b981, #6366f1, rgba(255,255,255,0.06))',
+                        borderRadius: '2px'
+                      }} />
                       
-                      const handleStatusChange = async (newStatus: string) => {
-                        const updatedPlan = { ...selectedTrackingPlan };
-                        updatedPlan.detailedSteps[idx].status = newStatus;
+                      {(selectedTrackingPlan.detailedSteps || []).map((step: any, idx: number) => {
+                        const currentStatus = step.status || 'proposed';
                         
-                        const planKey = selectedTrackingPlan.id.replace(/^plan_/, '');
-                        await saveActionPlanByConstituency(planKey, updatedPlan);
-                        setSelectedTrackingPlan(updatedPlan);
-                        
-                        let complaintStatus = 'reviewed';
-                        if (newStatus === 'completed') complaintStatus = 'completed';
-                        else if (newStatus === 'work_started') complaintStatus = 'work_started';
-                        else if (newStatus === 'funded') complaintStatus = 'funded';
-                        else if (newStatus === 'raised') complaintStatus = 'raised';
+                        const handleStatusChange = async (newStatus: string) => {
+                          const updatedPlan = { ...selectedTrackingPlan };
+                          updatedPlan.detailedSteps[idx].status = newStatus;
+                          
+                          const planKey = selectedTrackingPlan.id.replace(/^plan_/, '');
+                          await saveActionPlanByConstituency(planKey, updatedPlan);
+                          setSelectedTrackingPlan(updatedPlan);
+                          
+                          let complaintStatus = 'reviewed';
+                          if (newStatus === 'completed') complaintStatus = 'completed';
+                          else if (newStatus === 'work_started') complaintStatus = 'work_started';
+                          else if (newStatus === 'funded') complaintStatus = 'funded';
+                          else if (newStatus === 'raised') complaintStatus = 'raised';
 
-                        for (const complaintId of selectedTrackingPlan.associatedComplaintIds || []) {
-                          await updateDemandStatus(complaintId, complaintStatus);
-                        }
-                        
-                        alert(`Step "${step.title}" marked as ${newStatus.toUpperCase()}. Associated citizen complaints status synchronized successfully!`);
-                        loadData();
-                      };
+                          for (const complaintId of selectedTrackingPlan.associatedComplaintIds || []) {
+                            await updateDemandStatus(complaintId, complaintStatus);
+                          }
+                          
+                          alert(`Step "${step.title}" marked as ${newStatus.toUpperCase()}. Associated citizen complaints status synchronized successfully!`);
+                          loadData();
+                        };
 
-                      return (
-                        <div key={idx} style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                            <div>
-                              <h5 style={{ color: 'white', fontSize: '14px', margin: 0 }}>
-                                <span style={{ color: '#2dd4bf', marginRight: '6px' }}>{step.id}:</span> {step.title}
-                              </h5>
-                              <p style={{ fontSize: '12.5px', color: 'var(--text-desc)', margin: '4px 0 0 0' }}>{step.description}</p>
-                              <span style={{ fontSize: '11px', color: '#8e90b3', display: 'block', marginTop: '4px' }}>
-                                Responsible Agency: <strong>{step.agency || 'N/A'}</strong> | Budget: <strong>₹{(step.cost || 0).toLocaleString()}</strong>
-                              </span>
-                            </div>
+                        // Pick color & emoji based on status
+                        const getStatusConfig = (st: string) => {
+                          switch(st) {
+                            case 'completed': return { color: '#34d399', bg: 'rgba(16, 185, 129, 0.15)', shadow: '0 0 15px rgba(52,211,153,0.5)', icon: '🎉' };
+                            case 'work_started': return { color: '#60a5fa', bg: 'rgba(59, 130, 246, 0.15)', shadow: '0 0 15px rgba(96,165,250,0.5)', icon: '🔧' };
+                            case 'funded': return { color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.15)', shadow: '0 0 15px rgba(251,191,36,0.5)', icon: '💰' };
+                            case 'raised': return { color: '#818cf8', bg: 'rgba(129, 140, 248, 0.15)', shadow: '0 0 15px rgba(129,140,248,0.5)', icon: '🏛️' };
+                            default: return { color: '#9ca3af', bg: 'rgba(255,255,255,0.05)', shadow: 'none', icon: '📋' };
+                          }
+                        };
+                        
+                        const cfg = getStatusConfig(currentStatus);
+
+                        return (
+                          <div key={idx} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             
-                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                              {[
-                                { val: 'proposed', label: 'Proposed', color: '#8e90b3' },
-                                { val: 'raised', label: 'Speech Raised', color: '#818cf8' },
-                                { val: 'funded', label: 'Funded', color: '#fbbf24' },
-                                { val: 'work_started', label: 'Work Started', color: '#60a5fa' },
-                                { val: 'completed', label: 'Completed', color: '#34d399' }
-                              ].map(st => {
-                                const active = currentStatus === st.val;
-                                return (
-                                  <button
-                                    key={st.val}
-                                    type="button"
-                                    onClick={() => handleStatusChange(st.val)}
-                                    style={{
-                                      padding: '4px 10px',
-                                      fontSize: '11px',
-                                      borderRadius: '4px',
-                                      border: '1px solid',
-                                      borderColor: active ? st.color : 'rgba(255,255,255,0.08)',
-                                      background: active ? `${st.color}1c` : 'transparent',
-                                      color: active ? st.color : '#8e90b3',
-                                      fontWeight: active ? 'bold' : 'normal',
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    {active ? '● ' : ''}{st.label}
-                                  </button>
-                                );
-                              })}
+                            {/* Sequence Milestone Circle */}
+                            <div style={{
+                              position: 'absolute',
+                              left: '-48px',
+                              top: '2px',
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '50%',
+                              background: '#0d0c22',
+                              border: `3px solid ${cfg.color}`,
+                              boxShadow: cfg.shadow,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '14px',
+                              fontWeight: '950',
+                              color: cfg.color,
+                              zIndex: 2,
+                              transition: 'all 0.3s ease'
+                            }}>
+                              {cfg.icon}
+                            </div>
+
+                            {/* Card Content block */}
+                            <div style={{
+                              background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+                              border: `1px solid ${currentStatus !== 'proposed' ? cfg.color + '44' : 'var(--border-light)'}`,
+                              boxShadow: currentStatus !== 'proposed' ? `0 4px 20px ${cfg.color}0a` : 'none',
+                              borderRadius: '12px',
+                              padding: '20px',
+                              textAlign: 'left',
+                              transition: 'all 0.3s ease'
+                            }}>
+                              
+                              {/* Step Header */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                                <div>
+                                  <span style={{ fontSize: '10px', background: `${cfg.color}18`, color: cfg.color, padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase', display: 'inline-block', marginBottom: '8px' }}>
+                                    Step {idx + 1} — {currentStatus.toUpperCase().replace('_', ' ')}
+                                  </span>
+                                  <h5 style={{ color: 'white', fontSize: '15px', fontWeight: 'bold', margin: 0 }}>
+                                    {step.title}
+                                  </h5>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '6px', fontSize: '12px', color: '#8e90b3' }}>
+                                    <span>🏛️ Agency: <strong style={{ color: '#c7d2fe' }}>{step.agency || 'N/A'}</strong></span>
+                                    <span>🪙 Budget: <strong style={{ color: '#fbbf24' }}>₹{(step.cost || 0).toLocaleString()}</strong></span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Description Box */}
+                              <p style={{ fontSize: '13px', color: 'var(--text-desc)', lineHeight: '1.6', margin: '14px 0 16px 0', padding: '10px 14px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '8px' }}>
+                                {step.description}
+                              </p>
+
+                              {/* Progress Status Bar (Sliding Pill-button Control) */}
+                              <div>
+                                <label style={{ fontSize: '10px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
+                                  Update implementation stage:
+                                </label>
+                                <div style={{
+                                  display: 'flex',
+                                  background: 'rgba(0,0,0,0.3)',
+                                  border: '1px solid rgba(255,255,255,0.06)',
+                                  borderRadius: '8px',
+                                  padding: '4px',
+                                  gap: '4px',
+                                  flexWrap: 'wrap'
+                                }}>
+                                  {[
+                                    { val: 'proposed', label: 'Proposed', activeColor: '#9ca3af' },
+                                    { val: 'raised', label: 'Speech Raised', activeColor: '#818cf8' },
+                                    { val: 'funded', label: 'Funded', activeColor: '#fbbf24' },
+                                    { val: 'work_started', label: 'Work Started', activeColor: '#60a5fa' },
+                                    { val: 'completed', label: 'Completed', activeColor: '#34d399' }
+                                  ].map(st => {
+                                    const active = currentStatus === st.val;
+                                    return (
+                                      <button
+                                        key={st.val}
+                                        type="button"
+                                        onClick={() => handleStatusChange(st.val)}
+                                        style={{
+                                          flex: '1',
+                                          minWidth: '100px',
+                                          padding: '8px 12px',
+                                          fontSize: '11px',
+                                          borderRadius: '6px',
+                                          border: 'none',
+                                          background: active ? st.activeColor : 'transparent',
+                                          color: active ? '#000000' : '#8e90b3',
+                                          fontWeight: 'bold',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.2s ease',
+                                          textAlign: 'center'
+                                        }}
+                                      >
+                                        {st.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
 
                 </div>

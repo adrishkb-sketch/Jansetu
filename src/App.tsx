@@ -1840,6 +1840,7 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
 
       try {
         const base64Data = await fileToBase64(file);
+        const dataUrl = `data:${file.type};base64,${base64Data}`;
         const geminiResult = await runGeminiImageAnalysis(base64Data, file.type);
         
         if (geminiResult && geminiResult.description && !geminiResult.requiresMoreContext) {
@@ -1851,6 +1852,7 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
                   ...item,
                   content: geminiResult.description,
                   boundingBoxes: geminiResult.boundingBoxes,
+                  fileUrl: dataUrl,
                   processing: false
                 };
               }
@@ -1865,6 +1867,7 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
               return {
                 ...item,
                 content: 'Image uploaded. Please add more context.',
+                fileUrl: dataUrl,
                 processing: false
               };
             }
@@ -1966,14 +1969,6 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
           content: item.content,
           fileUrl: '', // Discard audio recording, store transcript only
           speechTranscript: item.speechTranscript || ''
-        };
-      }
-      if (item.type === 'photo' && item.content.startsWith('Image uploaded.')) {
-        return {
-          type: item.type,
-          content: item.content,
-          fileUrl: '', // Discard image since Gemini deemed it unnecessary / insufficient on its own
-          speechTranscript: ''
         };
       }
       return {
