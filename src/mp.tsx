@@ -713,13 +713,34 @@ function MPApp() {
                   padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', marginLeft: 'auto'
                 }}
               >
-                <option value="water">Water</option>
-                <option value="roads">Roads</option>
-                <option value="health">Health</option>
-                <option value="education">Education</option>
-                <option value="power">Power</option>
-                <option value="agriculture">Agriculture</option>
-                <option value="others">Others</option>
+                <option value="water">Water & Sanitation</option>
+                <option value="roads">Roads & Transport</option>
+                <option value="education">Education & Schools</option>
+                <option value="health">Healthcare Clinics</option>
+                <option value="power">Power & Electricity</option>
+                <option value="agriculture">Agriculture & Irrigation</option>
+                <option value="safety">Public Safety & Police</option>
+                <option value="environment">Environment & Parks</option>
+                <option value="welfare">Social Welfare & Pensions</option>
+                <option value="housing">Housing & Urban Dev</option>
+                <option value="anticorruption">Anti-Corruption & Vigilance</option>
+                <option value="digital">Digital Infrastructure</option>
+                <option value="disaster">Disaster Management</option>
+                <option value="women">Women & Child Development</option>
+                <option value="justice">Justice & Law Enforcement</option>
+                <option value="economy">Job Creation & Economy</option>
+                <option value="consumer">Consumer Rights</option>
+                <option value="taxes">Taxes, Revenue & Land</option>
+                <option value="tourism">Arts, Culture & Tourism</option>
+                <option value="youth">Youth Affairs & Sports</option>
+                <option value="innovation">Science & Innovation</option>
+                <option value="rural">Rural Development</option>
+                <option value="security">National Security & Defense</option>
+                <option value="cyber">AI & Cyber Security</option>
+                <option value="climate">Climate & Sustainability</option>
+                <option value="space">Space & Advanced Tech</option>
+                <option value="foreign">International Relations</option>
+                <option value="others">Others / General</option>
               </select>
             )}
           </div>

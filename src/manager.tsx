@@ -28,7 +28,7 @@ import {
   ChevronUp,
   Loader2
 } from 'lucide-react';
-import { getAllDemands, updateDemandStatus, saveActionPlan, getActionPlan, updateDemandDetails, getAllActionPlans, saveActionPlanByConstituency, getActionPlanByConstituency } from './services/db';
+import { getAllDemands, updateDemandStatus, saveActionPlan, getActionPlan, updateDemandDetails, getAllActionPlans, saveActionPlanByConstituency, getActionPlanByConstituency, clearDatabaseCollections } from './services/db';
 import { LanguageSelector, getInitialLanguage, GoogleMapComponent } from './App';
 import { AuthModal } from './AuthModal';
 import { 
@@ -1161,6 +1161,21 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                   }}
                 >
                   [DEV] Mark All Verified
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (window.confirm("Are you sure you want to completely wipe out all complaints, action plans, and reset the local storage cache? This will make the system 100% fresh and clean.")) {
+                      await clearDatabaseCollections();
+                      alert("Database collections and local storage cache have been successfully cleared!");
+                      window.location.reload();
+                    }
+                  }}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444',
+                    padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
+                  }}
+                >
+                  [DEV] Reset Database & Cache
                 </button>
                 <button 
                   onClick={() => {
@@ -3102,13 +3117,34 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                         onChange={e => setTargetPlanCategory(e.target.value)}
                         style={{ padding: '10px', borderRadius: '6px', fontSize: '13px', background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', width: '100%', fontWeight: '600' }}
                       >
-                        <option value="water">Water</option>
-                        <option value="roads">Roads</option>
-                        <option value="health">Health</option>
-                        <option value="education">Education</option>
-                        <option value="power">Power</option>
-                        <option value="agriculture">Agriculture</option>
-                        <option value="others">Others</option>
+                        <option value="water">Water & Sanitation</option>
+                        <option value="roads">Roads & Transport</option>
+                        <option value="education">Education & Schools</option>
+                        <option value="health">Healthcare Clinics</option>
+                        <option value="power">Power & Electricity</option>
+                        <option value="agriculture">Agriculture & Irrigation</option>
+                        <option value="safety">Public Safety & Police</option>
+                        <option value="environment">Environment & Parks</option>
+                        <option value="welfare">Social Welfare & Pensions</option>
+                        <option value="housing">Housing & Urban Dev</option>
+                        <option value="anticorruption">Anti-Corruption & Vigilance</option>
+                        <option value="digital">Digital Infrastructure</option>
+                        <option value="disaster">Disaster Management</option>
+                        <option value="women">Women & Child Development</option>
+                        <option value="justice">Justice & Law Enforcement</option>
+                        <option value="economy">Job Creation & Economy</option>
+                        <option value="consumer">Consumer Rights</option>
+                        <option value="taxes">Taxes, Revenue & Land</option>
+                        <option value="tourism">Arts, Culture & Tourism</option>
+                        <option value="youth">Youth Affairs & Sports</option>
+                        <option value="innovation">Science & Innovation</option>
+                        <option value="rural">Rural Development</option>
+                        <option value="security">National Security & Defense</option>
+                        <option value="cyber">AI & Cyber Security</option>
+                        <option value="climate">Climate & Sustainability</option>
+                        <option value="space">Space & Advanced Tech</option>
+                        <option value="foreign">International Relations</option>
+                        <option value="others">Others / General</option>
                       </select>
                     </div>
                   )}

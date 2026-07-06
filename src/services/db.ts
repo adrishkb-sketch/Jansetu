@@ -14,7 +14,8 @@ import {
   getDoc,
   setDoc,
   increment,
-  limit
+  limit,
+  deleteDoc
 } from 'firebase/firestore';
 
 // Default Firebase Configuration (Production online setup)
@@ -522,6 +523,42 @@ export async function getMPFunds(constituency: string): Promise<any | null> {
     return saved ? JSON.parse(saved) : null;
   } catch {
     return null;
+  }
+}
+
+export async function clearDatabaseCollections(): Promise<void> {
+  // Clear localStorage
+  localStorage.removeItem('jansetu_mock_db');
+  localStorage.removeItem('jansetu_draft_plan');
+  localStorage.removeItem('jansetu_approved_plan');
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (key.startsWith('jansetu_plan_') || key.startsWith('jansetu_mp_funds_'))) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(k => localStorage.removeItem(k));
+
+  // Clear Firestore collections
+  try {
+    if (db) {
+      // 1. Clear demands
+      const demandsRef = collection(db, 'demands');
+      const demandsSnap = await getDocs(demandsRef);
+      for (const d of demandsSnap.docs) {
+        await deleteDoc(doc(db, 'demands', d.id));
+      }
+      
+      // 2. Clear plans
+      const plansRef = collection(db, 'plans');
+      const plansSnap = await getDocs(plansRef);
+      for (const p of plansSnap.docs) {
+        await deleteDoc(doc(db, 'plans', p.id));
+      }
+    }
+  } catch (e) {
+    console.error("Firestore collections clear failed: ", e);
   }
 }
 
