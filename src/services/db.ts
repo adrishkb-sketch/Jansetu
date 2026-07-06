@@ -137,31 +137,49 @@ export async function submitDemand(data: SubmissionData): Promise<string> {
     ...data,
     estimatedImpact,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     status: 'pending',
     upvotes: 1
   };
 
+  let createdId = 'local_' + Date.now();
+
   try {
     if (db) {
       const docRef = await addDoc(collection(db, 'demands'), docData);
-      return docRef.id;
+      createdId = docRef.id;
     }
   } catch (e) {
     console.error("Firestore submit failed, using local storage fallback: ", e);
   }
 
-  // Local Storage Fallback
+  // Always write to local storage mirror
   const localDb = getLocalEmulatorData();
-  const id = 'local_' + Date.now();
-  localDb.push({ id, ...docData });
+  localDb.push({ id: createdId, ...docData });
   saveLocalEmulatorData(localDb);
-  return id;
+
+  return createdId;
 }
 
 /**
  * Appends new items/evidence to an existing citizen complaint.
  */
 export async function contributeToDemand(id: string, newItems: any[], extraData?: any): Promise<void> {
+  // Update local storage first
+  const localDb = getLocalEmulatorData();
+  const updatedDb = localDb.map(item => {
+    if (item.id === id) {
+      return {
+        ...item,
+        items: [...(item.items || []), ...newItems],
+        ...extraData,
+        updatedAt: new Date().toISOString()
+      };
+    }
+    return item;
+  });
+  saveLocalEmulatorData(updatedDb);
+
   try {
     if (db && !id.startsWith('local_')) {
       const docRef = doc(db, 'demands', id);
@@ -171,29 +189,15 @@ export async function contributeToDemand(id: string, newItems: any[], extraData?
         const updatedItems = [...(existingData.items || []), ...newItems];
         const updatePayload: any = {
           items: updatedItems,
-          ...extraData
+          ...extraData,
+          updatedAt: new Date().toISOString()
         };
         await updateDoc(docRef, updatePayload);
-        return;
       }
     }
   } catch (e) {
-    console.error("Firestore contribute failed, falling back to local storage: ", e);
+    console.error("Firestore contribute failed: ", e);
   }
-
-  // Local Storage fallback
-  const localDb = getLocalEmulatorData();
-  const updatedDb = localDb.map(item => {
-    if (item.id === id) {
-      return {
-        ...item,
-        items: [...(item.items || []), ...newItems],
-        ...extraData
-      };
-    }
-    return item;
-  });
-  saveLocalEmulatorData(updatedDb);
 }
 
 /**
@@ -202,6 +206,9 @@ export async function contributeToDemand(id: string, newItems: any[], extraData?
 export async function getNearbyHotspots(lat: number, lng: number): Promise<any[]> {
   const latOffset = 0.015; // Approx 1.5 km
   const lngOffset = 0.015;
+
+  let firestoreResults: any[] = [];
+  let hasFirestore = false;
 
   try {
     if (db) {
@@ -212,26 +219,43 @@ export async function getNearbyHotspots(lat: number, lng: number): Promise<any[]
         limit(50)
       );
       const querySnapshot = await getDocs(q);
-      const results: any[] = [];
       querySnapshot.forEach((docSnap) => {
         const item = docSnap.data();
-        // Manual filter for longitude bounding box since Firestore only allows inequality on single field
         if (item.location.lng >= lng - lngOffset && item.location.lng <= lng + lngOffset) {
-          results.push({ id: docSnap.id, ...item });
+          firestoreResults.push({ id: docSnap.id, ...item });
         }
       });
-      if (results.length > 0) return results;
+      hasFirestore = true;
     }
   } catch (e) {
     console.error("Firestore fetch failed, using local emulator data: ", e);
   }
 
-  // Local Storage query
-  const localDb = getLocalEmulatorData();
-  return localDb.filter(item => 
+  const localResults = getLocalEmulatorData().filter(item => 
     Math.abs(item.location.lat - lat) <= latOffset &&
     Math.abs(item.location.lng - lng) <= lngOffset
   );
+
+  if (hasFirestore && firestoreResults.length > 0) {
+    const merged: Record<string, any> = {};
+    localResults.forEach(d => {
+      merged[d.id] = d;
+    });
+    firestoreResults.forEach(d => {
+      const existing = merged[d.id];
+      if (existing) {
+        const firestoreTime = new Date(d.updatedAt || d.createdAt || 0).getTime();
+        const localTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+        if (firestoreTime >= localTime) {
+          merged[d.id] = d;
+        }
+      } else {
+        merged[d.id] = d;
+      }
+    });
+    return Object.values(merged);
+  }
+  return localResults;
 }
 
 /**
@@ -239,29 +263,29 @@ export async function getNearbyHotspots(lat: number, lng: number): Promise<any[]
  * Uses atomic increments to avoid race conditions under heavy load.
  */
 export async function upvoteDemand(id: string): Promise<number> {
-  try {
-    if (db && !id.startsWith('local_')) {
-      const docRef = doc(db, 'demands', id);
-      await updateDoc(docRef, {
-        upvotes: increment(1)
-      });
-      return 1;
-    }
-  } catch (e) {
-    console.error("Firestore upvote failed, using local emulator update: ", e);
-  }
-
-  // Local Storage upvote
+  // Update local storage first
   const localDb = getLocalEmulatorData();
   let votes = 1;
   const updated = localDb.map(item => {
     if (item.id === id) {
       votes = (item.upvotes || 0) + 1;
-      return { ...item, upvotes: votes };
+      return { ...item, upvotes: votes, updatedAt: new Date().toISOString() };
     }
     return item;
   });
   saveLocalEmulatorData(updated);
+
+  try {
+    if (db && !id.startsWith('local_')) {
+      const docRef = doc(db, 'demands', id);
+      await updateDoc(docRef, {
+        upvotes: increment(1),
+        updatedAt: new Date().toISOString()
+      });
+    }
+  } catch (e) {
+    console.error("Firestore upvote failed: ", e);
+  }
   return votes;
 }
 
@@ -269,33 +293,54 @@ export async function upvoteDemand(id: string): Promise<number> {
  * Loads all submitted citizen demands for manager and MP administration dashboards.
  */
 export async function getAllDemands(): Promise<any[]> {
+  let firestoreDemands: any[] = [];
+  let hasFirestore = false;
   try {
     if (db) {
       const qSnapshot = await getDocs(collection(db, 'demands'));
-      const results: any[] = [];
       qSnapshot.forEach((docSnap) => {
-        results.push({ id: docSnap.id, ...docSnap.data() });
+        firestoreDemands.push({ id: docSnap.id, ...docSnap.data() });
       });
-      if (results.length > 0) return results;
+      hasFirestore = true;
     }
   } catch (e) {
     console.error("Firestore getAll failed, using local emulator database: ", e);
   }
 
-  // Local Storage query fallback
-  return getLocalEmulatorData();
+  const localDemands = getLocalEmulatorData();
+  if (hasFirestore && firestoreDemands.length > 0) {
+    const merged: Record<string, any> = {};
+    localDemands.forEach(d => {
+      merged[d.id] = d;
+    });
+    firestoreDemands.forEach(d => {
+      const existing = merged[d.id];
+      if (existing) {
+        const firestoreTime = new Date(d.updatedAt || d.createdAt || 0).getTime();
+        const localTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+        if (firestoreTime >= localTime) {
+          merged[d.id] = d;
+        }
+      } else {
+        merged[d.id] = d;
+      }
+    });
+    return Object.values(merged);
+  }
+  return localDemands;
 }
 
 /**
  * Fetches a single demand/complaint by its ID.
  */
 export async function getDemandById(id: string): Promise<any | null> {
+  let firestoreDemand: any = null;
   try {
     if (db && !id.startsWith('local_')) {
       const docRef = doc(db, 'demands', id);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() };
+        firestoreDemand = { id: docSnap.id, ...docSnap.data() };
       }
     }
   } catch (e) {
@@ -304,8 +349,16 @@ export async function getDemandById(id: string): Promise<any | null> {
 
   // Local Storage query fallback
   const localDb = getLocalEmulatorData();
-  const found = localDb.find((item: any) => item.id === id);
-  if (found) return found;
+  const localDemand = localDb.find((item: any) => item.id === id);
+
+  if (firestoreDemand && localDemand) {
+    const firestoreTime = new Date(firestoreDemand.updatedAt || firestoreDemand.createdAt || 0).getTime();
+    const localTime = new Date(localDemand.updatedAt || localDemand.createdAt || 0).getTime();
+    return firestoreTime >= localTime ? firestoreDemand : localDemand;
+  }
+  
+  const finalDemand = firestoreDemand || localDemand;
+  if (finalDemand) return finalDemand;
 
   // Fallback for cross-device QR scanning (e.g., scanning on phone while db is on desktop)
   return {
@@ -325,38 +378,38 @@ export async function getDemandById(id: string): Promise<any | null> {
  * Updates the workflow status of a demand (e.g. reviewed, approved, tendering).
  */
 export async function updateDemandStatus(id: string, status: string): Promise<void> {
+  // Update local storage first
+  const localDb = getLocalEmulatorData();
+  const updated = localDb.map(item => item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item);
+  saveLocalEmulatorData(updated);
+
   try {
     if (db && !id.startsWith('local_')) {
       const docRef = doc(db, 'demands', id);
-      await updateDoc(docRef, { status });
-      return;
+      await updateDoc(docRef, { status, updatedAt: new Date().toISOString() });
     }
   } catch (e) {
-    console.error("Firestore status update failed, saving locally: ", e);
+    console.error("Firestore status update failed: ", e);
   }
-
-  const localDb = getLocalEmulatorData();
-  const updated = localDb.map(item => item.id === id ? { ...item, status } : item);
-  saveLocalEmulatorData(updated);
 }
 
 /**
  * Updates any details of a demand.
  */
 export async function updateDemandDetails(id: string, customUpdates: any): Promise<void> {
+  // Update local storage first
+  const localDb = getLocalEmulatorData();
+  const updated = localDb.map(item => item.id === id ? { ...item, ...customUpdates, updatedAt: new Date().toISOString() } : item);
+  saveLocalEmulatorData(updated);
+
   try {
     if (db && !id.startsWith('local_')) {
       const docRef = doc(db, 'demands', id);
-      await updateDoc(docRef, customUpdates);
-      return;
+      await updateDoc(docRef, { ...customUpdates, updatedAt: new Date().toISOString() });
     }
   } catch (e) {
-    console.error("Firestore update failed, saving locally: ", e);
+    console.error("Firestore update failed: ", e);
   }
-
-  const localDb = getLocalEmulatorData();
-  const updated = localDb.map(item => item.id === id ? { ...item, ...customUpdates } : item);
-  saveLocalEmulatorData(updated);
 }
 
 /**
@@ -367,22 +420,21 @@ export async function saveActionPlan(plan: any): Promise<void> {
     ...plan,
     updatedAt: new Date().toISOString()
   };
-  try {
-    if (db) {
-      const docRef = doc(db, 'plans', 'rampur_constituency_plan');
-      await setDoc(docRef, planData);
-      return;
-    }
-  } catch (e) {
-    console.error("Firestore saveActionPlan failed, using local storage fallback: ", e);
-  }
-
-  // Local Storage fallback
+  
   localStorage.setItem('jansetu_draft_plan', JSON.stringify(planData));
   if (plan.isApproved) {
     localStorage.setItem('jansetu_approved_plan', JSON.stringify(planData));
   } else {
     localStorage.removeItem('jansetu_approved_plan');
+  }
+
+  try {
+    if (db) {
+      const docRef = doc(db, 'plans', 'rampur_constituency_plan');
+      await setDoc(docRef, planData);
+    }
+  } catch (e) {
+    console.error("Firestore saveActionPlan failed: ", e);
   }
 }
 
@@ -390,24 +442,33 @@ export async function saveActionPlan(plan: any): Promise<void> {
  * Fetches the active action plan from Firestore.
  */
 export async function getActionPlan(): Promise<any | null> {
+  let firestorePlan: any = null;
   try {
     if (db) {
       const docRef = doc(db, 'plans', 'rampur_constituency_plan');
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        return docSnap.data();
+        firestorePlan = docSnap.data();
       }
     }
   } catch (e) {
-    console.error("Firestore getActionPlan failed, reading locally: ", e);
+    console.error("Firestore getActionPlan failed: ", e);
   }
 
+  let localPlan: any = null;
   try {
     const saved = localStorage.getItem('jansetu_draft_plan');
-    return saved ? JSON.parse(saved) : null;
-  } catch {
-    return null;
+    if (saved) {
+      localPlan = JSON.parse(saved);
+    }
+  } catch {}
+
+  if (firestorePlan && localPlan) {
+    const firestoreTime = new Date(firestorePlan.updatedAt || 0).getTime();
+    const localTime = new Date(localPlan.updatedAt || 0).getTime();
+    return firestoreTime >= localTime ? firestorePlan : localPlan;
   }
+  return firestorePlan || localPlan;
 }
 
 /**
@@ -419,16 +480,18 @@ export async function saveActionPlanByConstituency(key: string, plan: any): Prom
     updatedAt: new Date().toISOString()
   };
   const docId = `plan_${key.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  
+  // Always save to localStorage mirror
+  localStorage.setItem(`jansetu_plan_${docId}`, JSON.stringify(planData));
+
   try {
     if (db) {
       const docRef = doc(db, 'plans', docId);
       await setDoc(docRef, planData);
-      return;
     }
   } catch (e) {
-    console.error("Firestore saveActionPlanByConstituency failed, using local storage: ", e);
+    console.error("Firestore saveActionPlanByConstituency failed: ", e);
   }
-  localStorage.setItem(`jansetu_plan_${docId}`, JSON.stringify(planData));
 }
 
 /**
@@ -436,53 +499,83 @@ export async function saveActionPlanByConstituency(key: string, plan: any): Prom
  */
 export async function getActionPlanByConstituency(key: string): Promise<any | null> {
   const docId = `plan_${key.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  let firestorePlan: any = null;
   try {
     if (db) {
       const docRef = doc(db, 'plans', docId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        return docSnap.data();
+        firestorePlan = docSnap.data();
       }
     }
   } catch (e) {
-    console.error("Firestore getActionPlanByConstituency failed, reading locally: ", e);
+    console.error("Firestore getActionPlanByConstituency failed: ", e);
   }
 
+  let localPlan: any = null;
   try {
     const saved = localStorage.getItem(`jansetu_plan_${docId}`);
-    return saved ? JSON.parse(saved) : null;
-  } catch {
-    return null;
+    if (saved) {
+      localPlan = JSON.parse(saved);
+    }
+  } catch {}
+
+  if (firestorePlan && localPlan) {
+    const firestoreTime = new Date(firestorePlan.updatedAt || 0).getTime();
+    const localTime = new Date(localPlan.updatedAt || 0).getTime();
+    return firestoreTime >= localTime ? firestorePlan : localPlan;
   }
+  return firestorePlan || localPlan;
 }
 
 /**
  * Fetches all active Action Plans.
  */
 export async function getAllActionPlans(): Promise<any[]> {
+  let firestorePlans: any[] = [];
+  let hasFirestore = false;
   try {
     if (db) {
       const qSnapshot = await getDocs(collection(db, 'plans'));
-      const results: any[] = [];
       qSnapshot.forEach((docSnap) => {
-        results.push({ id: docSnap.id, ...docSnap.data() });
+        firestorePlans.push({ id: docSnap.id, ...docSnap.data() });
       });
-      if (results.length > 0) return results;
+      hasFirestore = true;
     }
   } catch (e) {
-    console.error("Firestore getAllActionPlans failed, using local storage: ", e);
+    console.error("Firestore getAllActionPlans failed: ", e);
   }
 
-  const results: any[] = [];
+  const localPlans: any[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith('jansetu_plan_')) {
       try {
-        results.push(JSON.parse(localStorage.getItem(key) || '{}'));
+        localPlans.push(JSON.parse(localStorage.getItem(key) || '{}'));
       } catch {}
     }
   }
-  return results;
+
+  if (hasFirestore && firestorePlans.length > 0) {
+    const merged: Record<string, any> = {};
+    localPlans.forEach(p => {
+      if (p.id) merged[p.id] = p;
+    });
+    firestorePlans.forEach(p => {
+      const existing = merged[p.id];
+      if (existing) {
+        const firestoreTime = new Date(p.updatedAt || 0).getTime();
+        const localTime = new Date(existing.updatedAt || 0).getTime();
+        if (firestoreTime >= localTime) {
+          merged[p.id] = p;
+        }
+      } else {
+        merged[p.id] = p;
+      }
+    });
+    return Object.values(merged);
+  }
+  return localPlans;
 }
 
 /**
@@ -490,16 +583,17 @@ export async function getAllActionPlans(): Promise<any[]> {
  */
 export async function saveMPFunds(constituency: string, fundsData: { totalFunds: number; resetFrequency: string; lastResetDate?: string }): Promise<void> {
   const docId = constituency.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const payload = { ...fundsData, updatedAt: new Date().toISOString() };
+  localStorage.setItem(`jansetu_mp_funds_${docId}`, JSON.stringify(payload));
+
   try {
     if (db) {
       const docRef = doc(db, 'mp_funds', docId);
-      await setDoc(docRef, { ...fundsData, updatedAt: new Date().toISOString() });
-      return;
+      await setDoc(docRef, payload);
     }
   } catch (e) {
-    console.error("Firestore saveMPFunds failed, saving locally: ", e);
+    console.error("Firestore saveMPFunds failed: ", e);
   }
-  localStorage.setItem(`jansetu_mp_funds_${docId}`, JSON.stringify(fundsData));
 }
 
 /**
@@ -507,24 +601,33 @@ export async function saveMPFunds(constituency: string, fundsData: { totalFunds:
  */
 export async function getMPFunds(constituency: string): Promise<any | null> {
   const docId = constituency.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  let firestoreFunds: any = null;
   try {
     if (db) {
       const docRef = doc(db, 'mp_funds', docId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        return docSnap.data();
+        firestoreFunds = docSnap.data();
       }
     }
   } catch (e) {
-    console.error("Firestore getMPFunds failed, reading locally: ", e);
+    console.error("Firestore getMPFunds failed: ", e);
   }
 
+  let localFunds: any = null;
   try {
     const saved = localStorage.getItem(`jansetu_mp_funds_${docId}`);
-    return saved ? JSON.parse(saved) : null;
-  } catch {
-    return null;
+    if (saved) {
+      localFunds = JSON.parse(saved);
+    }
+  } catch {}
+
+  if (firestoreFunds && localFunds) {
+    const firestoreTime = new Date(firestoreFunds.updatedAt || 0).getTime();
+    const localTime = new Date(localFunds.updatedAt || 0).getTime();
+    return firestoreTime >= localTime ? firestoreFunds : localFunds;
   }
+  return firestoreFunds || localFunds;
 }
 
 export async function clearDatabaseCollections(): Promise<void> {
@@ -562,4 +665,3 @@ export async function clearDatabaseCollections(): Promise<void> {
     console.error("Firestore collections clear failed: ", e);
   }
 }
-

@@ -112,7 +112,6 @@ function MPApp() {
  
   // Filter demands based on search criteria, scoped to selectedConstituency
   useEffect(() => {
-    setSearchConstituencyName(selectedConstituency);
     let filtered = demands.filter(d => (d.constituency || 'Rampur').toLowerCase() === selectedConstituency.toLowerCase());
     
     if (searchMode === 'issue') {
@@ -450,7 +449,10 @@ function MPApp() {
               <label style={{ fontSize: '12.5px', color: '#c7d2fe', fontWeight: 'bold' }}>Select Constituency</label>
               <select
                 value={selectedConstituency}
-                onChange={e => setSelectedConstituency(e.target.value)}
+                onChange={e => {
+                  setSelectedConstituency(e.target.value);
+                  setSearchConstituencyName(e.target.value);
+                }}
                 style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '10px 14px', borderRadius: '8px', fontWeight: '600' }}
               >
                 {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
@@ -541,7 +543,10 @@ function MPApp() {
                 <label style={{ fontSize: '11px', color: '#8e90b3' }}>Constituency Name</label>
                 <select
                   value={searchConstituencyName}
-                  onChange={e => setSearchConstituencyName(e.target.value)}
+                  onChange={e => {
+                    setSearchConstituencyName(e.target.value);
+                    setSelectedConstituency(e.target.value);
+                  }}
                   style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '6px', fontSize: '13px' }}
                 >
                   {Object.keys(ALL_CONSTITUENCIES_DATA).sort().map(cName => (
