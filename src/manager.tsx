@@ -1483,7 +1483,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '13px', color: 'var(--text-muted)' }} />
             </div>
             
-            <div style={{ display: 'flex', gap: '12px', flexShrink: 0, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', minWidth: 0 }}>
               <select 
                 value={filterCategory} 
                 onChange={e => setFilterCategory(e.target.value)}
