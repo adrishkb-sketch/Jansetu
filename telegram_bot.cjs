@@ -86,31 +86,92 @@ function rotateGeminiKey() {
   console.log(`Rotated to backup Gemini key: index ${currentKeyIndex % geminiKeys.length}`);
 }
 
-async function fetchGeminiWithFallback(contents, customSystemPrompt = '') {
+// Auto-detect actual MIME type from base64 header bytes
+function detectMimeFromBase64(base64) {
+  const sig = base64.substring(0, 8);
+  if (sig.startsWith('/9j/'))    return 'image/jpeg';
+  if (sig.startsWith('iVBORw')) return 'image/png';
+  if (sig.startsWith('R0lGOD')) return 'image/gif';
+  if (sig.startsWith('UklGRi') || sig.startsWith('AAABAA')) return 'image/webp';
+  return 'image/jpeg'; // safe default
+}
+
+// Text-only fallback (no vision) — tries all keys on gemini-2.5-flash
+async function fetchGeminiWithFallback(contents) {
   const maxRetries = Math.max(3, geminiKeys.length);
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const key = getActiveGeminiKey();
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-    
     try {
-      const payload = { contents };
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ contents }),
       });
-      
-      if (response.ok) {
-        return response;
+      if (!response.ok) {
+        const errText = await response.text();
+        console.warn(`[Bot Gemini] HTTP ${response.status}: ${errText.slice(0,200)}. Rotating key...`);
+        rotateGeminiKey();
+        continue;
       }
-      console.warn(`Gemini API call returned status ${response.status}. Attempting key rotation...`);
-      rotateGeminiKey();
+      const json = await response.json();
+      // Validate that candidates actually exist — safety blocks return 200 but empty candidates
+      if (!json.candidates || json.candidates.length === 0) {
+        const blockReason = json.promptFeedback?.blockReason || 'unknown';
+        console.warn(`[Bot Gemini] Empty candidates (blockReason=${blockReason}). Rotating key...`);
+        rotateGeminiKey();
+        continue;
+      }
+      // Wrap JSON back as fake Response so existing callers can call .json()
+      const jsonStr = JSON.stringify(json);
+      return { json: async () => JSON.parse(jsonStr), ok: true };
     } catch (err) {
-      console.warn(`Gemini call error on attempt ${attempt}:`, err.message);
+      console.warn(`[Bot Gemini] Call error on attempt ${attempt}:`, err.message);
       rotateGeminiKey();
     }
   }
-  throw new Error("All backup Gemini API keys exhausted or failed.");
+  throw new Error('All Gemini API keys exhausted or failed.');
+}
+
+// Vision-specific cascade: tries gemini-2.5-flash → 2.0-flash → 1.5-pro
+// Each model is tried with all keys before falling to next model.
+async function fetchGeminiVision(parts) {
+  const VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+  for (const model of VISION_MODELS) {
+    for (let i = 0; i < geminiKeys.length; i++) {
+      const key = geminiKeys[(currentKeyIndex + i) % geminiKeys.length];
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
+          }),
+        });
+        if (!response.ok) {
+          const errText = await response.text();
+          console.warn(`[Bot Vision] model=${model} key=${i} HTTP ${response.status}: ${errText.slice(0, 150)}`);
+          continue;
+        }
+        const json = await response.json();
+        if (!json.candidates || json.candidates.length === 0) {
+          const blockReason = json.promptFeedback?.blockReason || 'unknown';
+          console.warn(`[Bot Vision] model=${model} key=${i} empty candidates (${blockReason})`);
+          continue;
+        }
+        const text = json.candidates[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          console.log(`[Bot Vision] Success: model=${model} keyIndex=${i}`);
+          return text;
+        }
+      } catch (err) {
+        console.warn(`[Bot Vision] model=${model} key=${i} error:`, err.message);
+      }
+    }
+  }
+  return null; // All models and keys failed
 }
 
 // 3. Supported Languages List
@@ -455,16 +516,19 @@ bot.on('message', async (msg) => {
         const buffer = await fileRes.arrayBuffer();
         fileBase64 = Buffer.from(buffer).toString('base64');
         
-        // Transcribe voice verbatim in spoken language
-        const geminiRes = await fetchGeminiWithFallback([
+        // Transcribe voice verbatim — use vision cascade for audio too
+        const voiceText = await fetchGeminiVision([
           { inlineData: { mimeType: 'audio/ogg', data: fileBase64 } },
-          { text: "You are the voice transcriber for Jansetu. Please transcribe this audio file verbatim. The speaker may speak in any of the 22 Indian languages or English. Output ONLY the plain transcription in the spoken language. Do not add any greeting or meta-text." }
+          { text: "You are the voice transcriber for Jansetu. Please transcribe this audio file verbatim. The speaker may speak in any of the 22 Indian languages or English. First check if there is any real spoken speech (silence, static, and wind noise don't count). If speech is present, output ONLY the verbatim transcription in the spoken language. If no speech detected, output exactly: NO_SPEECH_DETECTED" }
         ]);
-        const data = await geminiRes.json();
-        content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Voice input received.";
+        if (voiceText && voiceText.trim() !== 'NO_SPEECH_DETECTED' && voiceText.trim().length > 2) {
+          content = voiceText.trim();
+        } else {
+          content = 'Voice note received — no clear speech detected.';
+        }
       } catch (err) {
-        console.error(err);
-        content = "Voice note received (Transcription failed).";
+        console.error('[Bot Voice]', err);
+        content = 'Voice note received (Transcription failed).';
       }
     } 
     // Handle Photo uploads
@@ -478,22 +542,58 @@ bot.on('message', async (msg) => {
         const buffer = await fileRes.arrayBuffer();
         fileBase64 = Buffer.from(buffer).toString('base64');
 
-        // Gemini Visual Analysis & Bounding Box estimates
-        const imgPrompt = `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. Output a detailed description of the problem in English. Localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). Output strictly in JSON format: { "description": "...", "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
+        // Auto-detect MIME type from actual file bytes
+        const detectedMime = detectMimeFromBase64(fileBase64);
 
-        const geminiRes = await fetchGeminiWithFallback([
-          { inlineData: { mimeType: 'image/jpeg', data: fileBase64 } },
+        // Rich prompt for better civic image understanding
+        const imgPrompt = `You are the AI engine of Jansetu, an Indian civic grievance platform. Carefully analyze this image.
+
+If you can identify a civic or public infrastructure issue (potholes, overflowing garbage, broken pipe, cracked road, open drain, damaged school/hospital/building, waterlogging, broken streetlight, etc.):
+1. Write a detailed English description: type of issue, severity, approximate scale, surroundings, and any visible text/signs/boards.
+2. Generate bounding boxes (% of image, 0–100) around the damaged areas. Each box: x, y, width, height (integers), label (short name), severity ("Immediate Attention"/"Moderate"/"Minor").
+3. Set requiresMoreContext to false.
+
+If the image is blurry, dark, unclear, or doesn't show a public issue:
+- Set requiresMoreContext to true with a brief description of what is visible.
+
+Output ONLY valid JSON. No markdown. No explanation outside JSON.
+Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
+
+        // Use vision cascade (2.5-flash → 2.0-flash → 1.5-pro)
+        let rawText = await fetchGeminiVision([
+          { inlineData: { mimeType: detectedMime, data: fileBase64 } },
           { text: imgPrompt }
         ]);
-        const data = await geminiRes.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
-        const imgResult = JSON.parse(rawText.replace(/```json|```/g, ''));
-        
-        content = imgResult.description || "Photo input received.";
-        const boundingBoxes = imgResult.boundingBoxes || [];
+
+        let imgResult = null;
+        if (rawText) {
+          const cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+          try {
+            imgResult = JSON.parse(cleaned);
+          } catch (_) {
+            // JSON repair pass — ask Gemini to fix it
+            console.warn('[Bot Vision] Malformed JSON, attempting repair...');
+            const repaired = await fetchGeminiVision([
+              { text: `Fix this malformed JSON and return ONLY valid JSON, no explanation:\n${cleaned}` }
+            ]);
+            if (repaired) {
+              try {
+                imgResult = JSON.parse(repaired.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim());
+              } catch (_) {}
+            }
+          }
+        }
+
+        if (imgResult && imgResult.description) {
+          content = imgResult.description;
+        } else {
+          content = 'Photo received — AI could not identify a specific issue. Please add a text description.';
+        }
+
+        const boundingBoxes = imgResult?.boundingBoxes || [];
         session.tempSubmission.boundingBoxes = boundingBoxes;
 
-        // Overlay boxes and send to user
+        // Overlay boxes and send annotated image to user
         if (boundingBoxes.length > 0) {
           const tempInputPath = path.join(__dirname, `temp_input_${chatId}.jpg`);
           const tempOutputPath = path.join(__dirname, `temp_output_${chatId}.jpg`);
@@ -505,10 +605,10 @@ bot.on('message', async (msg) => {
             exec(`python3 draw_boxes.py "${tempInputPath}" "${tempOutputPath}" '${boxesJson.replace(/'/g, "'\\''")}'`, async (error) => {
               if (!error) {
                 try {
-                  const drawInfo = await translateBotText("AI visual detection: anomalies highlighted in red.", lang);
+                  const drawInfo = await translateBotText('AI visual detection: anomalies highlighted in red.', lang);
                   await bot.sendPhoto(chatId, tempOutputPath, { caption: drawInfo });
                 } catch (e) {
-                  console.error("Failed to send annotated photo:", e);
+                  console.error('Failed to send annotated photo:', e);
                 }
               }
               try { fs.unlinkSync(tempInputPath); } catch (e) {}
@@ -518,8 +618,8 @@ bot.on('message', async (msg) => {
           });
         }
       } catch (err) {
-        console.error("Photo processing error:", err);
-        content = "Photo attachment received (Analysis failed).";
+        console.error('[Bot Photo]', err);
+        content = 'Photo received (Analysis failed — please add a text description).';
       }
     }
 

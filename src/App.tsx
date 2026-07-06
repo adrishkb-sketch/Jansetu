@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
 import { getConstituencyOfLocation, ALL_CONSTITUENCIES_DATA } from './services/constituency_datasets';
-import { fetchGemini } from './services/gemini_api';
+import { fetchGemini, fetchGeminiVision, detectMimeType } from './services/gemini_api';
 
 // ISO 639-1 / Google Translate codes for the 22 Scheduled Indian Languages + English
 const INDIAN_LANGUAGES = [
@@ -1697,31 +1697,51 @@ JSON:`
   const runGeminiImageAnalysis = async (base64Data: string, mimeType: string): Promise<{ description: string; requiresMoreContext: boolean; boundingBoxes?: any[] } | null> => {
     setAiIndicator({ active: true, message: 'AI analyzing uploaded image context...' });
 
-    try {
-      const response = await fetchGemini({
-        contents: [{
-          parts: [
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data
-              }
-            },
-            {
-              text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight, blocked drainage), output a detailed description of the problem in English. In your description, make sure to describe both the visual nature of the damage (e.g. size, severity, environment) and read any visible text, signs, placards, banners, or markers in the image that might provide context (e.g. names of roads, projects, or municipalities). In addition, localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`
-            }
-          ]
-        }]
-      });
+    // Always auto-detect MIME type from actual file header — prevents sending PNG as jpeg etc.
+    const resolvedMime = detectMimeType(base64Data) || mimeType || 'image/jpeg';
 
-      const json = await response.json();
-      const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        return safeJsonParse(text);
+    const imgPromptText = `You are the AI engine of Jansetu, an Indian civic grievance platform. Analyze this image of a reported public issue.
+
+If you can identify a clear civic or infrastructure problem (e.g. potholes, open drain, garbage dump, broken pipe, cracked road, damaged school wall, flooded area, broken streetlight, leaking water supply, unmaintained park, illegal construction), do the following:
+1. Write a detailed description in English covering: the type of issue, severity, approximate scale, surrounding environment, and any visible text/signs/placards that provide location context.
+2. Generate bounding box estimates (as % of image dimensions 0–100) for the key damage/issue areas. For each box: x, y, width, height (integers), label (concise name), severity ("Immediate Attention", "Moderate", or "Minor").
+3. Set requiresMoreContext to false.
+
+If the image is unclear, too blurry, dark, doesn't show a public issue, or is ambiguous:
+- Set requiresMoreContext to true and provide a brief description of what you can see.
+
+IMPORTANT: Output ONLY valid JSON. No markdown. No explanation outside JSON.
+Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
+
+    try {
+      const parts = [
+        { inlineData: { mimeType: resolvedMime, data: base64Data } },
+        { text: imgPromptText }
+      ];
+
+      const result = await fetchGeminiVision(parts);
+      if (!result?.text) return null;
+
+      // Try to parse JSON — strip markdown fences if model adds them
+      const cleaned = result.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      try {
+        const parsed = JSON.parse(cleaned);
+        return parsed;
+      } catch (_) {
+        // Second-pass: ask Gemini to fix malformed JSON
+        console.warn('[Jansetu Vision] Initial JSON parse failed, attempting repair...');
+        const repairResult = await fetchGeminiVision([
+          { text: `The following text is supposed to be valid JSON but has errors. Fix it and return ONLY valid JSON, no explanation:\n${cleaned}` }
+        ]);
+        if (!repairResult?.text) return null;
+        try {
+          return JSON.parse(repairResult.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim());
+        } catch (_) {
+          return null;
+        }
       }
-      return null;
     } catch (e) {
-      console.error("Gemini image analysis failed:", e);
+      console.error('[Jansetu Vision] Image analysis failed entirely:', e);
       return null;
     }
   };
