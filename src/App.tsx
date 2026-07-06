@@ -558,7 +558,7 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
 
     setGeocoding(true);
 
-    const fallbackToDefault = () => {
+    const fallbackToDefault = (errorMsg: string) => {
       // Fallback coordinates for Rampur, UP
       const fallbackLoc = { lat: 28.8046, lng: 79.0021 };
       const google = (window as any).google;
@@ -572,109 +572,110 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
       } else {
         onLocationSelect(fallbackLoc, address);
       }
-      alert('Note: Browser geolocation was unavailable or timed out. Placed pin at the default Rampur Constituency center. You can drag the pin on the map to your exact location.');
+      alert(`Location Detection Unavailable: ${errorMsg}\n\nPlaced pin at default Rampur Constituency center. You can drag the pin on the map to your exact location.`);
     };
 
-    const tryGetPosition = (highAccuracy: boolean) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          const loc = { lat: latitude, lng: longitude };
-          
-          const google = (window as any).google;
-          if (google && google.maps) {
-            const latLng = new google.maps.LatLng(latitude, longitude);
-            const geocoder = new google.maps.Geocoder();
-            geocoder.geocode({ location: latLng }, (results: any, status: any) => {
-              setGeocoding(false);
-              let address = '';
-              if (status === 'OK' && results && results[0]) {
-                address = results[0].formatted_address;
-              } else {
-                address = `Coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-              }
+    // Call getCurrentPosition with no options/timeout so the browser permission prompt stays open
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const loc = { lat: latitude, lng: longitude };
+        
+        const google = (window as any).google;
+        if (google && google.maps) {
+          const latLng = new google.maps.LatLng(latitude, longitude);
+          const geocoder = new google.maps.Geocoder();
+          geocoder.geocode({ location: latLng }, (results: any, status: any) => {
+            setGeocoding(false);
+            let address = '';
+            if (status === 'OK' && results && results[0]) {
+              address = results[0].formatted_address;
+            } else {
+              address = `Coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+            }
+            
+            // Trigger same parallel insights lookup
+            const mapInstance = mapInstanceRef.current;
+            if (mapInstance) {
+              const service = new google.maps.places.PlacesService(mapInstance);
+              const googleLatLng = new google.maps.LatLng(latitude, longitude);
               
-              // Trigger same parallel insights lookup
-              const mapInstance = mapInstanceRef.current;
-              if (mapInstance) {
-                const service = new google.maps.places.PlacesService(mapInstance);
-                const googleLatLng = new google.maps.LatLng(latitude, longitude);
-                
-                const insights: LocationInsights = {};
-                const queryPlaceType = (type: string): Promise<PlaceDetail[] | null> => {
-                  return new Promise((resolve) => {
-                    service.nearbySearch({
-                      location: googleLatLng,
-                      rankBy: google.maps.places.RankBy.DISTANCE,
-                      type: type
-                    }, (results: any, status: any) => {
-                      if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-                        const sliced = results.slice(0, 5);
-                        const mapped = sliced.map((closest: any) => {
-                          const placeLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
-                          return {
-                            name: closest.name,
-                            distance: getHaversineDistance(loc, placeLoc),
-                            lat: placeLoc.lat,
-                            lng: placeLoc.lng
-                          };
-                        });
-                        resolve(mapped);
-                      } else {
-                        resolve(null);
-                      }
-                    });
+              const insights: LocationInsights = {};
+              const queryPlaceType = (type: string): Promise<PlaceDetail[] | null> => {
+                return new Promise((resolve) => {
+                  service.nearbySearch({
+                    location: googleLatLng,
+                    rankBy: google.maps.places.RankBy.DISTANCE,
+                    type: type
+                  }, (results: any, status: any) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                      const sliced = results.slice(0, 5);
+                      const mapped = sliced.map((closest: any) => {
+                        const placeLoc = { lat: closest.geometry.location.lat(), lng: closest.geometry.location.lng() };
+                        return {
+                          name: closest.name,
+                          distance: getHaversineDistance(loc, placeLoc),
+                          lat: placeLoc.lat,
+                          lng: placeLoc.lng
+                        };
+                      });
+                      resolve(mapped);
+                    } else {
+                      resolve(null);
+                    }
                   });
-                };
-
-                Promise.all([
-                  queryPlaceType('school'),
-                  queryPlaceType('hospital'),
-                  queryPlaceType('police'),
-                  queryPlaceType('park'),
-                  queryPlaceType('transit_station'),
-                  queryPlaceType('train_station'),
-                  queryPlaceType('post_office'),
-                  queryPlaceType('place_of_worship')
-                ]).then(([schools, hospitals, police, parks, transit, railways, postOffices, temples]) => {
-                  if (schools) insights.schools = schools;
-                  if (hospitals) insights.hospitals = hospitals;
-                  if (police) insights.policeStations = police;
-                  if (parks) insights.parks = parks;
-                  if (transit) insights.transitStations = transit;
-                  if (railways) insights.railways = railways;
-                  if (postOffices) insights.postOffices = postOffices;
-                  if (temples) insights.temples = temples;
-
-                  onLocationSelect(loc, address, insights);
-                }).catch(err => {
-                  console.error("Auto-detect places lookup failed: ", err);
-                  onLocationSelect(loc, address);
                 });
-              } else {
-                onLocationSelect(loc, address);
-              }
-            });
-          } else {
-            setGeocoding(false);
-            onLocationSelect(loc, `Detected coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-          }
-        },
-        (error) => {
-          if (highAccuracy) {
-            console.warn("High accuracy geolocation failed, trying standard accuracy...");
-            tryGetPosition(false);
-          } else {
-            setGeocoding(false);
-            console.error("Geolocation failed completely: ", error.message);
-            fallbackToDefault();
-          }
-        },
-        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 5000 : 10000, maximumAge: 60000 }
-      );
-    };
+              };
 
-    tryGetPosition(true);
+              Promise.all([
+                queryPlaceType('school'),
+                queryPlaceType('hospital'),
+                queryPlaceType('police'),
+                queryPlaceType('park'),
+                queryPlaceType('transit_station'),
+                queryPlaceType('train_station'),
+                queryPlaceType('post_office'),
+                queryPlaceType('place_of_worship')
+              ]).then(([schools, hospitals, police, parks, transit, railways, postOffices, temples]) => {
+                if (schools) insights.schools = schools;
+                if (hospitals) insights.hospitals = hospitals;
+                if (police) insights.policeStations = police;
+                if (parks) insights.parks = parks;
+                if (transit) insights.transitStations = transit;
+                if (railways) insights.railways = railways;
+                if (postOffices) insights.postOffices = postOffices;
+                if (temples) insights.temples = temples;
+
+                onLocationSelect(loc, address, insights);
+              }).catch(err => {
+                console.error("Auto-detect places lookup failed: ", err);
+                onLocationSelect(loc, address);
+              });
+            } else {
+              onLocationSelect(loc, address);
+            }
+          });
+        } else {
+          setGeocoding(false);
+          onLocationSelect(loc, `Detected coordinates: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+        }
+      },
+      (error) => {
+        setGeocoding(false);
+        let errorMsg = '';
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMsg = 'Permission denied. Please click the location/lock icon in your browser address bar to allow location access. (On macOS, also check System Settings -> Privacy & Security -> Location Services to verify Chrome/Safari is allowed access).';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMsg = 'Position unavailable. Your device sensors or OS Location Services might be disabled.';
+        } else if (error.code === error.TIMEOUT) {
+          errorMsg = 'Location query timed out.';
+        } else {
+          errorMsg = error.message || 'Unknown error.';
+        }
+        console.error("Geolocation failed: ", errorMsg);
+        fallbackToDefault(errorMsg);
+      }
+    );
   };
 
   if (loadError) {
