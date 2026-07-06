@@ -47,10 +47,10 @@ async function getKeys(): Promise<string[]> {
           localStorage.setItem('jansetu_gemini_key', fetched);
           cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
           
-          const userKey = atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
-          if (!cachedFirestoreKeys.includes(userKey)) {
-            cachedFirestoreKeys.unshift(userKey);
-          }
+          const k1 = atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
+          const k2 = atob('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=');
+          if (!cachedFirestoreKeys.includes(k2)) cachedFirestoreKeys.unshift(k2);
+          if (!cachedFirestoreKeys.includes(k1)) cachedFirestoreKeys.unshift(k1);
           return cachedFirestoreKeys;
         }
       }
@@ -65,10 +65,10 @@ async function getKeys(): Promise<string[]> {
     .map(k => k.trim())
     .filter(k => k.length > 0);
   
-  const userKey = atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
-  if (!parsed.includes(userKey)) {
-    parsed.unshift(userKey);
-  }
+  const k1 = atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
+  const k2 = atob('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=');
+  if (!parsed.includes(k2)) parsed.unshift(k2);
+  if (!parsed.includes(k1)) parsed.unshift(k1);
   return parsed;
 }
 

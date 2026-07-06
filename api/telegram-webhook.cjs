@@ -37,7 +37,10 @@ const BOT_TOKEN = "8724667418:AAFSz9FkGQd0DlyCf6TnrsVKdke-4xnx1Aw";
 const bot = new TelegramBot(BOT_TOKEN);
 
 // Load backup/custom key config
-let geminiKeys = [atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=')];
+let geminiKeys = [
+  Buffer.from('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=', 'base64').toString('utf8'),
+  Buffer.from('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=', 'base64').toString('utf8')
+];
 try {
   const filepath = path.join(__dirname, "bot_config.json");
   if (fs.existsSync(filepath)) {
@@ -72,7 +75,12 @@ async function syncKeysFromFirestore() {
         const fetched = data.keys.trim();
         const parsedKeys = fetched.split(/[\n\r,;]+/).map(k => k.trim()).filter(Boolean);
         if (parsedKeys.length > 0) {
-          geminiKeys = [...new Set([atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E='), ...parsedKeys, ...geminiKeys])];
+          geminiKeys = [...new Set([
+            Buffer.from('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=', 'base64').toString('utf8'),
+            Buffer.from('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=', 'base64').toString('utf8'),
+            ...parsedKeys,
+            ...geminiKeys
+          ])];
         }
       }
     }
@@ -641,16 +649,28 @@ async function handleMessage(msg) {
         const buffer = await fileRes.arrayBuffer();
         fileBase64 = Buffer.from(buffer).toString("base64");
 
+        // Temporarily store voice note base64 in database
+        session.tempSubmission.voiceData = fileBase64;
+        await saveUserSession(chatId, session);
+
         const voiceText = await fetchGeminiVision([
           { inlineData: { mimeType: "audio/ogg", data: fileBase64 } },
           { text: "You are the voice transcriber for Jansetu. Please transcribe this audio file verbatim. The speaker may speak in any of the 22 Indian languages or English. First check if there is any real spoken speech. If speech is present, output ONLY the verbatim transcription in the spoken language. If no speech detected, output exactly: NO_SPEECH_DETECTED" }
         ]);
+
+        // Clean up from database immediately after transcription finishes
+        session.tempSubmission.voiceData = null;
+        await saveUserSession(chatId, session);
+
         if (voiceText && voiceText.trim() !== "NO_SPEECH_DETECTED" && voiceText.trim().length > 2) {
           content = voiceText.trim();
         } else {
           content = "Voice note received — no clear speech detected.";
         }
       } catch (err) {
+        // Safe cleanup on catch block
+        session.tempSubmission.voiceData = null;
+        await saveUserSession(chatId, session);
         content = "Voice note received (Transcription failed).";
       }
     } else if (photoFileId) {
@@ -928,7 +948,14 @@ async function runBotInputAnalysis(chatId, session) {
     }
   } catch (err) {
     console.error("AI Analysis failed:", err);
-    await sendPreSubmissionDashboard(chatId, session);
+    session.step = "MENU";
+    await saveUserSession(chatId, session);
+    const failText = await translateBotText(
+      "❌ Sorry, the AI processing failed or API rate limits were reached. Please describe the problem in more detail or send a clearer voice note/photo.",
+      lang
+    );
+    await bot.sendMessage(chatId, failText);
+    await sendMainMenu(chatId, lang);
   }
 }
 
