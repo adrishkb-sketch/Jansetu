@@ -958,11 +958,15 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     localStorage.setItem('jansetu_upvoted_ids', JSON.stringify(nextVoted));
   };
 
-  // Query hotspots when location changes
+  // Query hotspots when location changes — only unverified (pending/needs_info) issues
   useEffect(() => {
     if (location) {
       getNearbyHotspots(location.lat, location.lng).then(data => {
-        setNearbyHotspots(data);
+        // Only show issues that haven't been verified by manager yet
+        const unverified = data.filter((h: any) => 
+          h.status !== 'verified' && h.status !== 'resolved' && h.status !== 'closed'
+        );
+        setNearbyHotspots(unverified);
       });
     }
   }, [location]);

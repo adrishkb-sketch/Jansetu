@@ -759,6 +759,67 @@ Schema: { "description": "...", "requiresMoreContext": false, "isValidCivicIssue
 
     session.tempSubmission.inputText = content;
     await saveUserSession(chatId, session);
+
+    // Check for nearby unverified issues before AI analysis
+    if (session.location?.lat && session.location?.lng) {
+      try {
+        const lat = session.location.lat;
+        const lng = session.location.lng;
+        const latOff = 0.015;
+        const lngOff = 0.015;
+
+        const snap = await getDocs(collection(db, "demands"));
+        const nearbyUnverified = [];
+        snap.forEach(docSnap => {
+          const item = docSnap.data();
+          if (docSnap.id === "config_gemini" || item.isConfig || item.isBotSession) return;
+          if (item.status === "verified" || item.status === "resolved" || item.status === "closed") return;
+          if (!item.location?.lat || !item.location?.lng) return;
+          if (Math.abs(item.location.lat - lat) <= latOff && Math.abs(item.location.lng - lng) <= lngOff) {
+            nearbyUnverified.push({ id: docSnap.id, ...item });
+          }
+        });
+
+        if (nearbyUnverified.length > 0) {
+          // Store nearby list in session for reference
+          session.nearbyIssues = nearbyUnverified.map(h => ({
+            id: h.id,
+            category: h.category,
+            description: h.aiOverview?.brief || h.items?.[0]?.content?.slice(0, 100) || "No description",
+            upvotes: h.upvotes || 1,
+            ticketType: h.ticketType || "complaint"
+          }));
+          session.step = "NEARBY_ISSUES_CHECK";
+          await saveUserSession(chatId, session);
+
+          const headerText = await translateBotText(
+            `⚠️ *${nearbyUnverified.length} existing unverified issue(s) found near your location!*\n\nBefore registering a new complaint, check if any of these already cover your issue. You can upvote them to boost priority:\n`,
+            lang
+          );
+          await bot.sendMessage(chatId, headerText, { parse_mode: "Markdown" });
+
+          // Show each nearby issue with an upvote button (max 5)
+          const topIssues = nearbyUnverified.slice(0, 5);
+          const rows = topIssues.map(h => {
+            const cat = (h.category || "others").toUpperCase();
+            const typeEmoji = h.ticketType === "suggestion" ? "💡" : "⚠️";
+            const desc = (h.aiOverview?.brief || h.items?.[0]?.content || "No description").slice(0, 80);
+            return [{ text: `${typeEmoji} [${cat}] ${desc}... 👍 ${h.upvotes || 1} — Upvote`, callback_data: `nearby_upvote_${h.id}` }];
+          });
+
+          const proceedBtnText = await translateBotText("➡️ None match — Register my new complaint", lang);
+          rows.push([{ text: proceedBtnText, callback_data: "nearby_proceed" }]);
+
+          await bot.sendMessage(chatId, await translateBotText("Select an issue to upvote it, or proceed to register your new complaint:", lang), {
+            reply_markup: { inline_keyboard: rows }
+          });
+          return;
+        }
+      } catch (err) {
+        console.error("[NearbyCheck] Failed:", err.message);
+      }
+    }
+
     await runBotInputAnalysis(chatId, session);
     return;
   }
@@ -1226,6 +1287,53 @@ async function handleCallbackQuery(queryData) {
     await saveUserSession(chatId, session);
     await bot.answerCallbackQuery(queryData.id);
     await sendMainMenu(chatId, lang);
+  }
+  // Handle nearby issue upvotes shown before submitting a new complaint
+  if (data.startsWith("nearby_upvote_")) {
+    const docId = data.replace("nearby_upvote_", "");
+    try {
+      await updateDoc(doc(db, "demands", docId), { upvotes: increment(1) });
+      const upvotedText = await translateBotText(
+        `👍 Done! Your upvote has been added to this existing issue. It now has higher priority for the manager.\n\nDo you want to also register your own new complaint, or is this existing issue the same as yours?`,
+        lang
+      );
+      const registerNewText = await translateBotText("📝 Register my own new complaint too", lang);
+      const doneText = await translateBotText("✅ This issue covers mine — done!", lang);
+      await bot.answerCallbackQuery(queryData.id, { text: "👍 Upvoted!", show_alert: false });
+      await bot.sendMessage(chatId, upvotedText, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: registerNewText, callback_data: "nearby_proceed" }],
+            [{ text: doneText, callback_data: "nearby_done" }]
+          ]
+        }
+      });
+    } catch (err) {
+      console.error(err);
+      await bot.answerCallbackQuery(queryData.id, { text: "Error upvoting.", show_alert: true });
+    }
+    return;
+  }
+
+  if (data === "nearby_proceed") {
+    await bot.answerCallbackQuery(queryData.id);
+    const proceedText = await translateBotText("⏳ Processing your new complaint...", lang);
+    await bot.sendMessage(chatId, proceedText);
+    session.step = "COMPLAINT_MEDIA";
+    await saveUserSession(chatId, session);
+    await runBotInputAnalysis(chatId, session);
+    return;
+  }
+
+  if (data === "nearby_done") {
+    await bot.answerCallbackQuery(queryData.id);
+    session.step = "MENU";
+    session.nearbyIssues = null;
+    await saveUserSession(chatId, session);
+    const doneMsg = await translateBotText("✅ Great! Your upvote has been recorded. The manager will see increased priority for that issue.", lang);
+    await bot.sendMessage(chatId, doneMsg);
+    await sendMainMenu(chatId, lang);
+    return;
   }
 
   if (data.startsWith("gap_upvote_") || data.startsWith("upvote_")) {
