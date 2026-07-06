@@ -559,20 +559,53 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
     setGeocoding(true);
 
     const fallbackToDefault = (errorMsg: string) => {
-      // Fallback coordinates for Rampur, UP
-      const fallbackLoc = { lat: 28.8046, lng: 79.0021 };
-      const google = (window as any).google;
-      let address = 'Rampur Constituency (Default location)';
-      if (google && google.maps) {
-        onLocationSelect(fallbackLoc, address);
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.setCenter(fallbackLoc);
-          mapInstanceRef.current.setZoom(15);
-        }
-      } else {
-        onLocationSelect(fallbackLoc, address);
-      }
-      alert(`Location Detection Unavailable: ${errorMsg}\n\nPlaced pin at default Rampur Constituency center. You can drag the pin on the map to your exact location.`);
+      console.log("Geolocation failed, attempting IP Geolocation fallback...");
+      
+      // Try IP Geolocation first
+      fetch('https://ipapi.co/json/')
+        .then(res => {
+          if (!res.ok) throw new Error("IP Geolocation service returned error");
+          return res.json();
+        })
+        .then(data => {
+          if (data.latitude && data.longitude) {
+            const loc = { lat: data.latitude, lng: data.longitude };
+            const address = `${data.city || 'Detected City'}, ${data.region || 'Detected Region'}, ${data.country_name || 'India'} (Approximate IP Location)`;
+            
+            const google = (window as any).google;
+            if (google && google.maps) {
+              onLocationSelect(loc, address);
+              if (mapInstanceRef.current) {
+                mapInstanceRef.current.setCenter(loc);
+                mapInstanceRef.current.setZoom(13); // Zoom out slightly for city-level view
+              }
+            } else {
+              onLocationSelect(loc, address);
+            }
+            setGeocoding(false);
+            alert(`Location Detected via IP Geolocation: We detected your approximate location as: ${address}.\n\nYou can drag the pin on the map to your exact street/ward.`);
+          } else {
+            throw new Error("No coordinates in IP payload");
+          }
+        })
+        .catch(err => {
+          console.error("IP Geolocation fallback failed: ", err);
+          // Ultimate fallback to default Rampur coordinates
+          const fallbackLoc = { lat: 28.8046, lng: 79.0021 };
+          const google = (window as any).google;
+          let address = 'Rampur Constituency (Default location)';
+          if (google && google.maps) {
+            onLocationSelect(fallbackLoc, address);
+            if (mapInstanceRef.current) {
+              mapInstanceRef.current.setCenter(fallbackLoc);
+              mapInstanceRef.current.setZoom(15);
+            }
+          } else {
+            onLocationSelect(fallbackLoc, address);
+          }
+          setGeocoding(false);
+          alert(`Location Detection Unavailable: ${errorMsg}\n\nPlaced pin at default Rampur Constituency center. You can drag the pin on the map or type a landmark in the tag search bar to select your location.`);
+        });
     };
 
     // Call getCurrentPosition with no options/timeout so the browser permission prompt stays open
