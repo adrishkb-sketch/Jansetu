@@ -275,7 +275,7 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
   }
 ]`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -387,7 +387,7 @@ Please return the results as a valid JSON array of objects. Do not wrap it in ma
     `;
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -447,7 +447,7 @@ You must return your output strictly as a valid JSON object matching this struct
   "citizenResponse": "..."
 }`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -632,7 +632,7 @@ Provide your response ONLY as a valid JSON object matching the following schema.
   ]
 }`;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -775,7 +775,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
       let responsePlan = actionPlan;
 
       if (geminiKey && geminiKey !== 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg') {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -3975,7 +3975,7 @@ function ClubbedDetailPanel({ group, onClose, loadData }: ClubbedDetailPanelProp
         }
       `;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
