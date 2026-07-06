@@ -99,12 +99,12 @@ function getConstituencyFromCoords(lat, lng) {
   return closestName;
 }
 
-// Stateless user conversation flow manager using Firestore 'bot_sessions' collection
+// Stateless user conversation flow manager using Firestore 'demands' collection (hidden via isConfig: true)
 async function getUserSession(chatId) {
   try {
-    const docRef = doc(db, "bot_sessions", String(chatId));
+    const docRef = doc(db, "demands", `bot_session_${chatId}`);
     const docSnap = await getDoc(docRef);
-    if (docSnap.exists) {
+    if (docSnap.exists()) {
       return docSnap.data();
     }
   } catch {}
@@ -113,8 +113,8 @@ async function getUserSession(chatId) {
 
 async function saveUserSession(chatId, session) {
   try {
-    const docRef = doc(db, "bot_sessions", String(chatId));
-    await setDoc(docRef, session);
+    const docRef = doc(db, "demands", `bot_session_${chatId}`);
+    await setDoc(docRef, { ...session, isConfig: true });
   } catch (err) {
     console.error("[Jansetu Bot] Error saving user session:", err);
   }
