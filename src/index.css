@@ -655,6 +655,12 @@ body {
   gap: 24px;
 }
 
+.proposal-grid > div,
+.manager-dashboard-grid > div,
+.mp-dashboard-grid > div {
+  min-width: 0;
+}
+
 .manager-dashboard-grid {
   display: grid;
   grid-template-columns: 400px 1fr;

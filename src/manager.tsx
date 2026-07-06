@@ -1215,38 +1215,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
           <p className="portal-subtitle">Review citizen issues, analyze infrastructure gaps, and build action plans for your MP</p>
         </div>
 
-        {/* Live Stats Hero Bar */}
-        {(() => {
-          const constituencyDemands = demands.filter((d: any) => !selectedGlobalConstituency || d.constituency === selectedGlobalConstituency);
-          const pending = constituencyDemands.filter((d: any) => d.status === 'pending' || d.status === 'needs_info').length;
-          const verified = constituencyDemands.filter((d: any) => !['pending','needs_info'].includes(d.status)).length;
-          const totalImpact = constituencyDemands.reduce((s: number, d: any) => s + (d.estimatedImpact || 1), 0);
-          return (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-              gap: '12px',
-              marginBottom: '24px',
-              padding: '16px',
-              background: 'rgba(20,184,166,0.05)',
-              border: '1px solid rgba(20,184,166,0.15)',
-              borderRadius: '12px'
-            }}>
-              {[
-                { label: 'Total Issues', value: constituencyDemands.length, color: '#2dd4bf', icon: '🗳️' },
-                { label: 'Needs Review', value: pending, color: '#fbbf24', icon: '⏳' },
-                { label: 'Progressed', value: verified, color: '#34d399', icon: '✅' },
-                { label: 'Citizens Impacted', value: totalImpact.toLocaleString(), color: '#818cf8', icon: '👥' },
-              ].map((stat, i) => (
-                <div key={i} style={{ textAlign: 'center', padding: '10px' }}>
-                  <div style={{ fontSize: '18px', marginBottom: '4px' }}>{stat.icon}</div>
-                  <div style={{ fontSize: '22px', fontWeight: 900, color: stat.color }}>{stat.value}</div>
-                  <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{stat.label}</div>
-                </div>
-              ))}
-            </div>
-          );
-        })()}
+
 
         {/* Tab selection menu */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px', flexWrap: 'wrap' }} className="no-print">
@@ -3489,10 +3458,10 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                           <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold' }}>EXECUTIVE PLAN SUMMARY</label>
                           <textarea 
                             value={actionPlan.summary}
-                            rows={4}
+                            rows={12}
                             disabled={actionPlan.isApproved}
                             onChange={e => setActionPlan({ ...actionPlan, summary: e.target.value })}
-                            style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', borderRadius: '6px', fontSize: '13px', resize: 'vertical', width: '100%' }}
+                            style={{ padding: '12px 16px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', borderRadius: '8px', fontSize: '14px', lineHeight: '1.6', resize: 'vertical', width: '100%', minHeight: '240px' }}
                           />
                         </div>
                       </div>
@@ -3526,14 +3495,14 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                                 />
                                 <textarea
                                   value={step.description}
-                                  rows={4}
+                                  rows={6}
                                   disabled={actionPlan.isApproved}
                                   onChange={e => {
                                     const nextFlow = [...actionPlan.flowchart];
                                     nextFlow[idx] = { ...step, description: e.target.value };
                                     setActionPlan({ ...actionPlan, flowchart: nextFlow });
                                   }}
-                                  style={{ background: 'none', border: 'none', color: 'var(--text-desc)', fontSize: '10.5px', padding: 0, resize: 'none', width: '100%', outline: 'none' }}
+                                  style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-desc)', fontSize: '12px', padding: '6px 8px', borderRadius: '6px', resize: 'vertical', width: '100%', outline: 'none', marginTop: '6px', minHeight: '120px' }}
                                 />
                               </div>
                               {idx < actionPlan.flowchart.length - 1 && (
@@ -3550,59 +3519,71 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                           🛠️ Target Action Items & Budget Allocations
                         </span>
                         
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '280px', paddingRight: '4px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', maxHeight: '600px', paddingRight: '4px' }}>
                           {actionPlan.detailedSteps.map((step: any, idx: number) => (
-                            <div key={idx} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-light)', padding: '14px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                                <input 
-                                  type="text"
-                                  value={step.title}
-                                  disabled={actionPlan.isApproved}
-                                  onChange={e => {
-                                    const nextSteps = [...actionPlan.detailedSteps];
-                                    nextSteps[idx] = { ...step, title: e.target.value };
-                                    setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
-                                  }}
-                                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-light)', color: 'white', fontSize: '12px', padding: '6px 10px', borderRadius: '4px', fontWeight: 'bold' }}
-                                />
-                                <input 
-                                  type="text"
-                                  value={step.agency}
-                                  placeholder="Responsible Agency"
-                                  disabled={actionPlan.isApproved}
-                                  onChange={e => {
-                                    const nextSteps = [...actionPlan.detailedSteps];
-                                    nextSteps[idx] = { ...step, agency: e.target.value };
-                                    setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
-                                  }}
-                                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-light)', color: '#2dd4bf', fontSize: '11px', padding: '6px 10px', borderRadius: '4px' }}
-                                />
-                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>₹</span>
+                            <div key={idx} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <label style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>ACTION ITEM TITLE</label>
                                   <input 
-                                    type="number"
-                                    value={step.cost}
+                                    type="text"
+                                    value={step.title}
                                     disabled={actionPlan.isApproved}
                                     onChange={e => {
                                       const nextSteps = [...actionPlan.detailedSteps];
-                                      nextSteps[idx] = { ...step, cost: parseFloat(e.target.value) || 0 };
+                                      nextSteps[idx] = { ...step, title: e.target.value };
                                       setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
                                     }}
-                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-light)', color: '#fbbf24', fontSize: '11px', padding: '6px 10px', borderRadius: '4px', width: '100%', fontWeight: 'bold' }}
+                                    style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'white', fontSize: '13px', padding: '8px 12px', borderRadius: '6px', fontWeight: 'bold', width: '100%' }}
                                   />
                                 </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <label style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>RESPONSIBLE LEAD AGENCY</label>
+                                  <input 
+                                    type="text"
+                                    value={step.agency}
+                                    placeholder="e.g. Municipal Corp, PHED"
+                                    disabled={actionPlan.isApproved}
+                                    onChange={e => {
+                                      const nextSteps = [...actionPlan.detailedSteps];
+                                      nextSteps[idx] = { ...step, agency: e.target.value };
+                                      setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
+                                    }}
+                                    style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: '#2dd4bf', fontSize: '13px', padding: '8px 12px', borderRadius: '6px', width: '100%' }}
+                                  />
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <label style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>ALLOCATED BUDGET (₹)</label>
+                                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '14px', color: '#fbbf24', fontWeight: 'bold' }}>₹</span>
+                                    <input 
+                                      type="number"
+                                      value={step.cost}
+                                      disabled={actionPlan.isApproved}
+                                      onChange={e => {
+                                        const nextSteps = [...actionPlan.detailedSteps];
+                                        nextSteps[idx] = { ...step, cost: parseFloat(e.target.value) || 0 };
+                                        setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
+                                      }}
+                                      style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: '#fbbf24', fontSize: '13px', padding: '8px 12px', borderRadius: '6px', width: '100%', fontWeight: 'bold' }}
+                                    />
+                                  </div>
+                                </div>
                               </div>
-                              <textarea 
-                                value={step.description}
-                                rows={3}
-                                disabled={actionPlan.isApproved}
-                                onChange={e => {
-                                  const nextSteps = [...actionPlan.detailedSteps];
-                                  nextSteps[idx] = { ...step, description: e.target.value };
-                                  setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
-                                }}
-                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)', color: 'var(--text-desc)', fontSize: '11px', padding: '8px 10px', borderRadius: '4px', resize: 'vertical' }}
-                              />
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>DETAILED RESOLUTION PLAN / SCOPE OF WORK</label>
+                                <textarea 
+                                  value={step.description}
+                                  rows={6}
+                                  disabled={actionPlan.isApproved}
+                                  onChange={e => {
+                                    const nextSteps = [...actionPlan.detailedSteps];
+                                    nextSteps[idx] = { ...step, description: e.target.value };
+                                    setActionPlan({ ...actionPlan, detailedSteps: nextSteps });
+                                  }}
+                                  style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-light)', color: 'var(--text-desc)', fontSize: '13px', padding: '10px 14px', borderRadius: '6px', resize: 'vertical', width: '100%', lineHeight: '1.5', minHeight: '120px' }}
+                                />
+                              </div>
                             </div>
                           ))}
                         </div>
