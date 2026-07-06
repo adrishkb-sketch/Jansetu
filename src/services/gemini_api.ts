@@ -22,17 +22,32 @@ async function getKeys(): Promise<string[]> {
 
     try {
       if (db) {
-        const docRef = doc(db, 'demands', 'config_gemini');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+        let fetched = '';
+        const docRef1 = doc(db, 'demands', 'config_gemini');
+        const docSnap1 = await getDoc(docRef1);
+        if (docSnap1.exists()) {
+          const data = docSnap1.data();
           if (data && data.keys) {
-            const fetched = data.keys.trim();
-            localStorage.setItem('jansetu_gemini_key', fetched);
-            cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
-            console.log("[Jansetu AI] Successfully loaded API keys from Firestore configuration.");
-            return cachedFirestoreKeys;
+            fetched = data.keys.trim();
           }
+        }
+        
+        if (!fetched) {
+          const docRef2 = doc(db, 'config', 'gemini');
+          const docSnap2 = await getDoc(docRef2);
+          if (docSnap2.exists()) {
+            const data = docSnap2.data();
+            if (data && data.keys) {
+              fetched = data.keys.trim();
+            }
+          }
+        }
+
+        if (fetched) {
+          localStorage.setItem('jansetu_gemini_key', fetched);
+          cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
+          console.log("[Jansetu AI] Successfully loaded API keys from Firestore configuration.");
+          return cachedFirestoreKeys;
         }
       }
     } catch (e) {
@@ -100,14 +115,28 @@ export async function fetchGemini(
   const keys = await getKeys();
   let lastError: any = new Error('No Gemini keys available');
 
-  for (let i = 0; i < keys.length; i++) {
-    try {
-      const json = await callGemini(model, keys[i], payload);
-      // Wrap back into a Response so call-sites can do `.json()`
-      return new Response(JSON.stringify(json), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    } catch (e) {
-      console.warn(`[Jansetu AI] Key index ${i} on model ${model} failed:`, e);
-      lastError = e;
+  // Cascade models to try
+  const modelsToTry = [
+    model, // The requested model first
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro'
+  ];
+
+  // Remove duplicates while keeping order
+  const uniqueModels = Array.from(new Set(modelsToTry));
+
+  for (const modelName of uniqueModels) {
+    for (let i = 0; i < keys.length; i++) {
+      try {
+        const json = await callGemini(modelName, keys[i], payload);
+        console.log(`[Jansetu AI] Succeeded on model=${modelName} keyIndex=${i}`);
+        // Wrap back into a Response so call-sites can do `.json()`
+        return new Response(JSON.stringify(json), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      } catch (e) {
+        console.warn(`[Jansetu AI] model=${modelName} keyIndex=${i} failed:`, e);
+        lastError = e;
+      }
     }
   }
 

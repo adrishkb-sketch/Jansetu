@@ -1264,9 +1264,12 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
 
 
 
+  if (!isAuthenticated) {
+    return <AuthModal role="manager" onSuccess={() => setIsAuthenticated(true)} onClose={() => window.location.href = '/'} />;
+  }
+
   return (
     <>
-      {!isAuthenticated && <AuthModal role="manager" onSuccess={() => setIsAuthenticated(true)} onClose={() => window.location.href = '/'} />}
       <div id="google_translate_element" style={{ display: 'none' }}></div>
 
       <header className="header">

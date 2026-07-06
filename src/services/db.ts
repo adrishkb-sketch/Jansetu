@@ -120,7 +120,7 @@ export interface SubmissionData {
 // In-Memory Fallback Local DB (Emulator) to guarantee 100% operation on local/offline env
 const getLocalEmulatorData = (): any[] => {
   const data = localStorage.getItem('jansetu_mock_db');
-  if (data && data !== '[]') return JSON.parse(data);
+  if (data) return JSON.parse(data);
 
   const defaultData: any[] = [
     {
@@ -510,7 +510,16 @@ export async function getAllDemands(): Promise<any[]> {
     console.error("Firestore getAll failed, using local emulator database: ", e);
   }
 
-  const localDemands = getLocalEmulatorData();
+  let localDemands = getLocalEmulatorData();
+
+  // Filter demands by reset timestamp if present
+  const resetTime = localStorage.getItem('jansetu_reset_timestamp');
+  if (resetTime) {
+    const rTime = new Date(resetTime).getTime();
+    firestoreDemands = firestoreDemands.filter(d => new Date(d.createdAt || d.updatedAt || 0).getTime() > rTime);
+    localDemands = localDemands.filter(d => new Date(d.createdAt || d.updatedAt || 0).getTime() > rTime);
+  }
+
   if (hasFirestore && firestoreDemands.length > 0) {
     const merged: Record<string, any> = {};
     localDemands.forEach(d => {
@@ -556,7 +565,19 @@ export async function getDemandById(id: string): Promise<any | null> {
 
   // Local Storage query fallback
   const localDb = getLocalEmulatorData();
-  const localDemand = localDb.find((item: any) => item.id === id);
+  let localDemand = localDb.find((item: any) => item.id === id);
+
+  // Filter demands by reset timestamp if present
+  const resetTime = localStorage.getItem('jansetu_reset_timestamp');
+  if (resetTime) {
+    const rTime = new Date(resetTime).getTime();
+    if (firestoreDemand && new Date(firestoreDemand.createdAt || firestoreDemand.updatedAt || 0).getTime() <= rTime) {
+      firestoreDemand = null;
+    }
+    if (localDemand && new Date(localDemand.createdAt || localDemand.updatedAt || 0).getTime() <= rTime) {
+      localDemand = null;
+    }
+  }
 
   if (firestoreDemand && localDemand) {
     const firestoreTime = new Date(firestoreDemand.updatedAt || firestoreDemand.createdAt || 0).getTime();
@@ -727,6 +748,18 @@ export async function getActionPlanByConstituency(key: string): Promise<any | nu
     }
   } catch {}
 
+  // Filter plans by reset timestamp if present
+  const resetTime = localStorage.getItem('jansetu_reset_timestamp');
+  if (resetTime) {
+    const rTime = new Date(resetTime).getTime();
+    if (firestorePlan && new Date(firestorePlan.updatedAt || firestorePlan.createdAt || 0).getTime() <= rTime) {
+      firestorePlan = null;
+    }
+    if (localPlan && new Date(localPlan.updatedAt || localPlan.createdAt || 0).getTime() <= rTime) {
+      localPlan = null;
+    }
+  }
+
   if (firestorePlan && localPlan) {
     const firestoreTime = new Date(firestorePlan.updatedAt || 0).getTime();
     const localTime = new Date(localPlan.updatedAt || 0).getTime();
@@ -753,7 +786,7 @@ export async function getAllActionPlans(): Promise<any[]> {
     console.error("Firestore getAllActionPlans failed: ", e);
   }
 
-  const localPlans: any[] = [];
+  let localPlans: any[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith('jansetu_plan_')) {
@@ -761,6 +794,14 @@ export async function getAllActionPlans(): Promise<any[]> {
         localPlans.push(JSON.parse(localStorage.getItem(key) || '{}'));
       } catch {}
     }
+  }
+
+  // Filter plans by reset timestamp if present
+  const resetTime = localStorage.getItem('jansetu_reset_timestamp');
+  if (resetTime) {
+    const rTime = new Date(resetTime).getTime();
+    firestorePlans = firestorePlans.filter(p => new Date(p.updatedAt || p.createdAt || 0).getTime() > rTime);
+    localPlans = localPlans.filter(p => new Date(p.updatedAt || p.createdAt || 0).getTime() > rTime);
   }
 
   if (hasFirestore && firestorePlans.length > 0) {
@@ -829,6 +870,18 @@ export async function getMPFunds(constituency: string): Promise<any | null> {
     }
   } catch {}
 
+  // Filter funds by reset timestamp if present
+  const resetTime = localStorage.getItem('jansetu_reset_timestamp');
+  if (resetTime) {
+    const rTime = new Date(resetTime).getTime();
+    if (firestoreFunds && new Date(firestoreFunds.updatedAt || 0).getTime() <= rTime) {
+      firestoreFunds = null;
+    }
+    if (localFunds && new Date(localFunds.updatedAt || 0).getTime() <= rTime) {
+      localFunds = null;
+    }
+  }
+
   if (firestoreFunds && localFunds) {
     const firestoreTime = new Date(firestoreFunds.updatedAt || 0).getTime();
     const localTime = new Date(localFunds.updatedAt || 0).getTime();
@@ -841,20 +894,28 @@ export async function clearDatabaseCollections(): Promise<void> {
   const keysToRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith('jansetu_')) {
+    if (key && key.startsWith('jansetu_') && key !== 'jansetu_gemini_key' && key !== 'jansetu_reset_timestamp') {
       keysToRemove.push(key);
     }
   }
   keysToRemove.forEach(k => localStorage.removeItem(k));
 
-  // Clear Firestore collections
+  // Explicitly set emulator db to empty array
+  localStorage.setItem('jansetu_mock_db', '[]');
+
+  // Save the database reset timestamp so that all existing data created before this time is ignored
+  localStorage.setItem('jansetu_reset_timestamp', new Date().toISOString());
+
+  // Clear Firestore collections (best effort, in case rules allow it or when using local emulator)
   try {
     if (db) {
-      // 1. Clear demands
+      // 1. Clear demands (exclude config_gemini to preserve API keys)
       const demandsRef = collection(db, 'demands');
       const demandsSnap = await getDocs(demandsRef);
       for (const d of demandsSnap.docs) {
-        await deleteDoc(doc(db, 'demands', d.id));
+        if (d.id !== 'config_gemini') {
+          await deleteDoc(doc(db, 'demands', d.id));
+        }
       }
       
       // 2. Clear plans
@@ -862,6 +923,13 @@ export async function clearDatabaseCollections(): Promise<void> {
       const plansSnap = await getDocs(plansRef);
       for (const p of plansSnap.docs) {
         await deleteDoc(doc(db, 'plans', p.id));
+      }
+
+      // 3. Clear mp funds configuration
+      const fundsRef = collection(db, 'mp_funds');
+      const fundsSnap = await getDocs(fundsRef);
+      for (const f of fundsSnap.docs) {
+        await deleteDoc(doc(db, 'mp_funds', f.id));
       }
     }
   } catch (e) {

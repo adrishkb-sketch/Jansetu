@@ -29,6 +29,7 @@ import './index.css';
 
 function MPApp() {
   const [selectedLang, setSelectedLang] = useState(getInitialLanguage);
+  const [activeTab, setActiveTab] = useState<'grievances' | 'budget' | 'audits'>('grievances');
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('mp_auth') === 'true');
   
   // Constituency Selection
@@ -45,16 +46,9 @@ function MPApp() {
   const [resetFrequency, setResetFrequency] = useState<string>('yearly');
   const [extraFunds, setExtraFunds] = useState<string>('');
 
-  // Search States
-  const [searchMode, setSearchMode] = useState<'constituency' | 'issue'>('constituency');
-  const [searchConstituencyName, setSearchConstituencyName] = useState<string>('Rampur');
-  const [searchConstituencyQuery, setSearchConstituencyQuery] = useState<string>('Rampur');
-  const [showSearchConstituencyDropdown, setShowSearchConstituencyDropdown] = useState<boolean>(false);
-  const [searchIssueQuery, setSearchIssueQuery] = useState<string>('water');
-
-  useEffect(() => {
-    setSearchConstituencyQuery(selectedConstituency);
-  }, [selectedConstituency]);
+  // Search & Filter States
+  const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
 
   // Matching Demands
   const [demands, setDemands] = useState<any[]>([]);
@@ -143,18 +137,41 @@ function MPApp() {
     setDemands(data);
   };
  
-  // Filter demands based on search criteria, scoped to selectedConstituency
+  // Filter demands based on search criteria, scoped to selectedConstituency and restricted to issues used in the manager's action plan
   useEffect(() => {
     let filtered = demands.filter(d => (d.constituency || 'Rampur').toLowerCase() === selectedConstituency.toLowerCase());
     
-    if (searchMode === 'issue' && searchIssueQuery) {
+    // Filter to ONLY include complaints that the manager included in the approved action plan
+    const allowedIds = approvedPlan?.associatedComplaintIds || [];
+    filtered = filtered.filter(d => allowedIds.includes(d.id));
+
+    if (selectedCategoryFilter !== 'all') {
       filtered = filtered.filter(d => 
-        (d.category || '').toLowerCase() === searchIssueQuery.toLowerCase()
+        (d.category || '').toLowerCase() === selectedCategoryFilter.toLowerCase()
       );
     }
+
+    if (searchKeyword.trim() !== '') {
+      const query = searchKeyword.toLowerCase();
+      filtered = filtered.filter(d => {
+        const contentText = (d.items?.[0]?.content || d.items?.[0]?.speechTranscript || '').toLowerCase();
+        const addressText = (d.address || '').toLowerCase();
+        const categoryText = (d.category || '').toLowerCase();
+        const ticketCode = (d.id || '').toLowerCase();
+        return contentText.includes(query) || addressText.includes(query) || categoryText.includes(query) || ticketCode.includes(query);
+      });
+    }
+
     setMatchingDemands(filtered);
     setSearchSummaryText('');
-  }, [demands, searchMode, selectedConstituency, searchIssueQuery]);
+  }, [demands, selectedConstituency, selectedCategoryFilter, searchKeyword, approvedPlan]);
+
+  // Auto-run constituency audit when entering the audits tab or when constituency/action plan changes
+  useEffect(() => {
+    if (activeTab === 'audits' && selectedConstituency) {
+      runParliamentActionAudit('audit', null);
+    }
+  }, [activeTab, selectedConstituency, approvedPlan]);
 
   // Save Funds Configuration
   const handleSaveFunds = async () => {
@@ -197,7 +214,7 @@ function MPApp() {
 
     const prompt = `
       You are an expert parliamentary advisor to a Member of Parliament in India.
-      The following is a list of citizen grievances for search query "${searchMode === 'constituency' ? searchConstituencyName : searchIssueQuery}":
+      The following is a list of citizen grievances in constituency "${selectedConstituency}" under active category filter "${selectedCategoryFilter}" and keyword search query "${searchKeyword || 'none'}":
       
       ${complaintsText}
       
@@ -259,17 +276,19 @@ function MPApp() {
     }
   };
 
-  // Generate Parliamentary Speech
+  // Generate Parliamentary Speech (Only targets pending/unvoiced grievances)
   const handleGenerateSpeech = async () => {
-    if (matchingDemands.length === 0) {
-      alert("No citizen issues found to structure a speech.");
+    const unvoicedDemands = matchingDemands.filter(d => !d.status || ['pending', 'needs_info'].includes(d.status));
+    
+    if (unvoicedDemands.length === 0) {
+      alert("All active citizen issues for this category/constituency have already been raised or funded! No new unvoiced concerns found.");
       return;
     }
     setGeneratingSpeech(true);
-    setSpeechDraft('AI is writing a Lok Sabha speech draft and splitting it into slide outlines...');
+    setSpeechDraft('AI is writing a Lok Sabha speech draft and splitting it into slide outlines based on pending grievances...');
 
-    const complaintsText = matchingDemands.slice(0, 5).map((d, index) => 
-      `Issue #${index+1} (${d.category}): Located at ${d.address} with ${d.upvotes || 1} signatures.`
+    const complaintsText = unvoicedDemands.slice(0, 5).map((d, index) => 
+      `Issue #${index+1} (${d.category}): Located at ${d.address} with ${d.upvotes || 1} signatures. Details: ${d.items?.[0]?.content || d.items?.[0]?.speechTranscript}`
     ).join('\n');
 
     const prompt = `
@@ -317,7 +336,7 @@ function MPApp() {
     }
   };
 
-  const runParliamentActionAudit = async (actionType: 'raise' | 'fund', dataDetail: any) => {
+  const runParliamentActionAudit = async (actionType: 'raise' | 'fund' | 'audit', dataDetail: any) => {
     setIsAuditingAction(true);
     setAiActionAuditReport("🤖 Gemini is conducting a Parliamentary Action & Local Grievance Alignment Audit...");
 
@@ -347,7 +366,7 @@ function MPApp() {
         
         Use ONLY the real data provided. Do not invent any issues. Output clean, readable text.
       `;
-    } else {
+    } else if (actionType === 'fund') {
       prompt = `
         You are the Parliamentary AI Audit Assistant for Jansetu.
         The MP has just allocated MPLADS funding for: "${dataDetail.planName || 'Development Plan'}" in constituency "${selectedConstituency}".
@@ -366,6 +385,30 @@ function MPApp() {
         3. A recommendation on which related projects to fund next in this area based on the remaining demands.
 
         Use ONLY the real data provided. Do not invent any issues. Output clean, readable text.
+      `;
+    } else {
+      // General Constituency Audit
+      prompt = `
+        You are the Senior Parliamentary AI Alignment Auditor for Jansetu.
+        Constituency under audit: ${selectedConstituency}.
+
+        Real-Time Citizen Grievances Data for this Constituency:
+        ${JSON.stringify(matchingDemands.map(d => ({ category: d.category, content: d.items?.[0]?.content || d.items?.[0]?.speechTranscript, address: d.address, upvotes: d.upvotes || 1, status: d.status || 'pending' })))}
+
+        Current Approved Development & Funding Action Plan:
+        Plan Name: ${approvedPlan ? approvedPlan.planName : 'None'}
+        Plan Details: ${approvedPlan ? JSON.stringify(approvedPlan.detailedSteps) : 'No plan approved yet by manager.'}
+
+        MPLADS Ledger Balance: ₹${mpladsFunds.toLocaleString()}
+
+        Please analyze the overall alignment between the citizen demands and the MP's actions (raised speeches, funded project steps, remaining ledger balance).
+        Provide a comprehensive constituency audit report containing:
+        1. An AI Alignment Score (e.g. 85% Aligned) indicating how closely the active project steps match high-upvote citizen issues.
+        2. Highlights of successfully matched and resolved areas (where public works have started or been funded).
+        3. Critical gaps where citizens have voiced massive complaints (e.g. key roads, water) but the manager's action plan has not funded them yet.
+        4. Actionable recommendations on which specific steps/issues the MP should focus on next.
+
+        Use ONLY the real data provided. Do not invent any issues. Output clean, professional markdown.
       `;
     }
 
@@ -550,10 +593,13 @@ function MPApp() {
     window.speechSynthesis.speak(utterance);
   };
 
+  if (!isAuthenticated) {
+    return <AuthModal role="mp" onSuccess={() => setIsAuthenticated(true)} onClose={() => window.location.href = '/'} />;
+  }
+
   return (
     <>
       <div id="google_translate_element" style={{ display: 'none' }}></div>
-      {!isAuthenticated && <AuthModal role="mp" onSuccess={() => setIsAuthenticated(true)} onClose={() => window.location.href = '/'} />}
       
       <header className="header no-print">
         <div className="container header-container">
@@ -607,7 +653,95 @@ function MPApp() {
           <p className="portal-subtitle">Configure regional constituency funds, review clubbed citizen grievances, draft speech scripts, and authorize project budgets</p>
         </div>
 
-         {/* MP Hero Stats Bar */}
+        {/* Universal Constituency Autocomplete Search Selector */}
+        <div className="form-card" style={{ padding: '20px 24px', marginBottom: '24px', textAlign: 'left' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative', maxWidth: '500px' }}>
+            <label style={{ fontSize: '12px', color: '#fbbf24', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🏛️ Select Parliamentary Constituency</label>
+            {showConstituencyDropdown && (
+              <div 
+                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} 
+                onClick={() => setShowConstituencyDropdown(false)} 
+              />
+            )}
+            <input
+              type="text"
+              value={constituencySearchQuery}
+              placeholder="🔍 Type to search constituency (e.g. Howrah, Rampur)..."
+              onChange={e => {
+                setConstituencySearchQuery(e.target.value);
+                setShowConstituencyDropdown(true);
+              }}
+              onFocus={() => setShowConstituencyDropdown(true)}
+              style={{ 
+                background: '#0e0d24', 
+                border: '1px solid var(--border-light)', 
+                color: 'white', 
+                padding: '10px 14px', 
+                borderRadius: '8px', 
+                fontWeight: '600',
+                boxSizing: 'border-box',
+                fontSize: '13.5px',
+                width: '100%',
+                position: 'relative',
+                zIndex: 1000
+              }}
+            />
+            {showConstituencyDropdown && (() => {
+              const filtered = Object.keys(ALL_CONSTITUENCIES_DATA)
+                .filter(c => c.toLowerCase().includes(constituencySearchQuery.toLowerCase()))
+                .sort();
+              return (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '100%', 
+                  left: 0, 
+                  right: 0, 
+                  background: '#0d0c22', 
+                  border: '1px solid rgba(255,255,255,0.15)', 
+                  borderRadius: '8px', 
+                  maxHeight: '220px', 
+                  overflowY: 'auto', 
+                  zIndex: 1001, 
+                  marginTop: '4px',
+                  boxShadow: '0 8px 16px rgba(0,0,0,0.5)'
+                }}>
+                  {filtered.length > 0 ? (
+                    filtered.map(cName => (
+                      <div 
+                        key={cName}
+                        onClick={() => {
+                          setSelectedConstituency(cName);
+                          setConstituencySearchQuery(cName);
+                          setShowConstituencyDropdown(false);
+                        }}
+                        style={{
+                          padding: '10px 14px',
+                          color: 'white',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          borderBottom: '1px solid rgba(255,255,255,0.05)',
+                          background: selectedConstituency === cName ? 'rgba(217, 119, 6, 0.2)' : 'transparent',
+                          textAlign: 'left'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                        onMouseLeave={e => e.currentTarget.style.background = selectedConstituency === cName ? 'rgba(217, 119, 6, 0.2)' : 'transparent'}
+                      >
+                        🏛️ {cName}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '12.5px', fontStyle: 'italic' }}>
+                      No constituency found
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* MP Hero Stats Bar */}
         {(() => {
           const constDemands = matchingDemands;
           const pendingToRaise = constDemands.filter((d: any) => !d.status || ['pending','needs_info'].includes(d.status)).length;
@@ -645,96 +779,80 @@ function MPApp() {
           );
         })()}
 
+        {/* Tab Navigation Menu */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px', flexWrap: 'wrap' }} className="no-print">
+          <button
+            type="button"
+            onClick={() => setActiveTab('grievances')}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              fontSize: '13.5px',
+              border: '1px solid',
+              borderColor: activeTab === 'grievances' ? '#fbbf24' : 'rgba(255,255,255,0.1)',
+              background: activeTab === 'grievances' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(0,0,0,0.2)',
+              color: activeTab === 'grievances' ? '#fbbf24' : '#8e90b3',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.2s'
+            }}
+          >
+            📥 Grievance Inbox & AI Speech
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('budget')}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              fontSize: '13.5px',
+              border: '1px solid',
+              borderColor: activeTab === 'budget' ? '#34d399' : 'rgba(255,255,255,0.1)',
+              background: activeTab === 'budget' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(0,0,0,0.2)',
+              color: activeTab === 'budget' ? '#34d399' : '#8e90b3',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.2s'
+            }}
+          >
+            💼 MPLADS Budget & Action Plan
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('audits')}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              fontSize: '13.5px',
+              border: '1px solid',
+              borderColor: activeTab === 'audits' ? '#a5b4fc' : 'rgba(255,255,255,0.1)',
+              background: activeTab === 'audits' ? 'rgba(129, 140, 248, 0.15)' : 'rgba(0,0,0,0.2)',
+              color: activeTab === 'audits' ? '#a5b4fc' : '#8e90b3',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.2s'
+            }}
+          >
+            🤖 AI Alignment Audits
+          </button>
+        </div>
+
         {/* SECTION 1: CONSTITUENCY SETUP & LEDGER SETTINGS */}
         <div className="form-card" style={{ padding: '24px 30px', marginBottom: '24px', textAlign: 'left' }}>
           <h3 style={{ color: 'white', fontSize: '1.2rem', margin: '0 0 16px 0', borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
             ⚙️ Constituency Ledger & MPLADS Configuration
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
-              <label style={{ fontSize: '12.5px', color: '#c7d2fe', fontWeight: 'bold' }}>Select Constituency</label>
-              {showConstituencyDropdown && (
-                <div 
-                  style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} 
-                  onClick={() => setShowConstituencyDropdown(false)} 
-                />
-              )}
-              <input
-                type="text"
-                value={constituencySearchQuery}
-                placeholder="🔍 Type to search constituency..."
-                onChange={e => {
-                  setConstituencySearchQuery(e.target.value);
-                  setShowConstituencyDropdown(true);
-                }}
-                onFocus={() => setShowConstituencyDropdown(true)}
-                style={{ 
-                  background: '#0e0d24', 
-                  border: '1px solid var(--border-light)', 
-                  color: 'white', 
-                  padding: '10px 14px', 
-                  borderRadius: '8px', 
-                  fontWeight: '600',
-                  boxSizing: 'border-box',
-                  fontSize: '13.5px',
-                  width: '100%',
-                  position: 'relative',
-                  zIndex: 1000
-                }}
-              />
-              {showConstituencyDropdown && (() => {
-                const filtered = Object.keys(ALL_CONSTITUENCIES_DATA)
-                  .filter(c => c.toLowerCase().includes(constituencySearchQuery.toLowerCase()))
-                  .sort();
-                return (
-                  <div style={{ 
-                    position: 'absolute', 
-                    top: '100%', 
-                    left: 0, 
-                    right: 0, 
-                    background: '#0d0c22', 
-                    border: '1px solid rgba(255,255,255,0.15)', 
-                    borderRadius: '8px', 
-                    maxHeight: '220px', 
-                    overflowY: 'auto', 
-                    zIndex: 1001, 
-                    marginTop: '4px',
-                    boxShadow: '0 8px 16px rgba(0,0,0,0.5)'
-                  }}>
-                    {filtered.length > 0 ? (
-                      filtered.map(cName => (
-                        <div 
-                          key={cName}
-                          onClick={() => {
-                            setSelectedConstituency(cName);
-                            setConstituencySearchQuery(cName);
-                            setShowConstituencyDropdown(false);
-                          }}
-                          style={{
-                            padding: '10px 14px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            borderBottom: '1px solid rgba(255,255,255,0.05)',
-                            background: selectedConstituency === cName ? 'rgba(217, 119, 6, 0.2)' : 'transparent',
-                            textAlign: 'left'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                          onMouseLeave={e => e.currentTarget.style.background = selectedConstituency === cName ? 'rgba(217, 119, 6, 0.2)' : 'transparent'}
-                        >
-                          🏛️ {cName}
-                        </div>
-                      ))
-                    ) : (
-                      <div style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '12.5px', fontStyle: 'italic' }}>
-                        No constituency found
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
+            
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '12.5px', color: '#c7d2fe', fontWeight: 'bold' }}>Available Funds (MPLADS Ledger)</label>
@@ -792,133 +910,63 @@ function MPApp() {
         </div>
 
         {/* SECTION 2: SEARCH CONSTITUENCY VS SEARCH BY ISSUE */}
-        <div className="mp-dashboard-grid" style={{ marginBottom: '24px' }}>
+        {activeTab === 'grievances' && (
+          <div className="mp-dashboard-grid" style={{ marginBottom: '24px' }}>
           
           {/* Left Block: Search Panel */}
           <div className="form-card" style={{ padding: '24px 20px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <h4 style={{ color: 'white', margin: 0, fontSize: '14px', fontWeight: 'bold' }}>🔎 Search & Filter Workspace</h4>
             
-            <div style={{ display: 'flex', border: '1px solid var(--border-light)', borderRadius: '8px', overflow: 'hidden' }}>
-              <button
-                onClick={() => setSearchMode('constituency')}
-                style={{ flex: 1, padding: '8px', background: searchMode === 'constituency' ? 'rgba(217, 119, 6, 0.15)' : 'transparent', color: searchMode === 'constituency' ? '#fbbf24' : '#8e90b3', border: 'none', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
-              >
-                By Constituency
-              </button>
-              <button
-                onClick={() => setSearchMode('issue')}
-                style={{ flex: 1, padding: '8px', background: searchMode === 'issue' ? 'rgba(217, 119, 6, 0.15)' : 'transparent', color: searchMode === 'issue' ? '#fbbf24' : '#8e90b3', border: 'none', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}
-              >
-                By Issue/Query
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '11.5px', color: '#c7d2fe', fontWeight: 'bold' }}>🔍 Text Keyword Search</label>
+              <input
+                type="text"
+                value={searchKeyword}
+                placeholder="Type to filter concerns (e.g. road, pipe)..."
+                onChange={e => setSearchKeyword(e.target.value)}
+                style={{
+                  background: '#0e0d24',
+                  border: '1px solid var(--border-light)',
+                  color: 'white',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  fontWeight: '600'
+                }}
+              />
             </div>
 
-            {searchMode === 'constituency' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
-                <label style={{ fontSize: '11px', color: '#8e90b3' }}>Constituency Name</label>
-                {showSearchConstituencyDropdown && (
-                  <div 
-                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} 
-                    onClick={() => setShowSearchConstituencyDropdown(false)} 
-                  />
-                )}
-                <input
-                  type="text"
-                  value={searchConstituencyQuery}
-                  placeholder="🔍 Type to search constituency..."
-                  onChange={e => {
-                    setSearchConstituencyQuery(e.target.value);
-                    setShowSearchConstituencyDropdown(true);
-                  }}
-                  onFocus={() => setShowSearchConstituencyDropdown(true)}
-                  style={{ 
-                    background: '#0e0d24', 
-                    border: '1px solid var(--border-light)', 
-                    color: 'white', 
-                    padding: '8px 12px', 
-                    borderRadius: '6px', 
-                    fontSize: '13px',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    position: 'relative',
-                    zIndex: 1000
-                  }}
-                />
-                {showSearchConstituencyDropdown && (() => {
-                  const filtered = Object.keys(ALL_CONSTITUENCIES_DATA)
-                    .filter(c => c.toLowerCase().includes(searchConstituencyQuery.toLowerCase()))
-                    .sort();
-                  return (
-                    <div style={{ 
-                      position: 'absolute', 
-                      top: '100%', 
-                      left: 0, 
-                      right: 0, 
-                      background: '#0d0c22', 
-                      border: '1px solid rgba(255,255,255,0.15)', 
-                      borderRadius: '8px', 
-                      maxHeight: '200px', 
-                      overflowY: 'auto', 
-                      zIndex: 1001, 
-                      marginTop: '4px',
-                      boxShadow: '0 8px 16px rgba(0,0,0,0.5)'
-                    }}>
-                      {filtered.length > 0 ? (
-                        filtered.map(cName => (
-                          <div 
-                            key={cName}
-                            onClick={() => {
-                              setSelectedConstituency(cName);
-                              setSearchConstituencyName(cName);
-                              setSearchConstituencyQuery(cName);
-                              setShowSearchConstituencyDropdown(false);
-                            }}
-                            style={{
-                              padding: '8px 12px',
-                              color: 'white',
-                              cursor: 'pointer',
-                              fontSize: '12.5px',
-                              fontWeight: '600',
-                              borderBottom: '1px solid rgba(255,255,255,0.05)',
-                              background: selectedConstituency === cName ? 'rgba(217, 119, 6, 0.2)' : 'transparent',
-                              textAlign: 'left'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                            onMouseLeave={e => e.currentTarget.style.background = selectedConstituency === cName ? 'rgba(217, 119, 6, 0.2)' : 'transparent'}
-                          >
-                            🏛️ {cName}
-                          </div>
-                        ))
-                      ) : (
-                        <div style={{ padding: '10px', color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic' }}>
-                          No constituency found
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', color: '#8e90b3' }}>Select Category</label>
-                <select
-                  value={searchIssueQuery}
-                  onChange={e => setSearchIssueQuery(e.target.value)}
-                  style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold' }}
-                >
-                  <option value="water">💧 Water & Sanitation</option>
-                  <option value="roads">🛣️ Roads & Transport</option>
-                  <option value="education">🎓 Education & Schools</option>
-                  <option value="health">🏥 Healthcare Clinics</option>
-                  <option value="power">⚡ Power & Electricity</option>
-                  <option value="agriculture">🌾 Agriculture & Irrigation</option>
-                  <option value="safety">🛡️ Public Safety & Police</option>
-                  <option value="environment">🌳 Environment & Parks</option>
-                  <option value="welfare">👥 Social Welfare & Pensions</option>
-                  <option value="housing">🏢 Housing & Urban Dev</option>
-                </select>
-              </div>
-            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '11.5px', color: '#c7d2fe', fontWeight: 'bold' }}>🏷️ Category Filter</label>
+              <select
+                value={selectedCategoryFilter}
+                onChange={e => setSelectedCategoryFilter(e.target.value)}
+                style={{
+                  background: '#0e0d24',
+                  border: '1px solid var(--border-light)',
+                  color: 'white',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">📂 All Categories</option>
+                <option value="water">💧 Water & Sanitation</option>
+                <option value="roads">🛣️ Roads & Transport</option>
+                <option value="education">🎓 Education & Schools</option>
+                <option value="health">🏥 Healthcare Clinics</option>
+                <option value="power">⚡ Power & Electricity</option>
+                <option value="agriculture">🌾 Agriculture & Irrigation</option>
+                <option value="safety">🛡️ Public Safety & Police</option>
+                <option value="environment">🌳 Environment & Parks</option>
+                <option value="welfare">👥 Social Welfare & Pensions</option>
+                <option value="housing">🏢 Housing & Urban Dev</option>
+              </select>
+            </div>
 
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               
@@ -1235,9 +1283,11 @@ function MPApp() {
             </div>
           </div>
         </div>
+        )}
 
         {/* SECTION 3: MANAGER APPROVED ACTION PLAN & BUDGET ALLOCATION */}
-        <div className="form-card" style={{ padding: '24px 30px', textAlign: 'left', marginBottom: '32px' }}>
+        {activeTab === 'budget' && (
+          <div className="form-card" style={{ padding: '24px 30px', textAlign: 'left', marginBottom: '32px' }}>
           <h3 style={{ color: 'white', fontSize: '1.25rem', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Layers size={22} style={{ color: '#2dd4bf' }} />
             <span>Approved Development Action Plan & Funding Allocations</span>
@@ -1270,26 +1320,7 @@ function MPApp() {
                 <p style={{ color: 'var(--text-desc)', fontSize: '12.5px', margin: 0 }}>{approvedPlan.summary}</p>
               </div>
 
-              {aiActionAuditReport && (
-                <div style={{
-                  background: 'rgba(99, 102, 241, 0.08)',
-                  border: '1px solid rgba(99, 102, 241, 0.3)',
-                  borderRadius: '8px',
-                  padding: '16px 20px',
-                  fontSize: '12.5px',
-                  color: '#c7d2fe',
-                  lineHeight: '1.5',
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
-                }}>
-                  <h4 style={{ margin: '0 0 10px 0', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 'bold' }}>
-                    <Sparkles size={16} />
-                    <span>🤖 Live Parliamentary Action & Grievance Alignment Audit:</span>
-                  </h4>
-                  <div style={{ whiteSpace: 'pre-line' }}>
-                    {aiActionAuditReport}
-                  </div>
-                </div>
-              )}
+
 
               {/* Progress Tracker Visual Timeline */}
               <div>
@@ -1400,6 +1431,51 @@ function MPApp() {
             </div>
           )}
         </div>
+        )}
+
+        {/* TAB 3: AI ALIGNMENT AUDITS */}
+        {activeTab === 'audits' && (
+          <div className="form-card" style={{ padding: '24px 30px', textAlign: 'left', marginBottom: '32px' }}>
+            <h3 style={{ color: 'white', fontSize: '1.25rem', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={22} style={{ color: '#818cf8' }} />
+              <span>AI Constituency Planning Alignment & Audit Desk</span>
+            </h3>
+            <p style={{ color: 'var(--text-desc)', fontSize: '13px', marginBottom: '20px' }}>
+              Automatically verifies your legislative actions (parliamentary questions, MPLADS budget releases) against the real-time ground truth of citizen grievances.
+            </p>
+            
+            {aiActionAuditReport ? (
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.08)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+                borderRadius: '8px',
+                padding: '20px 24px',
+                fontSize: '13px',
+                color: '#c7d2fe',
+                lineHeight: '1.6',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+              }}>
+                <h4 style={{ margin: '0 0 12px 0', color: '#818cf8', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 'bold' }}>
+                  <Sparkles size={18} />
+                  <span>🤖 Live Parliamentary Action & Grievance Alignment Audit Report:</span>
+                </h4>
+                <div style={{ whiteSpace: 'pre-line' }}>
+                  {aiActionAuditReport}
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '12px', background: 'rgba(0,0,0,0.1)' }}>
+                <Sparkles size={28} style={{ color: 'rgba(255,255,255,0.15)', marginBottom: '8px' }} />
+                <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', margin: 0 }}>
+                  No active audit report generated yet.
+                </p>
+                <p style={{ color: 'var(--text-desc)', fontSize: '11px', marginTop: '4px' }}>
+                  Audits trigger automatically when you voice constituency concerns in parliament or allocate funding to approved public work steps.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       <footer className="footer no-print" style={{ marginTop: '40px' }}>
