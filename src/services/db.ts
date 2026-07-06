@@ -60,7 +60,12 @@ try {
       console.log("Firestore initialized with multi-tab persistent offline cache.");
     } catch (e) {
       console.warn("Failed to initialize persistent cache, falling back to standard Firestore:", e);
-      db = getFirestore(app);
+      try {
+        const backupApp = initializeApp(config, "jansetu_backup");
+        db = getFirestore(backupApp);
+      } catch (backupErr) {
+        console.error("Failed to initialize standard backup Firestore:", backupErr);
+      }
     }
   } else {
     console.log("Using dummy Firebase keys. Falling back to local storage emulator.");
