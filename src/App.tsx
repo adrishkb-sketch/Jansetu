@@ -805,6 +805,17 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
   const [location, setLocation] = useState<Location | null>(null);
   const [address, setAddress] = useState('');
   const apiKey = localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg';
+  const [detectedConstituency, setDetectedConstituency] = useState<string>('');
+  const [inspectingPhotoItem, setInspectingPhotoItem] = useState<SubmissionItem | null>(null);
+
+  useEffect(() => {
+    if (location) {
+      const conName = getConstituencyOfLocation(location.lat, location.lng, address);
+      setDetectedConstituency(conName);
+    } else {
+      setDetectedConstituency('');
+    }
+  }, [location, address]);
 
   // New structured metadata states
   const [category, setCategory] = useState('others');
@@ -1958,6 +1969,9 @@ JSON:`
             </span>
             <h3 style={{ marginTop: '12px', color: 'white' }}>"{petitionTicket.aiOverview?.brief || petitionTicket.category}"</h3>
             <p style={{ fontSize: '13px', color: '#c5c7e6', margin: '6px 0 0' }}>📍 Address: {petitionTicket.address}</p>
+            {petitionTicket.constituency && (
+              <p style={{ fontSize: '13px', color: '#818cf8', margin: '4px 0 0' }}>🏛️ Constituency: <strong>{petitionTicket.constituency}</strong></p>
+            )}
             <p style={{ fontSize: '13px', color: '#a5b4fc', margin: '4px 0 0' }}>
               Current Signatures: <strong>{petitionTicket.upvotes || 1} local residents</strong>
             </p>
@@ -2384,6 +2398,26 @@ JSON:`
               <p className={address ? 'address-text' : 'address-text placeholder'}>
                 {address || 'No location selected. Please tap your location on the map below or click Auto-Detect.'}
               </p>
+              {detectedConstituency && (
+                <div style={{ 
+                  marginTop: '10px', 
+                  fontSize: '13px', 
+                  color: '#818cf8', 
+                  fontWeight: 'bold', 
+                  background: 'rgba(99, 102, 241, 0.1)', 
+                  padding: '8px 12px', 
+                  borderRadius: '6px', 
+                  border: '1px solid rgba(99, 102, 241, 0.2)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <span>🏛️ Detected Constituency:</span>
+                  <span style={{ color: 'white', background: '#4f46e5', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                    {detectedConstituency}
+                  </span>
+                </div>
+              )}
             </div>
  
             <GoogleMapComponent
@@ -2944,55 +2978,80 @@ JSON:`
                             )}
                           </div>
                         )}
-
                         {item.type === 'photo' && (
-                          <div className="photo-item-wrapper" style={{ position: 'relative' }}>
-                            <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-                              <img src={item.fileUrl} alt={item.fileName} className="photo-preview-thumbnail" style={{ display: 'block', width: '100%', borderRadius: '6px' }} />
-                              {item.boundingBoxes && item.boundingBoxes.map((box, idx) => (
-                                <div
-                                  key={idx}
-                                  style={{
-                                    position: 'absolute',
-                                    border: '2px solid #ef4444',
-                                    background: 'rgba(239, 68, 68, 0.15)',
-                                    left: `${box.x}%`,
-                                    top: `${box.y}%`,
-                                    width: `${box.width}%`,
-                                    height: `${box.height}%`,
-                                    zIndex: 10,
-                                    pointerEvents: 'none',
-                                    boxShadow: '0 0 8px rgba(239, 68, 68, 0.5)'
-                                  }}
-                                >
-                                  <span style={{
-                                    position: 'absolute',
-                                    top: '-18px',
-                                    left: '-2px',
-                                    background: '#ef4444',
-                                    color: 'white',
-                                    fontSize: '9px',
-                                    padding: '1px 4px',
-                                    borderRadius: '2px',
-                                    whiteSpace: 'nowrap',
-                                    fontWeight: 'bold',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
-                                  }}>
-                                    {box.label} ({box.severity})
-                                  </span>
+                          <div className="photo-item-wrapper" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', width: '100%' }}>
+                            <div 
+                              onClick={() => setInspectingPhotoItem(item)}
+                              style={{ 
+                                position: 'relative', 
+                                cursor: 'pointer', 
+                                flexShrink: 0,
+                                borderRadius: '8px',
+                                overflow: 'hidden',
+                                border: '2px solid rgba(255,255,255,0.1)',
+                                transition: 'all 0.2s ease',
+                                width: '80px',
+                                height: '80px'
+                              }}
+                              title="Click to view full image & AI boxes"
+                            >
+                              <img 
+                                src={item.fileUrl} 
+                                alt={item.fileName} 
+                                style={{ 
+                                  display: 'block', 
+                                  width: '100%', 
+                                  height: '100%', 
+                                  objectFit: 'cover' 
+                                }} 
+                              />
+                              {item.boundingBoxes && item.boundingBoxes.length > 0 && (
+                                <div style={{
+                                  position: 'absolute',
+                                  bottom: '4px',
+                                  right: '4px',
+                                  background: 'rgba(239, 68, 68, 0.95)',
+                                  color: 'white',
+                                  fontSize: '9px',
+                                  fontWeight: 'bold',
+                                  padding: '1px 4px',
+                                  borderRadius: '3px',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                                }}>
+                                  👁️ {item.boundingBoxes.length} Box
                                 </div>
-                              ))}
+                              )}
                             </div>
-                            <div className="photo-details" style={{ marginTop: '12px' }}>
-                              <span className="photo-name">{item.fileName}</span>
+                            <div className="photo-details" style={{ flexGrow: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                <span className="photo-name" style={{ fontWeight: 'bold', fontSize: '13px', color: '#fff' }}>{item.fileName}</span>
+                                {item.boundingBoxes && item.boundingBoxes.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setInspectingPhotoItem(item)}
+                                    style={{
+                                      background: 'rgba(99, 102, 241, 0.15)',
+                                      border: '1px solid rgba(99, 102, 241, 0.4)',
+                                      color: '#a5b4fc',
+                                      padding: '4px 10px',
+                                      borderRadius: '4px',
+                                      fontSize: '11px',
+                                      fontWeight: 'bold',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Inspect AI Analysis
+                                  </button>
+                                )}
+                              </div>
                               {item.processing ? (
-                                <div className="ocr-processing">
+                                <div className="ocr-processing" style={{ marginTop: '8px' }}>
                                   <Loader2 className="spinner" size={14} />
                                   <span>Analyzing details (Gemini Vision AI)...</span>
                                 </div>
                               ) : (
                                 item.content && (
-                                  <div className="ocr-text-box">
+                                  <div className="ocr-text-box" style={{ marginTop: '8px' }}>
                                     <span className="box-title">AI Image Description:</span>
                                     <p className="ocr-text">{"\"" + item.content + "\""}</p>
                                   </div>
@@ -3000,8 +3059,7 @@ JSON:`
                               )}
                             </div>
                           </div>
-                        )}
-                      </div>
+                        )}                      </div>
                     </div>
                   ))}
                 </div>
@@ -3313,6 +3371,12 @@ JSON:`
                 <span>Address:</span>
                 <strong className="summary-address">{address}</strong>
               </div>
+              {detectedConstituency && (
+                <div className="summary-row">
+                  <span>Constituency:</span>
+                  <strong>{detectedConstituency}</strong>
+                </div>
+              )}
               {associatedPlace && (
                 <div className="summary-row">
                   <span>Target Landmark:</span>
@@ -3422,6 +3486,247 @@ JSON:`
             }}>
               Return to Portal Home
             </button>
+          </div>
+        </div>
+      )}
+
+      {inspectingPhotoItem && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(5, 5, 12, 0.9)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 9999,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '24px'
+        }}>
+          <div style={{
+            background: '#0d0c22',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '16px',
+            maxWidth: '1000px',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.6)'
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px 24px',
+              borderBottom: '1px solid rgba(255,255,255,0.06)'
+            }}>
+              <div>
+                <h4 style={{ margin: 0, color: 'white', fontSize: '16px', fontWeight: 'bold' }}>
+                  🔎 AI Object Localization & Image Audit
+                </h4>
+                <span style={{ fontSize: '12px', color: '#8e90b3' }}>
+                  {inspectingPhotoItem.fileName}
+                </span>
+              </div>
+              <button
+                onClick={() => setInspectingPhotoItem(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#8e90b3',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(250px, 1.4fr) 1fr',
+              overflowY: 'auto',
+              flexGrow: 1
+            }} className="inspect-modal-body">
+              {/* Image Column */}
+              <div style={{
+                background: '#070614',
+                padding: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRight: '1px solid rgba(255,255,255,0.06)',
+                minHeight: '300px'
+              }}>
+                <div style={{
+                  position: 'relative',
+                  display: 'inline-block',
+                  maxWidth: '100%',
+                  maxHeight: '60vh'
+                }}>
+                  <img
+                    src={inspectingPhotoItem.fileUrl}
+                    alt="Inspecting"
+                    style={{
+                      display: 'block',
+                      maxWidth: '100%',
+                      maxHeight: '60vh',
+                      height: 'auto',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.1)'
+                    }}
+                  />
+                  {inspectingPhotoItem.boundingBoxes && inspectingPhotoItem.boundingBoxes.map((box, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        position: 'absolute',
+                        border: '3px solid #ef4444',
+                        background: 'rgba(239, 68, 68, 0.18)',
+                        left: `${box.x}%`,
+                        top: `${box.y}%`,
+                        width: `${box.width}%`,
+                        height: `${box.height}%`,
+                        zIndex: 10,
+                        pointerEvents: 'none',
+                        boxShadow: '0 0 12px rgba(239, 68, 68, 0.6)',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      <span style={{
+                        position: 'absolute',
+                        top: '-24px',
+                        left: '-3px',
+                        background: '#ef4444',
+                        color: 'white',
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        whiteSpace: 'nowrap',
+                        fontWeight: 'bold',
+                        boxShadow: '0 3px 6px rgba(0,0,0,0.4)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <span>{box.label}</span>
+                        <span style={{
+                          background: 'rgba(0,0,0,0.2)',
+                          padding: '1px 4px',
+                          borderRadius: '2px',
+                          fontSize: '8.5px'
+                        }}>
+                          {box.severity}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Data Detail Column */}
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
+                <div>
+                  <h5 style={{ margin: '0 0 8px', color: '#818cf8', fontSize: '13px', fontWeight: 'bold' }}>
+                    🤖 GEMINI VISION AI INSIGHTS
+                  </h5>
+                  <div style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    lineHeight: '1.6',
+                    color: 'white'
+                  }}>
+                    {inspectingPhotoItem.content}
+                  </div>
+                </div>
+
+                <div>
+                  <h5 style={{ margin: '0 0 10px', color: '#fbbf24', fontSize: '13px', fontWeight: 'bold' }}>
+                    🎯 LOCALIZED PROBLEMS ({inspectingPhotoItem.boundingBoxes?.length || 0})
+                  </h5>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {!inspectingPhotoItem.boundingBoxes || inspectingPhotoItem.boundingBoxes.length === 0 ? (
+                      <span style={{ fontSize: '12.5px', color: '#8e90b3' }}>
+                        No bounding boxes or localized issues resolved.
+                      </span>
+                    ) : (
+                      inspectingPhotoItem.boundingBoxes.map((box, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.05)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <div>
+                            <span style={{ color: 'white', fontWeight: 'bold', fontSize: '13px', display: 'block' }}>
+                              {box.label}
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#8e90b3' }}>
+                              Area coordinates: x:{box.x} y:{box.y} w:{box.width} h:{box.height}
+                            </span>
+                          </div>
+                          <span style={{
+                            background: box.severity.toLowerCase().includes('immediate') || box.severity.toLowerCase().includes('high') ? '#ef4444' : '#fbbf24',
+                            color: 'black',
+                            fontWeight: 'bold',
+                            fontSize: '10px',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            textTransform: 'uppercase'
+                          }}>
+                            {box.severity}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              padding: '16px 24px',
+              borderTop: '1px solid rgba(255,255,255,0.06)',
+              background: 'rgba(0,0,0,0.1)'
+            }}>
+              <button
+                type="button"
+                onClick={() => setInspectingPhotoItem(null)}
+                style={{
+                  background: 'var(--mp-grad)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Close Audit
+              </button>
+            </div>
           </div>
         </div>
       )}
