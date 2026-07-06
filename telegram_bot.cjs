@@ -49,13 +49,30 @@ const db = getFirestore(firebaseApp);
 const BOT_TOKEN = "8724667418:AAFSz9FkGQd0DlyCf6TnrsVKdke-4xnx1Aw";
 
 // Load backup/custom key config
-let geminiKeys = ['AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw'];
+let geminiKeys = [];
+try {
+  const filepath = path.join(__dirname, 'bot_config.json');
+  if (fs.existsSync(filepath)) {
+    const configData = JSON.parse(fs.readFileSync(filepath, 'utf8'));
+    if (configData.gemini_key) {
+      geminiKeys.push(configData.gemini_key);
+    }
+  }
+} catch (e) {
+  console.warn("Failed to read bot_config.json, using default fallback.", e.message);
+}
+
 try {
   const keyEnv = process.env.JANSETU_GEMINI_KEY || '';
   if (keyEnv) {
-    geminiKeys = keyEnv.split(/[\n,;]+/).map(k => k.trim()).filter(Boolean);
+    const envKeys = keyEnv.split(/[\n,;]+/).map(k => k.trim()).filter(Boolean);
+    geminiKeys = [...geminiKeys, ...envKeys];
   }
 } catch (e) {}
+
+if (geminiKeys.length === 0) {
+  geminiKeys.push('AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw');
+}
 
 // Sequence rotation helper for Gemini
 let currentKeyIndex = 0;
