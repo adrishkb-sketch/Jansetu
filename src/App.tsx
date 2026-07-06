@@ -3508,19 +3508,19 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
             <div className="modal-success-icon">
               <CheckCircle size={64} />
             </div>
-            <h3>{ticketType === 'suggestion' ? 'Suggestion Registered Successfully!' : 'Complaint Registered Successfully!'}</h3>
+            <h3>{ticketType === 'suggestion' ? '💡 Suggestion Registered!' : '✅ Issue Registered Successfully!'}</h3>
             <p className="modal-desc">
-              Your {ticketType} has been logged. The AI Engine will index, cluster, and present this to constituency officials.
+              Your {ticketType} is now live. The AI has classified it and it will appear in your constituency manager's inbox.
             </p>
 
             {submittedAsIncomplete && (
               <div className="incomplete-success-alert" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid #d97706', padding: '14px', borderRadius: '8px', margin: '16px 0', textAlign: 'left' }}>
                 <strong style={{ color: '#fbbf24', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                   <Sparkles size={14} />
-                  <span>Awaiting Community Contribution</span>
+                  <span>Needs Community Help to Complete</span>
                 </strong>
                 <span style={{ fontSize: '12px', color: '#fde68a', lineHeight: '1.4', display: 'block' }}>
-                  This {ticketType} has been registered with incomplete details. It is marked as <strong>"Needs More Info"</strong> and will be processed once additional evidence, suggestions, or descriptions are contributed by other citizens.
+                  Marked as <strong>"Needs More Info"</strong>. Share with neighbours to crowdfund the missing details so it can be approved.
                 </span>
               </div>
             )}
@@ -3528,98 +3528,147 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
             <div className="modal-summary-card">
               <h4>Submission Summary</h4>
               <div className="summary-row">
-                <span>Ticket Reference ID:</span>
-                <strong>{ticketId}</strong>
-              </div>
-              <div className="summary-row">
-                <span>Contact Info:</span>
-                <strong>{email || phone ? (email + " " + phone).trim() : 'Anonymous'}</strong>
-              </div>
-              <div className="summary-row">
-                <span>Coordinates:</span>
-                <strong>{location ? location.lat.toFixed(5) + ", " + location.lng.toFixed(5) : 'N/A'}</strong>
-              </div>
-              <div className="summary-row">
-                <span>Address:</span>
-                <strong className="summary-address">{address}</strong>
+                <span>Ticket ID:</span>
+                <strong style={{ fontFamily: 'monospace', fontSize: '13px' }}>{ticketId}</strong>
               </div>
               {detectedConstituency && (
                 <div className="summary-row">
-                  <span>Constituency:</span>
+                  <span>🏛️ Constituency:</span>
                   <strong>{detectedConstituency}</strong>
                 </div>
               )}
-              {associatedPlace && (
-                <div className="summary-row">
-                  <span>Target Landmark:</span>
-                  <strong>{associatedPlace.name} ({associatedPlace.type})</strong>
-                </div>
-              )}
               <div className="summary-row">
-                <span>Category Tag:</span>
+                <span>📍 Location:</span>
+                <strong className="summary-address">{address}</strong>
+              </div>
+              <div className="summary-row">
+                <span>Category:</span>
                 <strong style={{ textTransform: 'capitalize' }}>{category}</strong>
               </div>
               <div className="summary-row">
-                <span>Impact Scope:</span>
-                <strong>{scope.toUpperCase()} (~{aiPopulationAffected.toLocaleString()} citizens)</strong>
-              </div>
-              <div className="summary-items-grid">
-                <div className="grid-cell">
-                  <strong>{items.filter(i => i.type === 'text').length}</strong>
-                  <span>Texts</span>
-                </div>
-                <div className="grid-cell">
-                  <strong>{items.filter(i => i.type === 'audio').length}</strong>
-                  <span>Audios</span>
-                </div>
-                <div className="grid-cell">
-                  <strong>{items.filter(i => i.type === 'photo').length}</strong>
-                  <span>Photos</span>
-                </div>
-              </div>
-              
-              <div className="qr-container" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <img 
-                  src={"https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" + encodeURIComponent(`${window.location.origin}/track.html?id=${ticketId}`)}
-                  alt="Track Ticket QR" 
-                  style={{ width: '120px', height: '120px', borderRadius: '8px', border: '1px solid #4f46e5' }}
-                />
-                <span style={{ fontSize: '11px', color: '#8e90b3', fontWeight: '600' }}>Scan to track status live</span>
+                <span>Impact:</span>
+                <strong>~{aiPopulationAffected.toLocaleString()} citizens affected</strong>
               </div>
 
-              <div className="whatsapp-petition-card" style={{ marginTop: '20px', border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', borderRadius: '8px', padding: '14px', textAlign: 'left' }}>
-                <strong style={{ color: '#4ade80', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                  📢 WhatsApp Petition Generator
-                </strong>
-                <span style={{ fontSize: '12px', color: '#a7f3d0', lineHeight: '1.4', display: 'block', marginBottom: '10px' }}>
-                  Generate a shareable petition link. Neighbors must select their map location nearby to upvote/agree.
-                </span>
-                
+              {/* Action Buttons Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '16px' }}>
                 <button
                   type="button"
                   style={{
-                    width: '100%',
-                    padding: '10px',
-                    background: '#22c55e',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontWeight: 'bold',
+                    padding: '10px 12px',
+                    background: 'rgba(99,102,241,0.15)',
+                    border: '1px solid rgba(99,102,241,0.4)',
+                    color: '#a5b4fc',
+                    borderRadius: '8px',
+                    fontWeight: 700,
                     cursor: 'pointer',
-                    fontSize: '12.5px',
+                    fontSize: '12px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px'
+                    gap: '6px'
+                  }}
+                  onClick={() => window.open(`${window.location.origin}/track.html?id=${ticketId}`, '_blank')}
+                >
+                  📡 Track Live Status
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    padding: '10px 12px',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    color: '#e2e8f0',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
                   }}
                   onClick={() => {
-                    const text = `Hi neighbors! I have raised a ${ticketType === 'suggestion' ? 'proposal' : 'complaint'} on Jansetu regarding "${aiOverview?.brief || category}". We need community signatures to draw local MLA attention. Please upvote this petition here (must be within 2.0 km of the map location): ${window.location.origin}/complainant.html?petitionId=${ticketId}`;
-                    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-                    window.open(whatsappUrl, '_blank');
+                    const link = `${window.location.origin}/track.html?id=${ticketId}`;
+                    navigator.clipboard.writeText(link);
+                    alert('Tracking link copied! Share it to let others follow your complaint status.');
                   }}
                 >
-                  💬 Share Petition on WhatsApp Groups
+                  📋 Copy Tracking Link
                 </button>
+              </div>
+
+              {/* QR Code for tracking */}
+              <div className="qr-container" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`${window.location.origin}/track.html?id=${ticketId}`)}`}
+                  alt="Track Ticket QR" 
+                  style={{ width: '110px', height: '110px', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.4)' }}
+                />
+                <span style={{ fontSize: '11px', color: '#8e90b3', fontWeight: '600' }}>📡 QR → Track complaint status</span>
+              </div>
+
+              {/* Petition Sharing Section */}
+              <div style={{ marginTop: '16px', border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.06)', borderRadius: '10px', padding: '14px', textAlign: 'left' }}>
+                <strong style={{ color: '#4ade80', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  📢 Get Neighbour Signatures (Petition)
+                </strong>
+                <span style={{ fontSize: '11.5px', color: '#a7f3d0', lineHeight: '1.5', display: 'block', marginBottom: '10px' }}>
+                  Share this petition link with neighbours. When they open it, they'll see your issue and can <strong>upvote it to support your cause</strong> — but only if they're within 2 km of the issue location (prevents spam).
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      readOnly
+                      value={`${window.location.origin}/complainant.html?petitionId=${ticketId}`}
+                      style={{
+                        flex: 1,
+                        background: 'rgba(0,0,0,0.3)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: '#94a3b8',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        fontSize: '10.5px',
+                        fontFamily: 'monospace'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      style={{ flexShrink: 0, padding: '8px 12px', background: 'rgba(34,197,94,0.2)', border: '1px solid rgba(34,197,94,0.4)', color: '#4ade80', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '11px' }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/complainant.html?petitionId=${ticketId}`);
+                        alert('Petition link copied! Share it in WhatsApp groups or with neighbours.');
+                      }}
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      background: '#22c55e',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      fontSize: '12.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                    onClick={() => {
+                      const petitionLink = `${window.location.origin}/complainant.html?petitionId=${ticketId}`;
+                      const text = `🗳️ Community Issue Alert!\n\nI've filed a ${ticketType} on JanSetu about: "${aiOverview?.brief || category}"\n\n📍 Location: ${address}\n🏛️ Constituency: ${detectedConstituency || 'Local Area'}\n\n👉 Click this link to SUPPORT this issue (location verified — must be within 2 km):\n${petitionLink}\n\nEvery signature strengthens our case with the MP!`;
+                      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                    }}
+                  >
+                    💬 Share Petition on WhatsApp
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -3909,10 +3958,10 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
 
 function App() {
   const [selectedLang, setSelectedLang] = useState(getInitialLanguage);
+  const [liveStats, setLiveStats] = useState({ total: 0, constituencies: 0, citizens: 0, resolved: 0 });
 
   // Initialize Google Translate Widget dynamically
   useEffect(() => {
-    // Define the global callback function for Google Translate Element Init
     (window as any).googleTranslateElementInit = () => {
       new (window as any).google.translate.TranslateElement({
         pageLanguage: 'en',
@@ -3921,8 +3970,6 @@ function App() {
         autoDisplay: false
       }, 'google_translate_element');
     };
-
-    // Append Google Translate widget script script tag if it doesn't exist
     if (!document.getElementById('google-translate-script')) {
       const script = document.createElement('script');
       script.id = 'google-translate-script';
@@ -3930,6 +3977,16 @@ function App() {
       script.async = true;
       document.body.appendChild(script);
     }
+  }, []);
+
+  // Load live platform stats from Firestore
+  useEffect(() => {
+    getAllDemands().then(demands => {
+      const constituencies = new Set(demands.map((d: any) => d.constituency).filter(Boolean));
+      const citizens = demands.reduce((sum: number, d: any) => sum + (d.estimatedImpact || 1), 0);
+      const resolved = demands.filter((d: any) => ['completed', 'solved', 'funded', 'work_started'].includes(d.status)).length;
+      setLiveStats({ total: demands.length, constituencies: constituencies.size, citizens, resolved });
+    }).catch(() => {});
   }, []);
 
   const scrollToSection = (id: string) => {
@@ -3955,11 +4012,8 @@ function App() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            {/* Custom Translation Component */}
             <LanguageSelector selectedLang={selectedLang} setSelectedLang={setSelectedLang} />
-            
-            {/* Citizen Login Button moved to Header */}
-            <button 
+            <button
               className="btn-header-login"
               onClick={() => window.location.href = '/complainant.html?login=true'}
               title="Access your citizen profile and track submitted requests"
@@ -3967,7 +4021,6 @@ function App() {
               <User size={15} />
               <span>Citizen Login</span>
             </button>
-            
             <div className="status-badge">
               <span className="pulse-dot"></span>
               <span>AI Core Active</span>
@@ -3981,42 +4034,115 @@ function App() {
         <section className="hero container">
           <div className="hero-tagline">
             <Sparkles size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-            AI-POWERED CONSTITUENCY PLANNING PLATFORM
+            GOOGLE CLOUD BUILD WITH AI · TRACK 1: PEOPLE'S PRIORITIES
           </div>
           <h1>
-            Consolidating Public Demands for <br />
-            <span className="gradient-text">Data-Driven Governance</span>
+            Your Voice, Directly to <br />
+            <span className="gradient-text">Your Member of Parliament</span>
           </h1>
           <p className="hero-description">
-            Jansetu acts as a digital bridge connecting citizens, managers, and Members of Parliament. 
-            We ingest multi-lingual submissions via voice transcripts, document OCR, and mobile photos to aggregate local infrastructure needs and rank them using proximity-based spatial disparity analytics.
+            Jansetu is an AI-powered platform connecting citizens directly to their MPs. Submit issues by voice, photo, or text in any Indian language — AI clusters them, managers review them, and your MP acts on them with full data support.
           </p>
 
           <div className="hero-ctas">
             <button className="btn-hero-primary" onClick={() => scrollToSection('portals-grid')}>
-              <span>Enter Portals</span>
+              <span>Submit an Issue Now</span>
               <ArrowRight size={16} />
             </button>
-            <button className="btn-hero-secondary" onClick={() => scrollToSection('features-section')}>
-              <span>Explore Features</span>
+            <button className="btn-hero-secondary" onClick={() => scrollToSection('how-it-works')}>
+              <span>How It Works</span>
             </button>
           </div>
 
-          {/* ASCII Bridge Illustration */}
-          <div className="hero-ascii-container">
-            <pre className="hero-ascii">
-{`    +-------------------------------------------------------------+
-    |                     JANSETU SYSTEM BRIDGE                   |
-    |  [CITIZENS]  ===============>  [AI ENGINE]  ==============> [MP]  |
-    |  Voice / OCR                NLP Clustering            MPLADS |
-    +-------------------------------------------------------------+
-           | |                            | |                 | |
-    _______|_|____________________________|_|_________________|_|_______
-   /                                                                    \\
-  /   ||   ||   ||   ||   ||   ||   ||   ||   ||   ||   ||   ||   ||   \\
- (______________________________________________________________________)
-        [=]                          [=]                       [=]`}
-            </pre>
+          {/* Live Platform Stats Bar */}
+          <div style={{
+            display: 'flex',
+            gap: '0',
+            marginTop: '48px',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            flexWrap: 'wrap'
+          }}>
+            {[
+              { icon: '🗳️', label: 'Issues Filed', value: liveStats.total > 0 ? liveStats.total.toLocaleString() : '...', color: '#818cf8' },
+              { icon: '🏛️', label: 'Constituencies Active', value: liveStats.constituencies > 0 ? liveStats.constituencies.toLocaleString() : '...', color: '#34d399' },
+              { icon: '👥', label: 'Citizens Impacted', value: liveStats.citizens > 0 ? liveStats.citizens.toLocaleString() : '...', color: '#fbbf24' },
+              { icon: '✅', label: 'Issues Progressed', value: liveStats.resolved > 0 ? liveStats.resolved.toLocaleString() : '...', color: '#60a5fa' },
+            ].map((stat, i) => (
+              <div key={i} style={{
+                flex: '1',
+                minWidth: '140px',
+                padding: '20px 24px',
+                textAlign: 'center',
+                borderRight: i < 3 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+              }}>
+                <div style={{ fontSize: '22px', marginBottom: '6px' }}>{stat.icon}</div>
+                <div style={{ fontSize: '28px', fontWeight: 900, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
+                <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600, marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* How It Works — Visual Flow */}
+        <section className="container" id="how-it-works" style={{ padding: '60px 0 20px' }}>
+          <div className="section-title-wrapper">
+            <Sparkles size={18} className="section-icon" />
+            <h2>How JanSetu Works</h2>
+            <p>From a citizen's voice to a parliamentary action plan — in one connected system</p>
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '0',
+            marginTop: '32px',
+            position: 'relative'
+          }}>
+            {[
+              { step: '01', icon: '🗣️', title: 'Citizen Submits', desc: 'Voice, photo, or text in any Indian language via web or Telegram bot', color: '#818cf8' },
+              { step: '02', icon: '🤖', title: 'AI Analyses', desc: 'Gemini classifies, verifies, detects duplicates, and scores priority', color: '#c084fc' },
+              { step: '03', icon: '📋', title: 'Manager Reviews', desc: 'Constituency manager clusters issues, builds action plans, and approves', color: '#34d399' },
+              { step: '04', icon: '🏛️', title: 'MP Takes Action', desc: 'MP sees ranked issues with budget data and raises them in Parliament', color: '#fbbf24' },
+            ].map((s, i) => (
+              <div key={i} style={{
+                padding: '32px 24px',
+                textAlign: 'center',
+                position: 'relative',
+                background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.015)',
+                borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+              }}>
+                {i < 3 && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '-16px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    zIndex: 2,
+                    fontSize: '20px',
+                    color: 'rgba(255,255,255,0.2)',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>→</div>
+                )}
+                <div style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  background: `${s.color}18`,
+                  border: `2px solid ${s.color}44`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '26px',
+                  margin: '0 auto 16px'
+                }}>{s.icon}</div>
+                <div style={{ fontSize: '10px', color: s.color, fontWeight: 800, letterSpacing: '0.1em', marginBottom: '8px' }}>STEP {s.step}</div>
+                <h4 style={{ margin: '0 0 8px', color: 'white', fontSize: '15px', fontWeight: 700 }}>{s.title}</h4>
+                <p style={{ margin: 0, fontSize: '12px', color: '#8e90b3', lineHeight: 1.6 }}>{s.desc}</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -4029,20 +4155,21 @@ function App() {
                 <span className="dot yellow"></span>
                 <span className="dot green"></span>
               </div>
-              <span className="terminal-title">system_telemetry ~ bash</span>
+              <span className="terminal-title">jansetu_platform ~ live status</span>
             </div>
             <div className="terminal-body">
               <div className="terminal-row">
-                <span className="term-prompt">$</span> <span className="term-cmd">jansetu status --live</span>
+                <span className="term-prompt">$</span> <span className="term-cmd">jansetu status --live --all-nodes</span>
               </div>
               <div className="terminal-output">
-                <div>[+] STATUS       :: ACTIVE (Production node-01)</div>
-                <div>[+] CHANNELS     :: Web-App Ingestion, Telegram Bot (@jansetu_bot)</div>
-                <div>[+] INGESTION    :: Multi-Lingual Speech Decoder (22 scheduled languages)</div>
-                <div>[+] OCR PIPELINE :: Client-Side Tesseract.js Text Extractor</div>
-                <div>[+] SPATIAL      :: Google Maps API / Distance Proximity Matrix</div>
-                <div>[+] STATS        :: Citizens Connected: 48,290 | Demands Grouped: 2,410</div>
-                <div>[+] OPTIMIZATION :: MPLADS Fund Allocation Simulator Ready</div>
+                <div>[✓] STATUS       :: ACTIVE — Firebase Hosting (Production)</div>
+                <div>[✓] AI ENGINE    :: Google Gemini 2.5 Flash — Multi-key fallback active</div>
+                <div>[✓] CHANNELS     :: Web Portal + Telegram Bot (@jansetu_bot) + WhatsApp Petition Links</div>
+                <div>[✓] LANGUAGES    :: 23 Indian Languages — Live Speech Recognition + Auto-Translation</div>
+                <div>[✓] GEOSPATIAL   :: Google Maps + Places API — Hotspot Radius Clustering</div>
+                <div>[✓] LIVE STATS   :: Issues Filed: {liveStats.total} | Constituencies: {liveStats.constituencies} | Citizens Impacted: {liveStats.citizens.toLocaleString()}</div>
+                <div>[✓] MPLADS SIM   :: Fund Allocation Simulator — Constituency Budget Tracking Ready</div>
+                <div>[✓] COVERAGE     :: All 543 Lok Sabha Constituencies — Demographic + Census Data Loaded</div>
               </div>
             </div>
           </div>
@@ -4287,10 +4414,10 @@ function App() {
       <footer className="footer">
         <div className="container footer-content">
           <div className="footer-text">
-            <strong>Jansetu</strong> -- Bridging Citizens and Leaders through Intelligent Planning
+            <strong>Jansetu</strong> — Bridging Citizens and Elected Representatives through AI
           </div>
           <div className="footer-sub">
-            Built for MP Constituency Development Planning * Smart India Hackathon Track 1 * All Rights Reserved
+            🏆 Google Cloud Build with AI Hackathon · Track 1: People's Priorities · All 543 Lok Sabha Constituencies Supported
           </div>
           <GeminiKeysFooter />
         </div>

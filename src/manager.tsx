@@ -1209,11 +1209,44 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
         <div className="portal-header">
           <button type="button" className="btn-back" onClick={() => window.location.href = '/'}>
             <ArrowLeft size={18} />
-            <span>Back to Roles</span>
+            <span>Back to Home</span>
           </button>
-          <h2>Citizen Issues Dashboard</h2>
-          <p className="portal-subtitle">Review citizen submissions, local deficits table, and hotspots map</p>
+          <h2>Constituency Manager Dashboard</h2>
+          <p className="portal-subtitle">Review citizen issues, analyze infrastructure gaps, and build action plans for your MP</p>
         </div>
+
+        {/* Live Stats Hero Bar */}
+        {(() => {
+          const constituencyDemands = demands.filter((d: any) => !selectedGlobalConstituency || d.constituency === selectedGlobalConstituency);
+          const pending = constituencyDemands.filter((d: any) => d.status === 'pending' || d.status === 'needs_info').length;
+          const verified = constituencyDemands.filter((d: any) => !['pending','needs_info'].includes(d.status)).length;
+          const totalImpact = constituencyDemands.reduce((s: number, d: any) => s + (d.estimatedImpact || 1), 0);
+          return (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+              gap: '12px',
+              marginBottom: '24px',
+              padding: '16px',
+              background: 'rgba(20,184,166,0.05)',
+              border: '1px solid rgba(20,184,166,0.15)',
+              borderRadius: '12px'
+            }}>
+              {[
+                { label: 'Total Issues', value: constituencyDemands.length, color: '#2dd4bf', icon: '🗳️' },
+                { label: 'Needs Review', value: pending, color: '#fbbf24', icon: '⏳' },
+                { label: 'Progressed', value: verified, color: '#34d399', icon: '✅' },
+                { label: 'Citizens Impacted', value: totalImpact.toLocaleString(), color: '#818cf8', icon: '👥' },
+              ].map((stat, i) => (
+                <div key={i} style={{ textAlign: 'center', padding: '10px' }}>
+                  <div style={{ fontSize: '18px', marginBottom: '4px' }}>{stat.icon}</div>
+                  <div style={{ fontSize: '22px', fontWeight: 900, color: stat.color }}>{stat.value}</div>
+                  <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Tab selection menu */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px', flexWrap: 'wrap' }} className="no-print">
@@ -1235,7 +1268,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
               gap: '8px'
             }}
           >
-            📊 Dashboard & Hotspots
+            📊 Overview & Hotspots
           </button>
           <button
             type="button"
@@ -1255,7 +1288,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
               gap: '8px'
             }}
           >
-            📋 Complaints Registry
+            📋 Citizen Issues Inbox
           </button>
           <button
             type="button"
@@ -1276,7 +1309,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
             }}
           >
             <Brain size={16} />
-            AI Thematic Clustering
+            Smart Issue Grouping
           </button>
           <button
             type="button"
@@ -1297,7 +1330,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
             }}
           >
             <FileBarChart size={16} />
-            Demographic Gaps
+            Constituency Health Check
           </button>
           <button
             type="button"
@@ -1318,7 +1351,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
             }}
           >
             <FileText size={16} />
-            Lok Sabha Proposal
+            Action Plan Builder
           </button>
           <button
             type="button"
@@ -1339,7 +1372,7 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
             }}
           >
             <CheckCircle size={16} />
-            Progress Tracking
+            Plan Progress Tracker
           </button>
         </div>
 

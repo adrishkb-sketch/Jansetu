@@ -500,11 +500,49 @@ function MPApp() {
         <div className="portal-header" style={{ textAlign: 'left', marginBottom: '24px' }}>
           <button type="button" className="btn-back" onClick={() => window.location.href = '/'}>
             <ArrowLeft size={18} />
-            <span>Back to Roles</span>
+            <span>Back to Home</span>
           </button>
           <h2>Parliamentary Leadership Workspace</h2>
           <p className="portal-subtitle">Configure regional constituency funds, review clubbed citizen grievances, draft speech scripts, and authorize project budgets</p>
         </div>
+
+        {/* MP Hero Stats Bar */}
+        {(() => {
+          const constDemands = matchingDemands;
+          const pending = constDemands.filter((d: any) => ['pending','needs_info'].includes(d.status)).length;
+          const resolved = constDemands.filter((d: any) => d.status === 'completed').length;
+          const totalImpact = constDemands.reduce((s: number, d: any) => s + (d.estimatedImpact || 1), 0);
+          return (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '0',
+              marginBottom: '24px',
+              background: 'rgba(217,119,6,0.05)',
+              border: '1px solid rgba(217,119,6,0.2)',
+              borderRadius: '14px',
+              overflow: 'hidden'
+            }}>
+              {[
+                { label: 'Open Issues', value: pending, color: '#fbbf24', icon: '⏳', sub: 'Awaiting action' },
+                { label: 'Citizens Impacted', value: totalImpact.toLocaleString(), color: '#818cf8', icon: '👥', sub: selectedConstituency },
+                { label: 'Completed', value: resolved, color: '#34d399', icon: '✅', sub: 'Issues resolved' },
+                { label: 'MPLADS Funds Left', value: `₹${(mpladsFunds/100000).toFixed(1)}L`, color: '#f87171', icon: '💰', sub: 'Available budget' },
+              ].map((stat, i) => (
+                <div key={i} style={{
+                  textAlign: 'center',
+                  padding: '20px 16px',
+                  borderRight: i < 3 ? '1px solid rgba(217,119,6,0.12)' : 'none'
+                }}>
+                  <div style={{ fontSize: '20px', marginBottom: '6px' }}>{stat.icon}</div>
+                  <div style={{ fontSize: '26px', fontWeight: 900, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600, marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</div>
+                  <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px' }}>{stat.sub}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* SECTION 1: CONSTITUENCY SETUP & LEDGER SETTINGS */}
         <div className="form-card" style={{ padding: '24px 30px', marginBottom: '24px', textAlign: 'left' }}>

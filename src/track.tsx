@@ -471,24 +471,62 @@ function TrackComplaint() {
           </div>
         </div>
 
-        {/* ── QR & Share ── */}
-        <div className="track-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px' }}>🔍 Share this Tracking Page</div>
-          <img src={qrUrl} alt="Tracking QR Code" style={{ width: '140px', height: '140px', borderRadius: '12px', border: '2px solid rgba(99,102,241,0.4)', marginBottom: '10px' }} />
-          <div style={{ fontSize: '11px', color: '#8e90b3', marginBottom: '12px' }}>Scan to open this tracking page on any device</div>
+        {/* ── QR & Share (Tracking) ── */}
+        <div className="track-card" style={{ textAlign: 'center', marginBottom: '16px' }}>
+          <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px' }}>📡 Share Tracking Page</div>
+          <img src={qrUrl} alt="Tracking QR Code" style={{ width: '130px', height: '130px', borderRadius: '12px', border: '2px solid rgba(99,102,241,0.4)', marginBottom: '10px' }} />
+          <div style={{ fontSize: '11px', color: '#8e90b3', marginBottom: '12px' }}>Scan to view complaint progress on any device</div>
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={copyId} style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', color: '#a5b4fc', borderRadius: '8px', padding: '8px 16px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}>
-              {copied ? '✓ Copied!' : '📋 Copy ID'}
+            <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert('Tracking link copied!'); }} style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', color: '#a5b4fc', borderRadius: '8px', padding: '8px 16px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}>
+              📋 Copy Tracking Link
             </button>
             <button onClick={() => {
-              const text = `My Jansetu complaint (${complaintId}) status: ${statusMeta.label}. Track live: ${window.location.href}`
+              const text = `My JanSetu complaint (${complaintId}) status: ${statusMeta.label}. Track live: ${window.location.href}`
               window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank')
             }} style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', color: '#4ade80', borderRadius: '8px', padding: '8px 16px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}>
-              💬 Share on WhatsApp
+              💬 Share Status on WhatsApp
             </button>
           </div>
         </div>
 
+        {/* ── Petition Upvote Link ── */}
+        <div className="track-card" style={{ background: 'rgba(34,197,94,0.04)', borderColor: 'rgba(34,197,94,0.2)' }}>
+          <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px', color: '#4ade80', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            📢 Get Neighbour Support (Community Petition)
+          </div>
+          <p style={{ fontSize: '12px', color: '#86efac', lineHeight: 1.7, marginBottom: '14px' }}>
+            Share the petition link below with your neighbours. When they open it, they'll see your issue on a map and can <strong>sign the petition by verifying they live nearby</strong> (within 2 km). More signatures = stronger case for your MP to act.
+          </p>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+            <input
+              readOnly
+              value={`${window.location.origin}/complainant.html?petitionId=${complaintId}`}
+              style={{ flex: 1, minWidth: '200px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', padding: '8px 10px', borderRadius: '6px', fontSize: '10.5px', fontFamily: 'monospace' }}
+            />
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/complainant.html?petitionId=${complaintId}`);
+                alert('Petition link copied! Share it with your neighbours.');
+              }}
+              style={{ flexShrink: 0, background: 'rgba(34,197,94,0.2)', border: '1px solid rgba(34,197,94,0.4)', color: '#4ade80', borderRadius: '6px', padding: '8px 12px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}
+            >
+              📋 Copy
+            </button>
+          </div>
+          <button
+            onClick={() => {
+              const petitionLink = `${window.location.origin}/complainant.html?petitionId=${complaintId}`;
+              const text = `🗳️ I need your support!\n\nI've filed an issue with JanSetu: "${complaint.aiOverview?.brief || complaint.category}"\n\n📍 ${complaint.address}\n🏛️ ${complaint.constituency || 'Local Area'}\n\n👉 Click this link to support this issue (you must be within 2 km to verify your signature):\n${petitionLink}\n\nLet's raise this together with our MP!`;
+              window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+            }}
+            style={{ width: '100%', padding: '10px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          >
+            💬 Share Petition on WhatsApp — Get More Signatures
+          </button>
+          <div style={{ marginTop: '10px', fontSize: '11px', color: '#6b7280', textAlign: 'center' }}>
+            👍 {complaint.upvotes || 1} neighbour{(complaint.upvotes || 1) !== 1 ? 's' : ''} already signed this petition
+          </div>
+        </div>
       </div>
     </div>
   )
