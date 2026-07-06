@@ -1910,6 +1910,10 @@ JSON:`
               ? "Track your submitted complaints/suggestions, claim achievements, and view civic points" 
               : "Submit infrastructure and developmental demands directly into the constituency registry"}
           </p>
+          <div style={{ marginTop: '8px', fontSize: '10.5px', color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(99,102,241,0.1)', padding: '4px 8px', borderRadius: '4px', width: 'fit-content' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }}></span>
+            <span>Active Gemini API Key: <strong>{localStorage.getItem('jansetu_gemini_key') ? `${localStorage.getItem('jansetu_gemini_key')?.substring(0, 10)}...${localStorage.getItem('jansetu_gemini_key')?.substring(localStorage.getItem('jansetu_gemini_key')!.length - 4)}` : 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw (Default)'}</strong></span>
+          </div>
         </div>
         <button 
           type="button" 
