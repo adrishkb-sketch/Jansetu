@@ -16,7 +16,6 @@ import {
   Info,
   MapPin
 } from 'lucide-react';
-import Tesseract from 'tesseract.js';
 import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
 import { getConstituencyOfLocation } from './services/constituency_datasets';
 
@@ -1604,7 +1603,7 @@ JSON:`
                 }
               },
               {
-                text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight, blocked drainage), output a detailed description of the problem in English. In addition, localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`
+                text: `You are the AI engine of Jansetu. Analyze this image of a public infrastructure or community issue. If you can identify a clear civic or infrastructure issue (e.g. potholes, trash pile, water leak, broken streetlight, blocked drainage), output a detailed description of the problem in English. In your description, make sure to describe both the visual nature of the damage (e.g. size, severity, environment) and read any visible text, signs, placards, banners, or markers in the image that might provide context (e.g. names of roads, projects, or municipalities). In addition, localize the key objects representing the damage or issue by generating bounding box estimates representing percentage coordinates (0 to 100). For each box, provide: x, y, width, height (as integers), label (e.g., "pothole", "garbage"), and severity (e.g. "Immediate Attention", "Moderate"). If the image is ambiguous, lacks context, or does not clearly show a community/infrastructure issue, set 'requiresMoreContext' to true. Output strictly in JSON format: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`
               }
             ]
           }]
@@ -1656,22 +1655,18 @@ JSON:`
       setImageContextWarning(false);
 
       try {
-        const ocrResult = await Tesseract.recognize(
-          file,
-          'eng+hin',
-          { logger: m => console.log(m) }
-        );
-        const cleanedText = ocrResult.data.text.trim();
-
-        if (cleanedText.length > 15) {
+        const base64Data = await fileToBase64(file);
+        const geminiResult = await runGeminiImageAnalysis(base64Data, file.type);
+        
+        if (geminiResult && geminiResult.description && !geminiResult.requiresMoreContext) {
           let nextItems: SubmissionItem[] = [];
           setItems(prev => {
             nextItems = prev.map(item => {
               if (item.id === id) {
                 return {
                   ...item,
-                  ocrText: cleanedText,
-                  content: `OCR Text: ${cleanedText}`,
+                  content: geminiResult.description,
+                  boundingBoxes: geminiResult.boundingBoxes,
                   processing: false
                 };
               }
@@ -1681,39 +1676,17 @@ JSON:`
           });
           setTimeout(() => triggerGlobalAIAnalysis(nextItems), 50);
         } else {
-          const base64Data = await fileToBase64(file);
-          const geminiResult = await runGeminiImageAnalysis(base64Data, file.type);
-          
-          if (geminiResult && geminiResult.description && !geminiResult.requiresMoreContext) {
-            let nextItems: SubmissionItem[] = [];
-            setItems(prev => {
-              nextItems = prev.map(item => {
-                if (item.id === id) {
-                  return {
-                    ...item,
-                    content: geminiResult.description,
-                    boundingBoxes: geminiResult.boundingBoxes,
-                    processing: false
-                  };
-                }
-                return item;
-              });
-              return nextItems;
-            });
-            setTimeout(() => triggerGlobalAIAnalysis(nextItems), 50);
-          } else {
-            setItems(prev => prev.map(item => {
-              if (item.id === id) {
-                return {
-                  ...item,
-                  content: 'Image uploaded. Please add more context.',
-                  processing: false
-                };
-              }
-              return item;
-            }));
-            setImageContextWarning(true);
-          }
+          setItems(prev => prev.map(item => {
+            if (item.id === id) {
+              return {
+                ...item,
+                content: 'Image uploaded. Please add more context.',
+                processing: false
+              };
+            }
+            return item;
+          }));
+          setImageContextWarning(true);
         }
       } catch (err) {
         console.error('Image analysis pipeline failed:', err);
@@ -2805,7 +2778,7 @@ JSON:`
               {/* Photo Evidence Upload */}
               <div className="input-box-sub" style={{ marginTop: '20px' }}>
                 <label>Upload Photo Attachments</label>
-                <p className="photo-info">Images containing text will be processed with OCR automatically.</p>
+                <p className="photo-info">Uploaded images will be analyzed by Gemini Vision AI to identify civic issues and extract text.</p>
                 <div className="photo-upload-zone">
                   <input
                     type="file"
@@ -3018,7 +2991,7 @@ JSON:`
                               {item.processing ? (
                                 <div className="ocr-processing">
                                   <Loader2 className="spinner" size={14} />
-                                  <span>Extracting text (OCR/AI)...</span>
+                                  <span>Analyzing details (Gemini Vision AI)...</span>
                                 </div>
                               ) : (
                                 item.content && (
