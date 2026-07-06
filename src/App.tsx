@@ -958,10 +958,10 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     localStorage.setItem('jansetu_upvoted_ids', JSON.stringify(nextVoted));
   };
 
-  // Query hotspots when location changes — only truly unverified (pending/needs_info) issues
+  // Query hotspots when location or constituency changes — only truly unverified (pending/needs_info) issues
   useEffect(() => {
     if (location) {
-      getNearbyHotspots(location.lat, location.lng).then(data => {
+      getNearbyHotspots(location.lat, location.lng, detectedConstituency || undefined).then(data => {
         // Strict whitelist: only show issues not yet processed by manager
         const unverified = data.filter((h: any) =>
           h.status === 'pending' || h.status === 'needs_info'
@@ -969,7 +969,7 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
         setNearbyHotspots(unverified);
       });
     }
-  }, [location]);
+  }, [location, detectedConstituency]);
 
   // Synchronize map circle based on active location and population scope
   useEffect(() => {
