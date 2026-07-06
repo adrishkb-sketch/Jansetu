@@ -22,7 +22,8 @@ import {
   Bot,
   Activity
 } from 'lucide-react';
-import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands } from './services/db';
+import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getAllDemands, db } from './services/db';
+import { doc, setDoc } from 'firebase/firestore';
 import { getConstituencyOfLocation, ALL_CONSTITUENCIES_DATA } from './services/constituency_datasets';
 import { fetchGemini, fetchGeminiVision, detectMimeType } from './services/gemini_api';
 
@@ -4433,13 +4434,27 @@ export function GeminiKeysFooter() {
   });
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const cleaned = keysInput
       .split(/[\n\r,;]+/)
       .map(k => k.trim())
       .filter(k => k.length > 0)
       .join('\n');
     localStorage.setItem('jansetu_gemini_key', cleaned || 'AIzaSyDummyKeyForJansetuFastPrototypeScale');
+    
+    // Save to Firestore so that the Vercel bot receives the key immediately
+    if (db) {
+      try {
+        await setDoc(doc(db, 'demands', 'config_gemini'), {
+          keys: cleaned || 'AIzaSyDummyKeyForJansetuFastPrototypeScale',
+          isConfig: true,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.error("Firestore sync keys failed:", e);
+      }
+    }
+    
     alert('Gemini API Keys saved. Your changes are synchronized across all pages.');
     window.location.reload();
   };
