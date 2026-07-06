@@ -119,7 +119,31 @@ const getLocalEmulatorData = (): any[] => {
 };
 
 const saveLocalEmulatorData = (data: any[]) => {
-  localStorage.setItem('jansetu_mock_db', JSON.stringify(data));
+  try {
+    localStorage.setItem('jansetu_mock_db', JSON.stringify(data));
+  } catch (e: any) {
+    if (e.name === 'QuotaExceededError' || e.message.includes('quota') || e.message.includes('Quota')) {
+      console.warn("Local storage quota exceeded. Stripping large file payloads (images) to save space...");
+      // Try to save space by clearing base64 image strings from all historical items
+      const strippedData = data.map(record => {
+        if (record.items) {
+          record.items = record.items.map((it: any) => ({
+            ...it,
+            fileUrl: it.fileUrl?.startsWith('data:image') ? '' : it.fileUrl
+          }));
+        }
+        return record;
+      });
+      try {
+        localStorage.setItem('jansetu_mock_db', JSON.stringify(strippedData));
+      } catch (innerErr) {
+        console.error("Even after stripping images, could not save to localStorage:", innerErr);
+        throw innerErr;
+      }
+    } else {
+      throw e;
+    }
+  }
 };
 
 /**

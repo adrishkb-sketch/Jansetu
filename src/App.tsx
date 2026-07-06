@@ -1428,6 +1428,7 @@ JSON:`
       setAiClarificationQuestion(null);
       setAiUnderstood(false);
       setShowAiAutoDetectSection(false);
+      setImageContextWarning(false);
       return;
     }
 
@@ -1874,27 +1875,32 @@ JSON:`
       needsMoreInfo: isIncomplete
     };
 
-    if (contributingIssue) {
-      const extraData = {
-        status: !isIncomplete ? 'pending' : 'needs_info',
-        needsMoreInfo: isIncomplete,
-        category,
-        scope,
-        estimatedImpact: aiPopulationAffected,
-        urgency,
-        assetType,
-        fundingSource,
-        aiOverview: aiOverview || undefined,
-        circleData: circleData || undefined
-      };
-      await contributeToDemand(contributingIssue.id, itemsMapped, extraData);
-      setTicketId(contributingIssue.id);
-    } else {
-      const id = await submitDemand(submissionData);
-      setTicketId(id);
+    try {
+      if (contributingIssue) {
+        const extraData = {
+          status: !isIncomplete ? 'pending' : 'needs_info',
+          needsMoreInfo: isIncomplete,
+          category,
+          scope,
+          estimatedImpact: aiPopulationAffected,
+          urgency,
+          assetType,
+          fundingSource,
+          aiOverview: aiOverview || undefined,
+          circleData: circleData || undefined
+        };
+        await contributeToDemand(contributingIssue.id, itemsMapped, extraData);
+        setTicketId(contributingIssue.id);
+      } else {
+        const id = await submitDemand(submissionData);
+        setTicketId(id);
+      }
+  
+      setShowSuccess(true);
+    } catch (e: any) {
+      console.error("Submission error:", e);
+      alert("An error occurred while submitting. Please try again. " + (e.message || ""));
     }
-
-    setShowSuccess(true);
   };
 
   const getGapExplanation = () => {
