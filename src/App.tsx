@@ -1070,41 +1070,6 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     setAiIndicator({ active: true, message: 'AI translating content...' });
     setIsAiAnalyzing(true);
 
-    let translatedText = textToAnalyze;
-    
-    // Check if the text contains non-English characters (indicative of a regional language or mixed script)
-    const isEnglishOnly = /^[\u0000-\u007F]*$/.test(textToAnalyze);
-    if (!isEnglishOnly && textToAnalyze.trim().length > 10) {
-      try {
-        const translatePrompt = `You are a translation assistant for Jansetu.
-Translate the following regional Indian language user input into clear, standard English. 
-Preserve all names, locations, numbers, landmarks, and the core complaints/suggestions. 
-Do not add any preamble, conversational fluff, or notes. Return ONLY the translated English text.
-
-Text to translate:
-"${textToAnalyze}"`;
-
-        const translateRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: translatePrompt }] }]
-          })
-        });
-
-        if (translateRes.ok) {
-          const transJson = await translateRes.json();
-          const cleanTrans = transJson.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (cleanTrans && cleanTrans.trim()) {
-            translatedText = cleanTrans.trim();
-            console.log("Translated text to analyze into English:", translatedText);
-          }
-        }
-      } catch (err) {
-        console.error("Gemini translation helper error:", err);
-      }
-    }
-
     setAiIndicator({ active: true, message: 'AI identifying problem details & checking correlations...' });
 
     let insightsText = "No local landmarks data available.";
@@ -1201,7 +1166,7 @@ Format the output strictly as a JSON object with keys:
 }
 
 Citizen's Input details:
-${translatedText}
+${textToAnalyze}
 
 JSON:`
         }
