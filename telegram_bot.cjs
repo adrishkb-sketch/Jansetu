@@ -493,9 +493,19 @@ Text: "${text}"`;
   return text; // Fallback
 }
 
-// Initialize Bot API
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-console.log("Jansetu Telegram Bot is long-polling (Google Translate synchronized sync)...");
+const PORT = process.env.PORT || process.env.FUNCTIONS_HTTP_PORT;
+const WEBHOOK_URL = process.env.WEBHOOK_URL; // e.g. https://jansetu-bot.onrender.com
+
+// Initialize Bot API (supporting both long-polling and webhook server)
+let bot;
+if (WEBHOOK_URL) {
+  bot = new TelegramBot(BOT_TOKEN);
+  bot.setWebHook(`${WEBHOOK_URL}/telegram-webhook`);
+  console.log(`Jansetu Telegram Bot initialized in WEBHOOK mode at ${WEBHOOK_URL}/telegram-webhook`);
+} else {
+  bot = new TelegramBot(BOT_TOKEN, { polling: true });
+  console.log("Jansetu Telegram Bot is long-polling (Google Translate synchronized sync)...");
+}
 
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
@@ -1456,5 +1466,25 @@ async function sendMainMenu(chatId, lang) {
         [{ text: opt4, callback_data: "menu_4" }]
       ]
     }
+  });
+}
+
+if (WEBHOOK_URL || PORT) {
+  const express = require('express');
+  const app = express();
+  app.use(express.json());
+  
+  app.post('/telegram-webhook', (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+  });
+  
+  app.get('/', (req, res) => {
+    res.send('Jansetu Telegram Bot is running 24/7!');
+  });
+  
+  const serverPort = PORT || 3000;
+  app.listen(serverPort, () => {
+    console.log(`Webhook Express server listening on port ${serverPort}`);
   });
 }
