@@ -1,5 +1,5 @@
 /**
- * Jansetu Live Telegram Chatbot Gateway
+ * Jansetu Live Telegram Chatbot Gateway - UPGRADED MULTILINGUAL VERSION
  * Run this bot locally or host it. It polls @JanSetuBot, transcribes audio,
  * analyzes photos via Gemini, geolocates constituencies, and writes directly
  * to the shared Firestore database.
@@ -47,7 +47,87 @@ const db = getFirestore(firebaseApp);
 
 // 2. Telegram Bot API Settings
 const BOT_TOKEN = "8724667418:AAFSz9FkGQd0DlyCf6TnrsVKdke-4xnx1Aw";
-const GEMINI_KEY = "AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw"; // Default fallback key
+
+// Load backup/custom key config
+let geminiKeys = ['AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw'];
+try {
+  // Try loading from localStorage equivalent or environment/settings
+  const keyEnv = process.env.JANSETU_GEMINI_KEY || '';
+  if (keyEnv) {
+    geminiKeys = keyEnv.split(/[\n,;]+/).map(k => k.trim()).filter(Boolean);
+  }
+} catch (e) {}
+
+// Sequence rotation helper for Gemini
+let currentKeyIndex = 0;
+function getActiveGeminiKey() {
+  if (geminiKeys.length === 0) return 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw';
+  return geminiKeys[currentKeyIndex % geminiKeys.length];
+}
+function rotateGeminiKey() {
+  currentKeyIndex++;
+  console.log(`Rotated to backup Gemini key: index ${currentKeyIndex % geminiKeys.length}`);
+}
+
+async function fetchGeminiWithFallback(contents, customSystemPrompt = '') {
+  const maxRetries = Math.max(3, geminiKeys.length);
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const key = getActiveGeminiKey();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+    
+    let parts = [];
+    if (customSystemPrompt) {
+      // Flash 2.5 can ingest prompt instruction
+      parts.push({ text: customSystemPrompt });
+    }
+    
+    try {
+      const payload = { contents };
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (response.ok) {
+        return response;
+      }
+      console.warn(`Gemini API call returned status ${response.status}. Attempting key rotation...`);
+      rotateGeminiKey();
+    } catch (err) {
+      console.warn(`Gemini call error on attempt ${attempt}:`, err.message);
+      rotateGeminiKey();
+    }
+  }
+  throw new Error("All backup Gemini API keys exhausted or failed.");
+}
+
+// 3. Supported Languages List
+const LANGUAGES = [
+  { name: 'English', code: 'en' },
+  { name: 'हिंदी (Hindi)', code: 'hi' },
+  { name: 'বাংলা (Bengali)', code: 'bn' },
+  { name: 'తెలుగు (Telugu)', code: 'te' },
+  { name: 'मराठी (Marathi)', code: 'mr' },
+  { name: 'தமிழ் (Tamil)', code: 'ta' },
+  { name: 'ગુજરાતી (Gujarati)', code: 'gu' },
+  { name: 'ಕನ್ನಡ (Kannada)', code: 'kn' },
+  { name: 'മലയാളം (Malayalam)', code: 'ml' },
+  { name: 'ଓଡ଼ିଆ (Odia)', code: 'or' },
+  { name: 'ਪੰਜਾਬੀ (Punjabi)', code: 'pa' },
+  { name: 'অসমীয়া (Assamese)', code: 'as' },
+  { name: 'اردو (Urdu)', code: 'ur' },
+  { name: 'संस्कृतम् (Sanskrit)', code: 'sa' },
+  { name: 'नेपाली (Nepali)', code: 'ne' },
+  { name: 'सिंधी (Sindhi)', code: 'sd' },
+  { name: 'कोंकणी (Konkani)', code: 'kok' },
+  { name: 'डोगरी (Dogri)', code: 'doi' },
+  { name: 'मैथिली (Maithili)', code: 'mai' },
+  { name: 'मणिपुरी (Manipuri)', code: 'mni' },
+  { name: 'बोडो (Bodo)', code: 'brx' },
+  { name: 'संथाली (Santali)', code: 'sat' },
+  { name: 'कश्मीरी (Kashmiri)', code: 'ks' }
+];
 
 // Load 543 constituencies dataset for geolocation matching
 let constituenciesData = {};
@@ -93,69 +173,62 @@ function getConstituencyFromCoords(lat, lng) {
 // In-Memory state management for user conversation flow
 const userState = new Map();
 
-// Helper translations dictionary
+// Helper translations dictionary (Base templates in English)
 const T = {
-  welcome: {
-    en: "Welcome to Jansetu Bot! Please choose your preferred language:",
-    hi: "जनसेतु बॉट में आपका स्वागत है! कृपया अपनी पसंदीदा भाषा चुनें:"
-  },
-  locationRequest: {
-    en: "Please share your current location (GPS) by tapping the button below so we can find your parliamentary constituency.",
-    hi: "संसदीय निर्वाचन क्षेत्र का पता लगाने के लिए कृपया नीचे दिए गए बटन पर टैप करके अपना वर्तमान स्थान (GPS) साझा करें।"
-  },
-  locationBtn: {
-    en: "📍 Share Current Location",
-    hi: "📍 अपना स्थान साझा करें"
-  },
-  constituencySelected: {
-    en: (constituency) => `Location matched! Your Parliamentary Constituency is: *${constituency}*`,
-    hi: (constituency) => `स्थान मिल गया! आपका संसदीय निर्वाचन क्षेत्र है: *${constituency}*`
-  },
-  mainMenuTitle: {
-    en: "Main Menu - What would you like to do?",
-    hi: "मुख्य मेनू - आप क्या करना चाहेंगे?"
-  },
-  option1: { en: "📝 Register Complaint", hi: "📝 शिकायत दर्ज करें" },
-  option2: { en: "💡 Send Suggestion", hi: "💡 सुझाव भेजें" },
-  option3: { en: "🔍 Track Status", hi: "🔍 स्थिति जांचें" },
-  option4: { en: "🗳️ Upvote Local Gaps", hi: "🗳️ क्षेत्रीय मुद्दों पर वोट करें" },
-  promptMedia: {
-    en: "Please submit your detail: You can type text, send a photo of the issue, or record a voice note.",
-    hi: "कृपया विवरण भेजें: आप संदेश लिख सकते हैं, फोटो भेज सकते हैं, या वॉयस नोट रिकॉर्ड कर सकते हैं।"
-  },
-  processing: {
-    en: "⏳ Jansetu AI is processing your input...",
-    hi: "⏳ जनसेतु एआई आपके इनपुट को प्रोसेस कर रहा है..."
-  },
-  promptTrackId: {
-    en: "Please enter your Ticket Reference ID:",
-    hi: "कृपया अपना टिकट संदर्भ आईडी दर्ज करें:"
-  },
-  noTicket: {
-    en: "❌ No ticket found with that reference ID.",
-    hi: "❌ उस संदर्भ आईडी के साथ कोई टिकट नहीं मिला।"
-  },
-  ticketStatusMsg: {
-    en: (id, category, status) => `📌 *Ticket details:* \nID: ${id}\nCategory: ${category}\nStatus: *${status}*`,
-    hi: (id, category, status) => `📌 *टिकट विवरण:* \nआईडी: ${id}\nश्रेणी: ${category}\nस्थिति: *${status}*`
-  },
-  upvoteListTitle: {
-    en: "Select a local grievance to support/upvote:",
-    hi: "वोट/समर्थन देने के लिए स्थानीय शिकायत चुनें:"
-  },
-  noIssues: {
-    en: "No active verified grievances found in your constituency.",
-    hi: "आपके निर्वाचन क्षेत्र में कोई सक्रिय सत्यापित शिकायतें नहीं मिलीं।"
-  },
-  upvoteDone: {
-    en: "👍 Upvoted successfully! Thank you for your support.",
-    hi: "👍 सफलतापूर्वक वोट कर दिया गया! आपके समर्थन के लिए धन्यवाद।"
-  }
+  welcome: "Welcome to Jansetu Bot! Please choose your preferred language:",
+  locationRequest: "Please share your current location (GPS) by tapping the button below so we can find your parliamentary constituency.",
+  locationBtn: "📍 Share Current Location",
+  constituencySelected: (constituency) => `Location matched! Your Parliamentary Constituency is: *${constituency}*`,
+  mainMenuTitle: "Main Menu - What would you like to do?",
+  option1: "📝 Register Complaint",
+  option2: "💡 Send Suggestion",
+  option3: "🔍 Track Status",
+  option4: "🗳️ Upvote Local Gaps",
+  promptMedia: "Please submit your detail: You can type text, send a photo of the issue, or record a voice note.",
+  processing: "⏳ Jansetu AI is processing your input...",
+  promptTrackId: "Please enter your Ticket Reference ID:",
+  noTicket: "❌ No ticket found with that reference ID.",
+  ticketStatusMsg: (id, category, status) => `📌 *Ticket details:* \nID: ${id}\nCategory: ${category}\nStatus: *${status}*`,
+  upvoteListTitle: "Select a local grievance to support/upvote:",
+  noIssues: "No active verified grievances found in your constituency.",
+  upvoteDone: "👍 Upvoted successfully! Thank you for your support."
 };
+
+const translationCache = {}; // Simple in-memory translation caching
+
+async function translateBotText(text, targetLang) {
+  if (!targetLang || targetLang === 'en') {
+    return text;
+  }
+  
+  const cacheKey = `${text}_${targetLang}`;
+  if (translationCache[cacheKey]) {
+    return translationCache[cacheKey];
+  }
+
+  // Find language name
+  const langObj = LANGUAGES.find(l => l.code === targetLang);
+  const langName = langObj ? langObj.name : targetLang;
+
+  try {
+    const prompt = `You are a professional translator. Translate this text into ${langName}. The translation must be clean, natural, and friendly for a chat bot, keeping any emoji and bracketed terms (like [Ticket ID]) or tags intact. Output ONLY the translated text, nothing else.
+Text: "${text}"`;
+    const res = await fetchGeminiWithFallback([{ parts: [{ text: prompt }] }]);
+    const json = await res.json();
+    const result = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (result) {
+      translationCache[cacheKey] = result;
+      return result;
+    }
+  } catch (err) {
+    console.error("Gemini translation failed:", err);
+  }
+  return text; // Fallback
+}
 
 // Initialize Bot API
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-console.log("Jansetu Telegram Bot is long-polling...");
+console.log("Jansetu Telegram Bot is long-polling (23 languages support enabled)...");
 
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
@@ -165,12 +238,20 @@ bot.on('message', async (msg) => {
   if (userText === '/start') {
     userState.set(chatId, { step: 'LANG' });
     
-    bot.sendMessage(chatId, T.welcome.en, {
+    // Group languages into columns of 2
+    const inlineKeyboard = [];
+    for (let i = 0; i < LANGUAGES.length; i += 2) {
+      const row = [];
+      row.push({ text: LANGUAGES[i].name, callback_data: `lang_${LANGUAGES[i].code}` });
+      if (i + 1 < LANGUAGES.length) {
+        row.push({ text: LANGUAGES[i + 1].name, callback_data: `lang_${LANGUAGES[i + 1].code}` });
+      }
+      inlineKeyboard.push(row);
+    }
+
+    bot.sendMessage(chatId, T.welcome, {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🇬🇧 English", callback_data: "lang_en" }],
-          [{ text: "🇮🇳 हिंदी", callback_data: "lang_hi" }]
-        ]
+        inline_keyboard: inlineKeyboard
       }
     });
     return;
@@ -195,7 +276,9 @@ bot.on('message', async (msg) => {
     session.step = 'MENU';
     userState.set(chatId, session);
 
-    await bot.sendMessage(chatId, T.constituencySelected[lang](constituency), { parse_mode: 'Markdown' });
+    const templateText = T.constituencySelected(constituency);
+    const msgText = await translateBotText(templateText, lang);
+    await bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' });
     sendMainMenu(chatId, lang);
     return;
   }
@@ -211,7 +294,8 @@ bot.on('message', async (msg) => {
     let mediaType = 'text';
     let fileBase64 = '';
 
-    await bot.sendMessage(chatId, T.processing[lang]);
+    const processText = await translateBotText(T.processing, lang);
+    await bot.sendMessage(chatId, processText);
 
     // Handle Voice notes
     if (voiceFileId) {
@@ -224,18 +308,10 @@ bot.on('message', async (msg) => {
         fileBase64 = Buffer.from(buffer).toString('base64');
         
         // Transcribe voice
-        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { inlineData: { mimeType: 'audio/ogg', data: fileBase64 } },
-                { text: "You are the voice transcriber for Jansetu. Please transcribe this Hindi or English voice note of a citizen complaint verbatim. Output ONLY the plain transcription. Do not add any greeting or meta-text." }
-              ]
-            }]
-          })
-        });
+        const geminiRes = await fetchGeminiWithFallback([
+          { inlineData: { mimeType: 'audio/ogg', data: fileBase64 } },
+          { text: "You are the voice transcriber for Jansetu. Please transcribe this audio file verbatim. The speaker may speak in any of the 22 Indian languages or English. Output ONLY the plain transcription in the spoken language. Do not add any greeting or meta-text." }
+        ]);
         const data = await geminiRes.json();
         content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Voice input received.";
       } catch (err) {
@@ -253,18 +329,10 @@ bot.on('message', async (msg) => {
         fileBase64 = Buffer.from(buffer).toString('base64');
 
         // Describe photo
-        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { inlineData: { mimeType: 'image/jpeg', data: fileBase64 } },
-                { text: "You are the visual analyzer for Jansetu. Describe the civic/infrastructure problem shown in this image in detail (e.g. pothole, garbage piles). Output ONLY the description." }
-              ]
-            }]
-          })
-        });
+        const geminiRes = await fetchGeminiWithFallback([
+          { inlineData: { mimeType: 'image/jpeg', data: fileBase64 } },
+          { text: "You are the visual analyzer for Jansetu. Describe the civic/infrastructure problem shown in this image in detail (e.g. pothole, garbage piles). Output ONLY the description." }
+        ]);
         const data = await geminiRes.json();
         content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Photo input received.";
       } catch (err) {
@@ -273,14 +341,28 @@ bot.on('message', async (msg) => {
       }
     }
 
-    // Classify category, scope, and priority using Gemini
+    // Translate input to English before sending to classification loop
+    let englishContent = content;
+    try {
+      const translationPrompt = `You are a professional translator for Jansetu. Translate the following citizen suggestion/complaint to English. Keep the tone exact and professional. Output ONLY the English translation:\n"${content}"`;
+      const transRes = await fetchGeminiWithFallback([{ parts: [{ text: translationPrompt }] }]);
+      const transData = await transRes.json();
+      const transText = transData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (transText) {
+        englishContent = transText;
+      }
+    } catch (err) {
+      console.warn("Incoming translation failed, using original transcript:", err);
+    }
+
+    // Classify category, scope, and priority using Gemini (with English text)
     let category = 'others';
     let scope = 'ward';
     let aiOverview = null;
 
     try {
       const classificationPrompt = `
-        Analyze this citizen feedback text: "${content}".
+        Analyze this citizen feedback text: "${englishContent}".
         Classify it into one of these categories: "water", "roads", "health", "education", "power", "others".
         Also classify its scope: "household", "street", "ward", "constituency".
         Finally, suggest a priority score from 0 to 100, and a 1-sentence response.
@@ -291,14 +373,10 @@ bot.on('message', async (msg) => {
           "priorityScore": number,
           "urgency": "Normal" | "High" | "Critical",
           "fundingSource": "MPLADS Fund",
-          "citizenResponse": "We have received your issue..."
+          "brief": "One sentence summary brief in standard English"
         }
       `;
-      const classRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: classificationPrompt }] }] })
-      });
+      const classRes = await fetchGeminiWithFallback([{ parts: [{ text: classificationPrompt }] }]);
       const data = await classRes.json();
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
       aiOverview = JSON.parse(rawText.replace(/```json|```/g, ''));
@@ -318,7 +396,7 @@ bot.on('message', async (msg) => {
       constituency: session.constituency || 'Rampur',
       items: [{
         type: mediaType,
-        content: content,
+        content: content, // Keep raw spoken transcript in original language
         createdAt: new Date().toISOString()
       }],
       createdAt: new Date().toISOString(),
@@ -326,7 +404,7 @@ bot.on('message', async (msg) => {
       status: 'pending',
       upvotes: 1,
       aiOverview: aiOverview || {
-        brief: content,
+        brief: englishContent,
         priorityScore: 55,
         safetyRisk: 'Moderate',
         urgency: 'Normal',
@@ -338,9 +416,9 @@ bot.on('message', async (msg) => {
     try {
       const docRef = await addDoc(collection(db, 'demands'), docData);
       
-      const successMsg = lang === 'en' 
-        ? `✅ *Grievance Registered Successfully!*\n\nTicket Reference ID:\n\`${docRef.id}\`\n\nCategory: ${category.toUpperCase()}\nScope: ${scope.toUpperCase()}\n\nAI Analysis: "${docData.aiOverview.brief}"`
-        : `✅ *शिकायत सफलतापूर्वक दर्ज की गई!*\n\nटिकट संदर्भ आईडी:\n\`${docRef.id}\`\n\nश्रेणी: ${category.toUpperCase()}\nक्षेत्र: ${scope.toUpperCase()}\n\nएआई सारांश: "${docData.aiOverview.brief}"`;
+      const briefToShow = docData.aiOverview.brief || englishContent;
+      const rawSuccessText = `✅ *Grievance Registered Successfully!*\n\nTicket Reference ID:\n\`${docRef.id}\`\n\nCategory: ${category.toUpperCase()}\nScope: ${scope.toUpperCase()}\n\nAI Analysis: "${briefToShow}"`;
+      const successMsg = await translateBotText(rawSuccessText, lang);
 
       await bot.sendMessage(chatId, successMsg, { parse_mode: 'Markdown' });
     } catch (dbErr) {
@@ -361,12 +439,16 @@ bot.on('message', async (msg) => {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const d = docSnap.data();
-        await bot.sendMessage(chatId, T.ticketStatusMsg[lang](docSnap.id, d.category, d.status), { parse_mode: 'Markdown' });
+        const detailMsg = T.ticketStatusMsg(docSnap.id, d.category, d.status);
+        const translatedDetail = await translateBotText(detailMsg, lang);
+        await bot.sendMessage(chatId, translatedDetail, { parse_mode: 'Markdown' });
       } else {
-        await bot.sendMessage(chatId, T.noTicket[lang]);
+        const noTicketMsg = await translateBotText(T.noTicket, lang);
+        await bot.sendMessage(chatId, noTicketMsg);
       }
     } catch {
-      await bot.sendMessage(chatId, T.noTicket[lang]);
+      const noTicketMsg = await translateBotText(T.noTicket, lang);
+      await bot.sendMessage(chatId, noTicketMsg);
     }
 
     session.step = 'MENU';
@@ -390,9 +472,12 @@ bot.on('callback_query', async (queryData) => {
     session.step = 'LOCATION';
     userState.set(chatId, session);
 
-    bot.sendMessage(chatId, T.locationRequest[lang], {
+    const reqText = await translateBotText(T.locationRequest, lang);
+    const btnText = await translateBotText(T.locationBtn, lang);
+
+    bot.sendMessage(chatId, reqText, {
       reply_markup: {
-        keyboard: [[{ text: T.locationBtn[lang], request_location: true }]],
+        keyboard: [[{ text: btnText, request_location: true }]],
         resize_keyboard: true,
         one_time_keyboard: true
       }
@@ -406,15 +491,18 @@ bot.on('callback_query', async (queryData) => {
   if (data === 'menu_1') {
     session.step = 'COMPLAINT_MEDIA';
     userState.set(chatId, session);
-    bot.sendMessage(chatId, T.promptMedia[lang]);
+    const msgText = await translateBotText(T.promptMedia, lang);
+    bot.sendMessage(chatId, msgText);
   } else if (data === 'menu_2') {
     session.step = 'SUGGESTION_MEDIA';
     userState.set(chatId, session);
-    bot.sendMessage(chatId, T.promptMedia[lang]);
+    const msgText = await translateBotText(T.promptMedia, lang);
+    bot.sendMessage(chatId, msgText);
   } else if (data === 'menu_3') {
     session.step = 'TRACK';
     userState.set(chatId, session);
-    bot.sendMessage(chatId, T.promptTrackId[lang]);
+    const msgText = await translateBotText(T.promptTrackId, lang);
+    bot.sendMessage(chatId, msgText);
   } else if (data === 'menu_4') {
     // Show regional verified issues & list them for upvote
     const consty = session.constituency || 'Rampur';
@@ -427,26 +515,32 @@ bot.on('callback_query', async (queryData) => {
       );
       const snap = await getDocs(q);
       if (snap.empty) {
-        bot.sendMessage(chatId, T.noIssues[lang]);
+        const noIssuesMsg = await translateBotText(T.noIssues, lang);
+        bot.sendMessage(chatId, noIssuesMsg);
       } else {
-        await bot.sendMessage(chatId, T.upvoteListTitle[lang]);
-        snap.forEach(docSnap => {
+        const upvoteTitle = await translateBotText(T.upvoteListTitle, lang);
+        await bot.sendMessage(chatId, upvoteTitle);
+        
+        for (const docSnap of snap.docs) {
           const item = docSnap.data();
           const detailMsg = `📍 *Grievance:* ${item.category.toUpperCase()} issue\nStatus: ${item.status}\n👍 Upvotes: ${item.upvotes || 1}\nDetail: "${item.aiOverview?.brief || item.items?.[0]?.content?.slice(0, 100)}"`;
+          const translatedDetail = await translateBotText(detailMsg, lang);
+          const upvoteBtnText = await translateBotText("👍 Upvote Issue", lang);
           
-          bot.sendMessage(chatId, detailMsg, {
+          await bot.sendMessage(chatId, translatedDetail, {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: `👍 Upvote Issue`, callback_data: `upvote_${docSnap.id}` }]
+                [{ text: upvoteBtnText, callback_data: `upvote_${docSnap.id}` }]
               ]
             }
           });
-        });
+        }
       }
     } catch (err) {
       console.error(err);
-      bot.sendMessage(chatId, T.noIssues[lang]);
+      const noIssuesMsg = await translateBotText(T.noIssues, lang);
+      bot.sendMessage(chatId, noIssuesMsg);
     }
   }
 
@@ -458,22 +552,30 @@ bot.on('callback_query', async (queryData) => {
       await updateDoc(docRef, {
         upvotes: increment(1)
       });
-      bot.answerCallbackQuery(queryData.id, { text: T.upvoteDone[lang], show_alert: true });
+      const upvoteDoneText = await translateBotText(T.upvoteDone, lang);
+      bot.answerCallbackQuery(queryData.id, { text: upvoteDoneText, show_alert: true });
     } catch {
-      bot.answerCallbackQuery(queryData.id, { text: "Error upvoting.", show_alert: true });
+      const errText = await translateBotText("Error upvoting.", lang);
+      bot.answerCallbackQuery(queryData.id, { text: errText, show_alert: true });
     }
   }
 });
 
 // Helper: Show Main Menu Inline Buttons
-function sendMainMenu(chatId, lang) {
-  bot.sendMessage(chatId, T.mainMenuTitle[lang], {
+async function sendMainMenu(chatId, lang) {
+  const menuTitle = await translateBotText(T.mainMenuTitle, lang);
+  const opt1 = await translateBotText(T.option1, lang);
+  const opt2 = await translateBotText(T.option2, lang);
+  const opt3 = await translateBotText(T.option3, lang);
+  const opt4 = await translateBotText(T.option4, lang);
+
+  bot.sendMessage(chatId, menuTitle, {
     reply_markup: {
       inline_keyboard: [
-        [{ text: T.option1[lang], callback_data: "menu_1" }],
-        [{ text: T.option2[lang], callback_data: "menu_2" }],
-        [{ text: T.option3[lang], callback_data: "menu_3" }],
-        [{ text: T.option4[lang], callback_data: "menu_4" }]
+        [{ text: opt1, callback_data: "menu_1" }],
+        [{ text: opt2, callback_data: "menu_2" }],
+        [{ text: opt3, callback_data: "menu_3" }],
+        [{ text: opt4, callback_data: "menu_4" }]
       ]
     }
   });
