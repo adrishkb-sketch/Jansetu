@@ -739,7 +739,7 @@ export async function getGlobalResetTime(): Promise<number> {
 
   try {
     if (db) {
-      const docRef = doc(db, 'demands', 'config_gemini');
+      const docRef = doc(db, 'demands', 'reset_timestamp');
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -780,15 +780,15 @@ export async function clearDatabaseCollections(): Promise<void> {
   // Clear Firestore collections (best effort, in case rules allow it or when using local emulator)
   try {
     if (db) {
-      // 1. Update config_gemini in Firestore with the resetTimestamp
-      const configRef = doc(db, 'demands', 'config_gemini');
+      // 1. Update reset_timestamp in Firestore with the resetTimestamp
+      const configRef = doc(db, 'demands', 'reset_timestamp');
       await setDoc(configRef, { resetTimestamp: nowStr }, { merge: true });
 
-      // 2. Clear demands (exclude config_gemini to preserve API keys)
+      // 2. Clear demands (exclude config_gemini and reset_timestamp)
       const demandsRef = collection(db, 'demands');
       const demandsSnap = await getDocs(demandsRef);
       for (const d of demandsSnap.docs) {
-        if (d.id !== 'config_gemini') {
+        if (d.id !== 'config_gemini' && d.id !== 'reset_timestamp') {
           await deleteDoc(doc(db, 'demands', d.id));
         }
       }

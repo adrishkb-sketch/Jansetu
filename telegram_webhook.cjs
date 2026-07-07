@@ -52,7 +52,7 @@ let globalResetTimestamp = 0;
 
 async function syncResetTimestamp() {
   try {
-    const docRef = doc(db, 'demands', 'config_gemini');
+    const docRef = doc(db, 'demands', 'reset_timestamp');
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const data = docSnap.data();

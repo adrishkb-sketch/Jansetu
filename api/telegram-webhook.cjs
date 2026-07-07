@@ -87,13 +87,23 @@ async function syncKeysFromFirestore() {
           ])];
         }
       }
-      if (data && data.resetTimestamp) {
-        globalResetTimestamp = new Date(data.resetTimestamp).getTime();
-        console.log(`[Bot Sync] Synced global reset timestamp: ${data.resetTimestamp}`);
-      }
     }
   } catch (err) {
     console.warn("[Bot Gemini] Failed to sync keys:", err.message);
+  }
+
+  try {
+    const resetRef = doc(db, "demands", "reset_timestamp");
+    const resetSnap = await getDoc(resetRef);
+    if (resetSnap.exists()) {
+      const resetData = resetSnap.data();
+      if (resetData && resetData.resetTimestamp) {
+        globalResetTimestamp = new Date(resetData.resetTimestamp).getTime();
+        console.log(`[Bot Sync] Synced global reset timestamp: ${resetData.resetTimestamp}`);
+      }
+    }
+  } catch (err) {
+    console.warn("[Bot Sync] Failed to sync reset timestamp:", err.message);
   }
 }
 
