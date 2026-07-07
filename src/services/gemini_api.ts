@@ -1,11 +1,13 @@
 /**
- * Shared service for communicating with Google Gemini API models.
- * Implements a multi-key backup fallback system with model cascade for vision tasks.
+ * Jansetu — Gemini API Service
  *
- * KEY PRIORITY ORDER (highest → lowest):
- *   1. Keys entered by user in "Configure Gemini API Keys" panel (stored in localStorage)
- *   2. Keys synced from Firestore demands/config_gemini
- *   No hardcoded keys — all exhausted. Use the configure panel to add fresh keys.
+ * Features:
+ *  - Global request queue: max 1 request per 7 seconds (stays under free-tier RPM limits)
+ *  - Exponential backoff retry: up to 4 attempts per key before moving to next key/model
+ *  - Respects Retry-After header from 429 responses
+ *  - Multi-key rotation: exhausted keys are skipped for 90s then retried
+ *  - Model cascade: gemini-2.5-flash → gemini-2.0-flash → gemini-2.0-flash-lite
+ *  - Robust key loading: localStorage first, then Firestore, never empty on transient errors
  */
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -13,28 +15,73 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './db';
 
-// In-memory cache of Firestore keys (so we don't re-fetch on every call)
-let cachedFirestoreKeys: string[] = [];
-let lastFirestoreFetch = 0;
-const FIRESTORE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// ─── RATE LIMIT QUEUE ────────────────────────────────────────────────────────
+// Ensures max 1 Gemini request every MIN_REQUEST_GAP_MS.
+// Free tier: ~10-15 RPM → 1 req / 6s safely avoids rate limits entirely.
+const MIN_REQUEST_GAP_MS = 7000; // 7 seconds between requests
+let lastRequestTime = 0;
+let requestQueue: Array<() => void> = [];
+let queueRunning = false;
 
-// Set of keys known to be quota-exhausted right now (429). Cleared after 1 minute.
-const exhaustedKeys = new Map<string, number>(); // key -> timestamp when it was marked exhausted
+function scheduleRequest<T>(fn: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    requestQueue.push(async () => {
+      try {
+        const result = await fn();
+        resolve(result);
+      } catch (e) {
+        reject(e);
+      }
+    });
+    if (!queueRunning) drainQueue();
+  });
+}
+
+async function drainQueue() {
+  queueRunning = true;
+  while (requestQueue.length > 0) {
+    const now = Date.now();
+    const elapsed = now - lastRequestTime;
+    if (elapsed < MIN_REQUEST_GAP_MS) {
+      await sleep(MIN_REQUEST_GAP_MS - elapsed);
+    }
+    const next = requestQueue.shift();
+    if (next) {
+      lastRequestTime = Date.now();
+      await next();
+    }
+  }
+  queueRunning = false;
+}
+
+function sleep(ms: number) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// ─── KEY MANAGEMENT ──────────────────────────────────────────────────────────
+
+// Keys marked 429-exhausted. Cleared after 90s so they're retried.
+const exhaustedKeys = new Map<string, number>();
 
 function isKeyExhausted(key: string): boolean {
   const ts = exhaustedKeys.get(key);
   if (!ts) return false;
-  if (Date.now() - ts > 60_000) {
-    exhaustedKeys.delete(key); // expired, try again
+  if (Date.now() - ts > 90_000) {
+    exhaustedKeys.delete(key);
     return false;
   }
   return true;
 }
 
-function markKeyExhausted(key: string) {
-  exhaustedKeys.set(key, Date.now());
-  console.warn(`[Jansetu AI] Key marked quota-exhausted for 60s: ${key.slice(0, 12)}...`);
+function markKeyExhausted(key: string, retryAfterMs = 90_000) {
+  exhaustedKeys.set(key, Date.now() - (90_000 - retryAfterMs));
+  console.warn(`[Jansetu AI] Key exhausted, retry in ${Math.round(retryAfterMs / 1000)}s: ${key.slice(0, 14)}...`);
 }
+
+// Firestore key cache (5 min TTL)
+let cachedFirestoreKeys: string[] = [];
+let lastFirestoreFetch = 0;
+const FIRESTORE_CACHE_TTL = 5 * 60 * 1000;
 
 async function getFirestoreKeys(): Promise<string[]> {
   const now = Date.now();
@@ -44,55 +91,75 @@ async function getFirestoreKeys(): Promise<string[]> {
   try {
     if (db) {
       let fetched = '';
-      const docRef1 = doc(db, 'demands', 'config_gemini');
-      const docSnap1 = await getDoc(docRef1);
-      if (docSnap1.exists()) {
-        const data = docSnap1.data();
-        if (data && data.keys) fetched = data.keys.trim();
-      }
-      if (!fetched) {
-        const docRef2 = doc(db, 'config', 'gemini');
-        const docSnap2 = await getDoc(docRef2);
-        if (docSnap2.exists()) {
-          const data = docSnap2.data();
-          if (data && data.keys) fetched = data.keys.trim();
-        }
+      for (const [col, docId] of [['demands', 'config_gemini'], ['config', 'gemini']]) {
+        if (fetched) break;
+        const snap = await getDoc(doc(db, col, docId));
+        if (snap.exists() && snap.data()?.keys) fetched = snap.data()!.keys.trim();
       }
       if (fetched) {
-        cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
+        cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.startsWith('AIza') && k.length > 20);
         lastFirestoreFetch = now;
+        console.log(`[Jansetu AI] Loaded ${cachedFirestoreKeys.length} key(s) from Firestore`);
         return cachedFirestoreKeys;
       }
     }
   } catch (e) {
-    console.warn('[Jansetu AI] Failed to load keys from Firestore:', e);
+    console.warn('[Jansetu AI] Firestore key fetch failed (using cached/local):', e);
   }
   return cachedFirestoreKeys;
 }
 
+function parseLocalKeys(): string[] {
+  try {
+    const raw = localStorage.getItem('jansetu_gemini_key') || '';
+    return raw
+      .split(/[\n\r,;]+/)
+      .map(k => k.trim())
+      .filter(k => k.startsWith('AIza') && k.length > 20);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Returns ordered list of API keys to try.
+ * Priority: localStorage → Firestore. Deduped.
+ */
 async function getKeys(): Promise<string[]> {
-  // 1. User-configured keys from the "Configure Gemini API Keys" footer panel
-  const localRaw = localStorage.getItem('jansetu_gemini_key') || '';
-  const localKeys = localRaw
-    .split(/[\n\r,;]+/)
-    .map(k => k.trim())
-    .filter(k => k.length > 10 && k !== 'AIzaSyDummyKeyForJansetuFastPrototypeScale' && k !== 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw');
+  const local = parseLocalKeys();
 
-  // 2. Keys from Firestore (configured via the web panel and synced)
-  const firestoreKeys = await getFirestoreKeys();
+  // If we already have local keys, don't wait for Firestore (avoids async delay on every call)
+  let firestore: string[] = [];
+  if (local.length === 0) {
+    firestore = await getFirestoreKeys();
+  } else {
+    // Refresh Firestore keys in background without blocking
+    getFirestoreKeys().then(fk => {
+      if (fk.length > 0) cachedFirestoreKeys = fk;
+    }).catch(() => {});
+    firestore = cachedFirestoreKeys;
+  }
 
-  // Merge: local first, then Firestore, deduplicated
-  const all = [...new Set([...localKeys, ...firestoreKeys])].filter(k => k.length > 10);
+  const all = [...new Set([...local, ...firestore])];
 
   if (all.length === 0) {
-    console.warn('[Jansetu AI] No API keys configured. Open "Configure Gemini API Keys" at the bottom of any page and add your Google Gemini API key from https://aistudio.google.com/apikey');
+    console.warn(
+      '[Jansetu AI] No API keys found in localStorage or Firestore.\n' +
+      'Open "Configure Gemini API Keys" at the bottom of the page and paste your key from https://aistudio.google.com/apikey'
+    );
   }
 
   return all;
 }
 
+// ─── CORE REQUEST ────────────────────────────────────────────────────────────
 
-async function callGemini(model: string, key: string, payload: any): Promise<any> {
+/**
+ * Makes a single raw POST to the Gemini API.
+ * Throws on HTTP errors with a parsed message.
+ * Returns retry-after milliseconds via a special error property on 429.
+ */
+async function rawCall(model: string, key: string, payload: any): Promise<any> {
   const url = `${GEMINI_BASE}/${model}:generateContent?key=${key}`;
   const response = await fetch(url, {
     method: 'POST',
@@ -102,142 +169,161 @@ async function callGemini(model: string, key: string, payload: any): Promise<any
 
   if (!response.ok) {
     const errText = await response.text();
-    let errMsg = `HTTP ${response.status}: ${errText}`;
+    let errMsg = `HTTP ${response.status}`;
     try {
       const parsed = JSON.parse(errText);
       if (parsed.error?.message) errMsg = parsed.error.message;
     } catch (_) {}
-    // Mark this key as quota-exhausted so the cascade skips it for 60s
+
     if (response.status === 429) {
-      markKeyExhausted(key);
+      // Parse Retry-After header (seconds) if present
+      const retryAfterSec = parseFloat(response.headers.get('retry-after') || '0');
+      const retryAfterMs = retryAfterSec > 0 ? retryAfterSec * 1000 : 90_000;
+      markKeyExhausted(key, retryAfterMs);
+      const err: any = new Error(`Gemini [${model}] quota exceeded — ${errMsg}`);
+      err.status = 429;
+      err.retryAfterMs = retryAfterMs;
+      throw err;
     }
-    throw new Error(`Gemini API Error [${model}] — ${errMsg}`);
+
+    throw new Error(`Gemini [${model}] error — ${errMsg}`);
   }
 
   const json = await response.json();
 
-  // Detect safety blocks or empty responses (returns 200 but empty candidates)
   if (!json.candidates || json.candidates.length === 0) {
-    const blockReason = json.promptFeedback?.blockReason;
-    throw new Error(
-      `Gemini [${model}] returned no candidates. Reason: ${blockReason || 'unknown (possibly safety filter or empty response)'}`
-    );
+    throw new Error(`Gemini [${model}] returned no candidates (safety block or empty response)`);
   }
 
-  // Detect STOP finish or other issues at the candidate level
   const candidate = json.candidates[0];
   if (candidate.finishReason && candidate.finishReason !== 'STOP' && candidate.finishReason !== 'MAX_TOKENS') {
-    throw new Error(`Gemini [${model}] candidate finishReason: ${candidate.finishReason}`);
+    if (candidate.finishReason === 'SAFETY') throw new Error(`Gemini [${model}] safety block`);
+    // RECITATION and others can still have valid text
   }
 
   return json;
 }
 
 /**
- * Core fetchGemini — tries all keys, returns a Response-like object wrapping the JSON.
- * Falls back through model cascade for vision/multimodal payloads when primary fails.
+ * Calls one model+key combo with up to MAX_RETRIES attempts,
+ * using exponential backoff.
+ */
+const MAX_RETRIES = 3;
+
+async function callWithRetry(model: string, key: string, payload: any): Promise<any> {
+  let delay = 2000;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await rawCall(model, key, payload);
+    } catch (e: any) {
+      if (e.status === 429) {
+        // Key is exhausted, no point retrying with it
+        throw e;
+      }
+      if (attempt === MAX_RETRIES) throw e;
+      console.warn(`[Jansetu AI] ${model} attempt ${attempt + 1} failed, retrying in ${delay}ms...`, e.message);
+      await sleep(delay);
+      delay = Math.min(delay * 2, 16_000);
+    }
+  }
+}
+
+// ─── PUBLIC API ───────────────────────────────────────────────────────────────
+
+const TEXT_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+const VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+
+/**
+ * Sends a text/multimodal payload to Gemini.
+ * Tries all keys × all models in cascade, with retries and rate limiting.
+ * Returns a Response-compatible object so callers can do `.json()`.
  */
 export async function fetchGemini(
   payload: any,
   model: string = 'gemini-2.5-flash'
 ): Promise<Response> {
-  const keys = await getKeys();
-  if (keys.length === 0) {
-    throw new Error('No Gemini API keys configured. Please open \u201cConfigure Gemini API Keys\u201d at the bottom of the page and add your key from https://aistudio.google.com/apikey');
-  }
-  let lastError: any = new Error('No Gemini keys available');
+  return scheduleRequest(async () => {
+    const keys = await getKeys();
+    if (keys.length === 0) {
+      throw new Error(
+        'No Gemini API keys configured. Please open "Configure Gemini API Keys" at the bottom of the page.'
+      );
+    }
 
-  // Cascade models to try
-  const modelsToTry = [
-    model, // The requested model first
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite'
-  ];
+    const models = Array.from(new Set([model, ...TEXT_MODELS]));
+    let lastError: any = new Error('All Gemini models and keys exhausted');
 
-  // Remove duplicates while keeping order
-  const uniqueModels = Array.from(new Set(modelsToTry));
-
-  for (const modelName of uniqueModels) {
-    for (let i = 0; i < keys.length; i++) {
-      if (isKeyExhausted(keys[i])) {
-        console.log(`[Jansetu AI] Skipping quota-exhausted key[${i}] for ${modelName}`);
-        continue;
-      }
-      try {
-        const json = await callGemini(modelName, keys[i], payload);
-        console.log(`[Jansetu AI] Succeeded on model=${modelName} keyIndex=${i}`);
-        // Wrap back into a Response so call-sites can do `.json()`
-        return new Response(JSON.stringify(json), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      } catch (e) {
-        console.warn(`[Jansetu AI] model=${modelName} keyIndex=${i} failed:`, e);
-        lastError = e;
+    for (const m of models) {
+      for (const key of keys) {
+        if (isKeyExhausted(key)) {
+          console.log(`[Jansetu AI] Skipping exhausted key for ${m}`);
+          continue;
+        }
+        try {
+          const json = await callWithRetry(m, key, payload);
+          console.log(`[Jansetu AI] ✓ model=${m}`);
+          return new Response(JSON.stringify(json), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } catch (e: any) {
+          console.warn(`[Jansetu AI] ${m} failed:`, e.message);
+          lastError = e;
+        }
       }
     }
-  }
 
-  throw lastError;
+    throw lastError;
+  });
 }
 
 /**
- * Vision-specific Gemini call with model cascade and smart retry.
- * Tries: gemini-2.5-flash → gemini-2.0-flash → gemini-1.5-pro
- * Each model is tried with all keys before cascading.
- *
- * Returns parsed JSON (the candidates object) directly, never throws to caller.
+ * Vision-specific call (image + text parts).
+ * Returns { text, model } or null on total failure.
  */
 export async function fetchGeminiVision(
   parts: any[],
   fallbackDescription = ''
-): Promise<any | null> {
-  // Models in preference order for vision tasks
-  // gemini-1.5-pro and gemini-1.5-flash are deprecated as of July 2026
-  const VISION_MODELS = [
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-  ];
+): Promise<{ text: string; model: string } | null> {
+  return scheduleRequest(async () => {
+    const keys = await getKeys();
+    if (keys.length === 0) {
+      console.error('[Jansetu Vision] No API keys available');
+      return fallbackDescription ? { text: fallbackDescription, model: 'fallback' } : null;
+    }
 
-  const keys = await getKeys();
-  if (keys.length === 0) {
-    console.error('[Jansetu Vision] No API keys configured.');
-    return fallbackDescription ? { text: fallbackDescription, model: 'fallback', keyIndex: -1 } : null;
-  }
+    const payload = {
+      contents: [{ parts }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
+    };
 
-  for (const model of VISION_MODELS) {
-    for (let i = 0; i < keys.length; i++) {
-      if (isKeyExhausted(keys[i])) {
-        console.log(`[Jansetu Vision] Skipping quota-exhausted key[${i}] for ${model}`);
-        continue;
-      }
-      try {
-        const payload = {
-          contents: [{ parts }],
-          generationConfig: {
-            temperature: 0.2,       // Low temperature for deterministic structured output
-            maxOutputTokens: 2048,
-          }
-        };
-        const json = await callGemini(model, keys[i], payload);
-        const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          console.log(`[Jansetu Vision] Succeeded on model=${model} keyIndex=${i}`);
-          return { text, model, keyIndex: i };
+    for (const model of VISION_MODELS) {
+      for (const key of keys) {
+        if (isKeyExhausted(key)) {
+          console.log(`[Jansetu Vision] Skipping exhausted key for ${model}`);
+          continue;
         }
-        throw new Error('Empty text in candidate part');
-      } catch (e) {
-        console.warn(`[Jansetu Vision] model=${model} key=${i} failed:`, e);
+        try {
+          const json = await callWithRetry(model, key, payload);
+          const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            console.log(`[Jansetu Vision] ✓ model=${model}`);
+            return { text, model };
+          }
+          throw new Error('Empty text in response');
+        } catch (e: any) {
+          console.warn(`[Jansetu Vision] ${model} failed:`, e.message);
+        }
       }
     }
-  }
 
-  console.error('[Jansetu Vision] All models and keys failed for vision task.');
-  return fallbackDescription ? { text: fallbackDescription, model: 'fallback', keyIndex: -1 } : null;
+    console.error('[Jansetu Vision] All models and keys failed');
+    return fallbackDescription ? { text: fallbackDescription, model: 'fallback' } : null;
+  });
 }
 
 /**
- * Detects the actual MIME type from a base64-encoded image header.
- * Prevents sending wrong MIME types (e.g. PNG uploaded as image/jpeg).
+ * Detects MIME type from base64 image header bytes.
  */
 export function detectMimeType(base64: string): string {
   const sig = base64.substring(0, 8);
@@ -246,6 +332,5 @@ export function detectMimeType(base64: string): string {
   if (sig.startsWith('R0lGOD')) return 'image/gif';
   if (sig.startsWith('UklGRi') || sig.startsWith('AAABAA')) return 'image/webp';
   if (sig.startsWith('AAAAFG') || sig.startsWith('AAAAHG')) return 'image/heic';
-  // Default to jpeg for unknown
   return 'image/jpeg';
 }

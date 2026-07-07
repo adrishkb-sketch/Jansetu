@@ -3194,33 +3194,50 @@ Rules:
               </div>
             )}
 
+
             {aiError && (
-              <div className="ai-error-card" style={{ marginTop: '16px', border: '1px solid #ef4444', padding: '14px', borderRadius: '8px', background: 'rgba(239,68,68,0.1)', textAlign: 'left' }}>
-                <strong style={{ display: 'block', fontSize: '13px', color: '#fca5a5', marginBottom: '6px' }}>❌ AI Check Offline</strong>
-                <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#fca5a5', lineHeight: '1.4' }}>
-                  {aiError}
+              <div className="ai-error-card" style={{ marginTop: '16px', border: '1px solid rgba(251,191,36,0.35)', padding: '14px', borderRadius: '8px', background: 'rgba(251,191,36,0.06)', textAlign: 'left' }}>
+                <strong style={{ display: 'block', fontSize: '13px', color: '#fde68a', marginBottom: '6px' }}>
+                  ⚠️ AI Analysis Delayed
+                </strong>
+                <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#fde68a', lineHeight: '1.5' }}>
+                  The AI is queued and will retry automatically. This can happen when requests are being rate-limited — it will keep trying with the next available model.
                 </p>
-                <div style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)' }}>
-                  <p style={{ margin: 0, fontSize: '11.5px', color: '#fbcfe8', lineHeight: '1.5' }}>
-                    💡 <strong>Quick Fix:</strong> Please verify that your Gemini API keys in the footer are active and copied correctly. If keys are missing or invalid, AI checks will remain offline.
+                <div style={{ padding: '8px 12px', background: 'rgba(15,23,42,0.5)', borderRadius: '6px', border: '1px solid rgba(251,191,36,0.15)', marginBottom: '10px' }}>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#fbbf24', lineHeight: '1.5', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                    {aiError}
                   </p>
                 </div>
-                <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                  <button 
-                    type="button" 
-                    className="btn-toggle-settings" 
-                    style={{ fontSize: '11px', padding: '6px 12px', border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.1)', color: '#fbbf24', cursor: 'pointer', borderRadius: '4px' }}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    style={{ fontSize: '11px', padding: '6px 12px', border: '1px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', cursor: 'pointer', borderRadius: '6px', fontWeight: 600 }}
+                    onClick={() => {
+                      setAiError(null);
+                      if (items.length > 0) {
+                        lastAnalysisHashRef.current = ''; // force re-run
+                        triggerGlobalAIAnalysis(items);
+                      }
+                    }}
+                  >
+                    🔁 Retry Now
+                  </button>
+                  <button
+                    type="button"
+                    style={{ fontSize: '11px', padding: '6px 12px', border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.1)', color: '#fbbf24', cursor: 'pointer', borderRadius: '6px', fontWeight: 600 }}
                     onClick={() => {
                       setClarificationRefusals(2);
                       setAiUnderstood(true);
                       setAiError(null);
                     }}
                   >
-                    ⚠️ Submit Anyway (Bypass AI check)
+                    ⚠️ Submit Anyway
                   </button>
                 </div>
               </div>
             )}
+
+
 
             {/* List of attachments */}
             <div className="attachments-section" style={{ marginTop: '24px' }}>
