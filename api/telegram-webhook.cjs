@@ -713,20 +713,15 @@ async function handleMessage(msg) {
         fileBase64 = Buffer.from(buffer).toString("base64");
 
         const detectedMime = detectMimeFromBase64(fileBase64);
-        const imgPrompt = `You are the AI engine of Jansetu, an Indian civic grievance platform. Carefully analyze this image.
+        const imgPrompt = `You are the AI engine of Jansetu. Analyze this image.
 
-If you can identify a civic or public infrastructure issue (potholes, overflowing garbage, broken pipe, cracked road, open drain, damaged school/hospital/building, waterlogging, broken streetlight, etc.):
-1. Write a detailed English description: type of issue, severity, approximate scale, surroundings, and any visible text/signs/boards.
-2. Generate bounding boxes (% of image, 0–100) around the damaged areas. Each box: x, y, width, height (integers), label (short name), severity ("Immediate Attention"/"Moderate"/"Minor").
-3. Set requiresMoreContext to false.
-4. Set isValidCivicIssue to true.
-
-If the image is blurry, dark, unclear, or doesn't show a public issue (e.g. faces, interiors, unrelated items):
-- Set requiresMoreContext to true with a brief description of what is visible.
-- Set isValidCivicIssue to false.
+Your task is to:
+1. Describe what is visible in the image in detail (the environment, elements, objects, condition of infrastructure, or anything else present). Give specific remarks about the conditions.
+2. Identify specific sections or items of interest (especially civic or infrastructure issues like potholes, cracks, garbage, waterlogging, streetlights, or general features like buildings, vehicles, trees, roads) and draw bounding boxes around them.
+3. For each bounding box, estimate coordinates (x, y, width, height as percentages of image dimensions 0–100). For each box: x, y, width, height (integers), label (short name), severity/condition remark ("Immediate Attention", "Moderate", "Minor", or "Normal").
 
 Output ONLY valid JSON. No markdown. No explanation outside JSON.
-Schema: { "description": "...", "requiresMoreContext": false, "isValidCivicIssue": true, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
+Schema: { "description": "...", "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
 
         let rawText = await fetchGeminiVision([
           { inlineData: { mimeType: detectedMime, data: fileBase64 } },
@@ -751,13 +746,9 @@ Schema: { "description": "...", "requiresMoreContext": false, "isValidCivicIssue
         }
 
         if (imgResult && imgResult.description) {
-          if (imgResult.isValidCivicIssue === false) {
-            content = "Photo received — AI could not identify any valid civic or infrastructure issue in this image.";
-          } else {
-            content = imgResult.description;
-          }
+          content = imgResult.description;
         } else {
-          content = "Photo received — AI could not identify a specific issue. Please add a text description.";
+          content = "Photo received (Image description could not be processed automatically).";
         }
 
         const rawBoxes = imgResult?.boundingBoxes || imgResult?.bounding_boxes || [];

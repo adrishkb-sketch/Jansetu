@@ -1715,18 +1715,15 @@ JSON:`
     // Always auto-detect MIME type from actual file header — prevents sending PNG as jpeg etc.
     const resolvedMime = detectMimeType(base64Data) || mimeType || 'image/jpeg';
 
-    const imgPromptText = `You are the AI engine of Jansetu, an Indian civic grievance platform. Analyze this image of a reported public issue.
+    const imgPromptText = `You are the AI engine of Jansetu. Analyze this image.
 
-If you can identify a clear civic or infrastructure problem (e.g. potholes, open drain, garbage dump, broken pipe, cracked road, damaged school wall, flooded area, broken streetlight, leaking water supply, unmaintained park, illegal construction), do the following:
-1. Write a detailed description in English covering: the type of issue, severity, approximate scale, surrounding environment, and any visible text/signs/placards that provide location context.
-2. Generate bounding box estimates (as % of image dimensions 0–100) for the key damage/issue areas. For each box: x, y, width, height (integers), label (concise name), severity ("Immediate Attention", "Moderate", or "Minor").
-3. Set requiresMoreContext to false.
+Your task is to:
+1. Describe what is visible in the image in detail (the environment, elements, objects, condition of infrastructure, or anything else present). Give specific remarks about the conditions.
+2. Identify specific sections or items of interest (especially civic or infrastructure issues like potholes, cracks, garbage, waterlogging, streetlights, or general features like buildings, vehicles, trees, roads) and draw bounding boxes around them.
+3. For each bounding box, estimate coordinates (x, y, width, height as percentages of image dimensions 0–100). For each box: x, y, width, height (integers), label (short name), severity/condition remark ("Immediate Attention", "Moderate", "Minor", or "Normal").
 
-If the image is unclear, too blurry, dark, doesn't show a public issue, or is ambiguous:
-- Set requiresMoreContext to true and provide a brief description of what you can see.
-
-IMPORTANT: Output ONLY valid JSON. No markdown. No explanation outside JSON.
-Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
+Output ONLY valid JSON. No markdown. No explanation outside JSON.
+Schema: { "description": "...", "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
 
     const normalizeBoxes = (rawBoxes: any[]): any[] => {
       if (!Array.isArray(rawBoxes)) return [];
@@ -1857,7 +1854,7 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
         const dataUrl = `data:${file.type};base64,${base64Data}`;
         const geminiResult = await runGeminiImageAnalysis(base64Data, file.type);
         
-        if (geminiResult && geminiResult.description && !geminiResult.requiresMoreContext) {
+        if (geminiResult && geminiResult.description) {
           let nextItems: SubmissionItem[] = [];
           setItems(prev => {
             nextItems = prev.map(item => {
@@ -1880,14 +1877,13 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
             if (item.id === id) {
               return {
                 ...item,
-                content: 'Image uploaded. Please add more context.',
+                content: 'Image upload processed but description not generated.',
                 fileUrl: dataUrl,
                 processing: false
               };
             }
             return item;
           }));
-          setImageContextWarning(true);
         }
       } catch (err) {
         console.error('Image analysis pipeline failed:', err);
