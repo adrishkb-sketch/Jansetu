@@ -53,9 +53,36 @@ function rotateGeminiKey() {
 
 let globalResetTimestamp = 0;
 
-// Sync API keys from Firestore demands/config_gemini
-// (Disabled per user request — bot now only uses hardcoded keys)
+// Sync API keys from Firestore and local bot_config.json
 async function syncKeysFromFirestore() {
+  // Sync from bot_config.json
+  try {
+    const configPath = path.join(__dirname, '..', 'bot_config.json');
+    if (fs.existsSync(configPath)) {
+      const configStr = fs.readFileSync(configPath, 'utf8');
+      const configObj = JSON.parse(configStr);
+      if (configObj.gemini_key && !geminiKeys.includes(configObj.gemini_key)) {
+        geminiKeys.unshift(configObj.gemini_key);
+      }
+    }
+  } catch (err) {}
+
+  // Sync from Firestore config
+  try {
+    const configRef = doc(db, "demands", "config_gemini");
+    const configSnap = await getDoc(configRef);
+    if (configSnap.exists()) {
+      const configData = configSnap.data();
+      if (configData.geminiKeys && Array.isArray(configData.geminiKeys)) {
+        configData.geminiKeys.forEach(k => {
+          if (k && !geminiKeys.includes(k)) geminiKeys.unshift(k);
+        });
+      } else if (configData.apiKey && !geminiKeys.includes(configData.apiKey)) {
+        geminiKeys.unshift(configData.apiKey);
+      }
+    }
+  } catch (err) {}
+
   try {
     const resetRef = doc(db, "demands", "reset_timestamp");
     const resetSnap = await getDoc(resetRef);
@@ -63,14 +90,10 @@ async function syncKeysFromFirestore() {
       const resetData = resetSnap.data();
       if (resetData && resetData.resetTimestamp) {
         globalResetTimestamp = new Date(resetData.resetTimestamp).getTime();
-        console.log(`[Bot Sync] Synced global reset timestamp: ${resetData.resetTimestamp}`);
       }
     }
-  } catch (err) {
-    console.warn("[Bot Sync] Failed to sync reset timestamp:", err.message);
-  }
+  } catch (err) {}
 }
-
 
 // Crowdsourcing clarification details question
 async function askGeminiWhatDetailsAreNeeded(gap) {
@@ -157,11 +180,11 @@ function normalizeBoxes(rawBoxes) {
   }).filter(Boolean);
 }
 
-// Text-only fallback — tries all keys across multiple models (same strategy as fetchGeminiVision)
-async function fetchGeminiWithFallback(contents) {
+// Text-only fallback — tries all keys across multiple models
+async function fetchGeminiWithFallback(contents, retryCount = 0) {
   await syncKeysFromFirestore();
   if (geminiKeys.length === 0) {
-    throw new Error("No Gemini API keys configured. Please add keys via the Configure Gemini API Keys panel.");
+    throw new Error("No Gemini API keys configured.");
   }
   const TEXT_MODELS = [
     "gemini-2.5-flash",
@@ -169,7 +192,6 @@ async function fetchGeminiWithFallback(contents) {
     "gemini-2.0-flash-lite"
   ];
 
-  // Track quota-exhausted keys for 60 seconds
   const exhausted = new Set();
 
   for (const model of TEXT_MODELS) {
@@ -187,28 +209,26 @@ async function fetchGeminiWithFallback(contents) {
           }),
         });
         if (!response.ok) {
-          const errBody = await response.text().catch(() => "");
-          console.warn(`[Gemini] ${model} key[${i}] HTTP ${response.status}: ${errBody.slice(0, 120)}`);
           if (response.status === 429) exhausted.add(key);
           continue;
         }
         const json = await response.json();
-        if (!json.candidates || json.candidates.length === 0) {
-          console.warn(`[Gemini] ${model} key[${i}] returned empty candidates`);
-          continue;
-        }
+        if (!json.candidates || json.candidates.length === 0) continue;
         const jsonStr = JSON.stringify(json);
         return { json: async () => JSON.parse(jsonStr), ok: true };
-      } catch (err) {
-        console.warn(`[Gemini] ${model} key[${i}] threw: ${err.message}`);
-      }
+      } catch (err) {}
     }
+  }
+
+  if (retryCount < 2) {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    return fetchGeminiWithFallback(contents, retryCount + 1);
   }
   throw new Error("All Gemini API keys and models exhausted.");
 }
 
 // Vision-specific cascade
-async function fetchGeminiVision(parts) {
+async function fetchGeminiVision(parts, retryCount = 0) {
   await syncKeysFromFirestore();
   const VISION_MODELS = [
     "gemini-2.5-flash",
@@ -240,10 +260,13 @@ async function fetchGeminiVision(parts) {
         if (!json.candidates || json.candidates.length === 0) continue;
         const text = json.candidates[0]?.content?.parts?.[0]?.text;
         if (text) return text;
-      } catch (err) {
-        console.warn(`[Gemini Vision] ${model} key[${i}] threw: ${err.message}`);
-      }
+      } catch (err) {}
     }
+  }
+
+  if (retryCount < 2) {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    return fetchGeminiVision(parts, retryCount + 1);
   }
   return null;
 }
