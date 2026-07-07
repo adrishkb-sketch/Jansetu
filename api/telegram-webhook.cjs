@@ -684,10 +684,57 @@ async function handleMessage(msg) {
   }
 
   if (session.step === "COMPLAINT_CLARIFY") {
-    session.tempSubmission.inputText += `\nAdditional user clarification: ${userText}`;
-    await saveUserSession(chatId, session);
+    let content = userText;
+    let voiceFileId = msg.voice ? msg.voice.file_id : null;
+    let photoFileId = msg.photo ? msg.photo[msg.photo.length - 1].file_id : null;
 
     const procText = await translateBotText(T.processing, lang);
+    const sentMsg = await bot.sendMessage(chatId, procText);
+
+    if (voiceFileId) {
+      try {
+        const directLink = await bot.getFileLink(voiceFileId);
+        const fileRes = await fetch(directLink);
+        const buffer = await fileRes.arrayBuffer();
+        const fileBase64 = Buffer.from(buffer).toString("base64");
+        const voiceText = await fetchGeminiVision([
+          { inlineData: { mimeType: "audio/ogg", data: fileBase64 } },
+          { text: "You are the voice transcriber for Jansetu. Please transcribe this audio file verbatim. If no speech detected, output NO_SPEECH_DETECTED" }
+        ]);
+        if (voiceText && voiceText.trim() !== "NO_SPEECH_DETECTED" && voiceText.trim().length > 2) {
+          content = voiceText.trim();
+        } else {
+          content = "Voice note received — no clear speech detected.";
+        }
+      } catch (err) {
+        content = "Voice note received (Transcription failed).";
+      }
+    } else if (photoFileId) {
+      try {
+        const directLink = await bot.getFileLink(photoFileId);
+        const fileRes = await fetch(directLink);
+        const buffer = await fileRes.arrayBuffer();
+        const fileBase64 = Buffer.from(buffer).toString("base64");
+        const imgPrompt = `Describe what is visible in this image in detail (the environment, elements, condition of infrastructure, or anything else present).`;
+        const rawText = await fetchGeminiVision([
+          { inlineData: { mimeType: "image/jpeg", data: fileBase64 } },
+          { text: imgPrompt }
+        ]);
+        if (rawText) {
+          content = rawText.trim();
+        } else {
+          content = "Photo received (Image description could not be processed automatically).";
+        }
+      } catch (err) {
+        content = "Photo received (Analysis failed — please add a text description).";
+      }
+    }
+
+    session.tempSubmission.inputText += `\nAdditional user clarification: ${content}`;
+    await saveUserSession(chatId, session);
+
+    try { await bot.deleteMessage(chatId, sentMsg.message_id); } catch {}
+    
     await bot.sendMessage(chatId, procText);
     await runBotInputAnalysis(chatId, session);
     return;

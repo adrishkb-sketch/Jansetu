@@ -1478,7 +1478,8 @@ JSON:`
       if (!combinedText.trim()) return;
 
       // Skip if content is identical to last analysis — avoids duplicate quota burn
-      const contentHash = combinedText.trim().slice(0, 200);
+      // Note: We hash the entire text (or its length + last 50 chars) to ensure appended details aren't skipped
+      const contentHash = combinedText.length + ":" + combinedText.slice(-50);
       if (contentHash === lastAnalysisHashRef.current) {
         setAiIndicator({ active: false, message: '' });
         return;
