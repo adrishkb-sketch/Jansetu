@@ -97,7 +97,10 @@ async function getFirestoreKeys(): Promise<string[]> {
         if (snap.exists() && snap.data()?.keys) fetched = snap.data()!.keys.trim();
       }
       if (fetched) {
-        cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.startsWith('AIza') && k.length > 20);
+        cachedFirestoreKeys = fetched
+          .split(/[\n\r,;]+/)
+          .map((k: string) => k.trim())
+          .filter((k: string) => k.length >= 20);
         lastFirestoreFetch = now;
         console.log(`[Jansetu AI] Loaded ${cachedFirestoreKeys.length} key(s) from Firestore`);
         return cachedFirestoreKeys;
@@ -115,7 +118,7 @@ function parseLocalKeys(): string[] {
     return raw
       .split(/[\n\r,;]+/)
       .map(k => k.trim())
-      .filter(k => k.startsWith('AIza') && k.length > 20);
+      .filter(k => k.length >= 20); // accept any key format (AIza..., AQ.xxx, etc.)
   } catch {
     return [];
   }
