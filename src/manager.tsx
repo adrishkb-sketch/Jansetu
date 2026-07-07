@@ -37,7 +37,7 @@ const safeJsonParse = (text: string) => {
   }
   return JSON.parse(cleanText.trim());
 };
-import { getAllDemands, updateDemandStatus, saveActionPlan, getActionPlan, updateDemandDetails, getAllActionPlans, saveActionPlanByConstituency, getActionPlanByConstituency, clearDatabaseCollections } from './services/db';
+import { getAllDemands, updateDemandStatus, saveActionPlan, getActionPlan, updateDemandDetails, getAllActionPlans, saveActionPlanByConstituency, getActionPlanByConstituency } from './services/db';
 import { LanguageSelector, getInitialLanguage, GoogleMapComponent, GeminiKeysFooter } from './App';
 import { fetchGemini } from './services/gemini_api';
 import { AuthModal } from './AuthModal';
@@ -188,6 +188,8 @@ function ManagerConsole() {
   const [selectedDemand, setSelectedDemand] = useState<any | null>(null);
   const [selectedComplaint, setSelectedComplaint] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'registry' | 'complaints' | 'clustering' | 'datasets' | 'proposal' | 'tracking'>('registry');
+  const [inboxTab, setInboxTab] = useState<'complete' | 'incomplete'>('complete');
+  const [constituencySearch, setConstituencySearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -205,6 +207,8 @@ function ManagerConsole() {
   const [selectedGlobalConstituency, setSelectedGlobalConstituency] = useState<string>('Rampur');
   const [constituencySearchQuery, setConstituencySearchQuery] = useState('Rampur');
   const [showConstituencyDropdown, setShowConstituencyDropdown] = useState(false);
+  const [similarIssues, setSimilarIssues] = useState<any[]>([]);
+  const [isFindingSimilar, setIsFindingSimilar] = useState(false);
 
   useEffect(() => {
     setConstituencySearchQuery(selectedGlobalConstituency);
@@ -985,21 +989,98 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
     setSelectedComplaint((prev: any) => prev && prev.id === id ? { ...prev, status: nextStatus } : prev);
   };
 
-  const handleApproveAllPending = async () => {
-    const pendingDemands = demands.filter(d => d.status === 'pending' && !d.needsMoreInfo);
-    if (pendingDemands.length === 0) {
-      alert("No verified pending complaints found to approve.");
-      return;
+  const findSimilarIssues = async () => {
+    if (!selectedComplaint) return;
+    setIsFindingSimilar(true);
+    setSimilarIssues([]);
+    try {
+      const target = selectedComplaint;
+      const targetDesc = target.items?.[0]?.content || target.items?.[0]?.speechTranscript || target.aiOverview?.brief || "";
+      
+      // Get candidates within current filtered scope (excluding target itself)
+      const candidates = filteredDemands.filter(d => d.id !== target.id);
+      
+      if (candidates.length === 0) {
+        alert("No other complaints found matching the current filters to compare.");
+        setIsFindingSimilar(false);
+        return;
+      }
+      
+      const payload = {
+        contents: [{
+          parts: [{
+            text: `You are the AI coordinator of Jansetu. Your task is to identify civic complaints or suggestions that are highly similar or duplicates of a specific target complaint.
+Target Complaint:
+ID: "${target.id}"
+Category: "${target.category}"
+Location/Address: "${target.address}"
+Description: "${targetDesc}"
+
+Candidate Complaints (List of other issues in the system):
+${JSON.stringify(candidates.map(c => ({ id: c.id, category: c.category, address: c.address, description: c.items?.[0]?.content || c.items?.[0]?.speechTranscript || "" })))}
+
+Analyze the target issue against each candidate. Determine which candidates are discussing:
+1. The exact same local defect/problem (e.g. the same broken water pipe, the same pothole on the same road, the same pile of garbage).
+2. Or a highly similar defect in close proximity (e.g. another pothole on the exact same street or intersection, or water supply quality issues affecting the same neighborhood).
+
+Return strictly a JSON array containing the IDs of all matching candidates that are highly similar or duplicates. Do not include the target complaint's ID. If none match, return an empty array [].
+Output ONLY the raw JSON array (e.g. ["ID1", "ID2"]). No markdown codeblocks, no explanations, no text before or after.`
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 1024
+        }
+      };
+
+      const res = await fetchGemini(payload);
+      const resJson = await res.json();
+      const rawText = resJson.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "[]";
+      
+      const cleanedText = rawText.replace(/```json|```/gi, "").trim();
+      const matchedIds = JSON.parse(cleanedText);
+      
+      if (Array.isArray(matchedIds)) {
+        const matchedIssues = candidates.filter(c => matchedIds.includes(c.id));
+        setSimilarIssues(matchedIssues);
+        if (matchedIssues.length === 0) {
+          alert("No similar complaints were identified by Gemini.");
+        }
+      } else {
+        alert("Received invalid response format from similarity analysis.");
+      }
+    } catch (e: any) {
+      console.error("Find similar issues failed:", e);
+      alert("Failed to perform similarity search: " + e.message);
+    } finally {
+      setIsFindingSimilar(false);
     }
-    for (const d of pendingDemands) {
-      await updateDemandStatus(d.id, 'approved');
+  };
+
+  const handleMarkAllSimilarAsVerified = async () => {
+    if (similarIssues.length === 0) return;
+    try {
+      const promises = similarIssues.map(issue => updateDemandStatus(issue.id, 'approved'));
+      if (selectedComplaint && selectedComplaint.status !== 'approved') {
+        promises.push(updateDemandStatus(selectedComplaint.id, 'approved'));
+      }
+      await Promise.all(promises);
+      await loadData();
+      alert(`Successfully marked ${similarIssues.length + (selectedComplaint && selectedComplaint.status !== 'approved' ? 1 : 0)} similar issues as verified/approved!`);
+      setSimilarIssues([]);
+    } catch (e: any) {
+      console.error("Failed to verify similar issues:", e);
+      alert("Verification failed: " + e.message);
     }
-    await loadData();
-    alert(`Marked ${pendingDemands.length} pending issues as verified/approved!`);
   };
 
   // Filtering with interactive sliders parameters
   const filteredDemands = demands.filter(d => {
+    // Separate by complete vs incomplete
+    const isIncomplete = d.status === 'needs_info';
+    if (inboxTab === 'complete' && isIncomplete) return false;
+    if (inboxTab === 'incomplete' && !isIncomplete) return false;
+
     const matchesSearch = 
       (d.address || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (d.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1290,30 +1371,6 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
             </div>
             {isAuthenticated && (
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  onClick={handleApproveAllPending}
-                  style={{
-                    background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.4)', color: '#fbbf24',
-                    padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
-                  }}
-                >
-                  [DEV] Mark All Verified
-                </button>
-                <button 
-                  onClick={async () => {
-                    if (window.confirm("Are you sure you want to completely wipe out all complaints, action plans, and reset the local storage cache? This will clear all data globally from the Firestore database AND local browser caches, resetting the entire system.")) {
-                      await clearDatabaseCollections();
-                      alert("Database collections and local storage cache have been successfully cleared globally across the entire system!");
-                      window.location.reload();
-                    }
-                  }}
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444',
-                    padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
-                  }}
-                >
-                  [DEV] Reset Database & Cache
-                </button>
                 <button 
                   onClick={() => {
                     sessionStorage.removeItem('manager_auth');
@@ -1674,16 +1731,38 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                 <option value="6months">⏰ Last 6 Months</option>
               </select>
 
-              <select
-                value={filterConstituency}
-                onChange={e => setFilterConstituency(e.target.value)}
-                style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: '600', maxWidth: '200px' }}
-              >
-                <option value="all">🏛️ All Constituencies</option>
-                {Array.from(new Set(demands.map(d => d.constituency).filter(Boolean))).sort().map(cName => (
-                  <option key={cName} value={cName}>{cName}</option>
-                ))}
-              </select>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="🏛️ Search Constituency..."
+                  value={constituencySearch}
+                  onChange={e => setConstituencySearch(e.target.value)}
+                  style={{
+                    background: '#0e0d24',
+                    border: '1px solid var(--border-light)',
+                    color: 'white',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    width: '140px',
+                    fontWeight: '500'
+                  }}
+                />
+                <select
+                  value={filterConstituency}
+                  onChange={e => setFilterConstituency(e.target.value)}
+                  style={{ background: '#0e0d24', border: '1px solid var(--border-light)', color: 'white', padding: '8px 12px', borderRadius: '8px', fontWeight: '600', maxWidth: '200px' }}
+                >
+                  <option value="all">🏛️ All Constituencies</option>
+                  {Array.from(new Set(demands.map(d => d.constituency).filter(Boolean)))
+                    .sort()
+                    .filter(c => c.toLowerCase().includes(constituencySearch.toLowerCase()))
+                    .map(cName => (
+                      <option key={cName} value={cName}>{cName}</option>
+                    ))
+                  }
+                </select>
+              </div>
 
               <select
                 value={clubbingMode}
@@ -2108,6 +2187,45 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
             
             {/* Left Column: Direct Submissions List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '680px', paddingRight: '4px' }}>
+              
+              {/* Inbox Sub-Tabs */}
+              <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setInboxTab('complete')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    border: 'none',
+                    background: inboxTab === 'complete' ? 'rgba(20, 184, 166, 0.15)' : 'transparent',
+                    color: inboxTab === 'complete' ? '#2dd4bf' : '#8e90b3',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📥 Complete ({demands.filter(d => d.status !== 'needs_info').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInboxTab('incomplete')}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    border: 'none',
+                    background: inboxTab === 'incomplete' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+                    color: inboxTab === 'incomplete' ? '#fca5a5' : '#8e90b3',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ❓ Incomplete ({demands.filter(d => d.status === 'needs_info').length})
+                </button>
+              </div>
+
               {clubbingMode !== 'none' ? (
                 clubbedGroups.length === 0 ? (
                   <div className="empty-attachments" style={{ padding: '40px' }}>
@@ -2564,6 +2682,94 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                         <p style={{ color: '#8e90b3', fontStyle: 'italic', fontSize: '13px' }}>No attachments logged for this ticket.</p>
                       )}
                     </div>
+                  </div>
+
+                  {/* Find Similar Issues Section */}
+                  <div style={{
+                    marginTop: '20px',
+                    padding: '20px',
+                    borderRadius: '12px',
+                    background: 'rgba(99, 102, 241, 0.05)',
+                    border: '1px solid rgba(99, 102, 241, 0.2)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ color: '#818cf8', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Brain size={16} /> AI-Powered Similarity Lookup
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={findSimilarIssues}
+                        disabled={isFindingSimilar}
+                        style={{
+                          background: 'rgba(99, 102, 241, 0.15)',
+                          border: '1px solid rgba(99, 102, 241, 0.4)',
+                          color: '#a5b4fc',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        {isFindingSimilar ? <Loader2 className="spinner" size={12} /> : '🔍 Find Similar Issues'}
+                      </button>
+                    </div>
+
+                    {similarIssues.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                        <span style={{ fontSize: '12px', color: '#c5c7e6' }}>
+                          Found <strong>{similarIssues.length} similar issues</strong> within the current filtered scope:
+                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                          {similarIssues.map(issue => (
+                            <div key={issue.id} style={{
+                              padding: '8px 12px',
+                              background: 'rgba(0,0,0,0.2)',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              borderLeft: '3px solid #818cf8'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: 'white', marginBottom: '2px' }}>
+                                <span>{issue.id} ({issue.category})</span>
+                                <span style={{ color: '#fbbf24' }}>Status: {issue.status}</span>
+                              </div>
+                              <div style={{ color: '#8e90b3', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                📍 {issue.address} — "{issue.items?.[0]?.content || issue.aiOverview?.brief}"
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleMarkAllSimilarAsVerified}
+                          style={{
+                            marginTop: '8px',
+                            background: 'var(--manager-grad)',
+                            border: 'none',
+                            color: 'white',
+                            fontWeight: 'bold',
+                            padding: '10px 16px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '12.5px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <CheckCircle size={14} />
+                          Mark All Similar as Verified
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                 </div>
