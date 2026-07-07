@@ -104,6 +104,8 @@ body::after {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .logo-wrapper {
@@ -655,6 +657,7 @@ body {
   gap: 24px;
 }
 
+.portal-grid > div,
 .proposal-grid > div,
 .manager-dashboard-grid > div,
 .mp-dashboard-grid > div {

@@ -286,6 +286,7 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
     const map = new google.maps.Map(mapRef.current, {
       center: defaultCenter,
       zoom: defaultZoom,
+      gestureHandling: 'cooperative',
       styles: [
         { elementType: 'geometry', stylers: [{ color: '#09081a' }] },
         { elementType: 'labels.text.stroke', stylers: [{ color: '#09081a' }] },

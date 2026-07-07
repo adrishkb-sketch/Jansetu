@@ -342,10 +342,12 @@ const SCOPE_MAP = {
 // Load constituencies
 let constituenciesData = {};
 try {
-  const filepath = path.join(__dirname, "constituencies_543.json");
+  const filepath = path.join(__dirname, "../src/services/constituencies_543.json");
   const raw = fs.readFileSync(filepath, "utf8");
   constituenciesData = JSON.parse(raw);
-} catch (e) {}
+} catch (e) {
+  console.error("Failed to load constituencies data:", e);
+}
 
 // Haversine Distance helper
 function getHaversineDistance(lat1, lng1, lat2, lng2) {
