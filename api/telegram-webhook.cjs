@@ -196,11 +196,9 @@ function normalizeBoxes(rawBoxes) {
 async function fetchGeminiWithFallback(contents) {
   await syncKeysFromFirestore();
   const TEXT_MODELS = [
-    "gemini-2.5-flash-lite",
-    "gemini-3.1-flash-lite",
-    "gemini-3.5-flash",
     "gemini-2.5-flash",
-    "gemini-2.0-flash"
+    "gemini-2.0-flash",
+    "gemini-1.5-flash"
   ];
 
   for (const model of TEXT_MODELS) {
@@ -239,7 +237,11 @@ async function fetchGeminiWithFallback(contents) {
 // Vision-specific cascade
 async function fetchGeminiVision(parts) {
   await syncKeysFromFirestore();
-  const VISION_MODELS = ["gemini-2.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
+  const VISION_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash"
+  ];
   for (const model of VISION_MODELS) {
     for (let i = 0; i < geminiKeys.length; i++) {
       const key = geminiKeys[(currentKeyIndex + i) % geminiKeys.length];

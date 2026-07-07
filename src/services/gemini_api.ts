@@ -123,9 +123,9 @@ export async function fetchGemini(
   // Cascade models to try
   const modelsToTry = [
     model, // The requested model first
+    'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro'
+    'gemini-1.5-flash'
   ];
 
   // Remove duplicates while keeping order
@@ -163,7 +163,7 @@ export async function fetchGeminiVision(
   const VISION_MODELS = [
     'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-1.5-pro',
+    'gemini-1.5-flash',
   ];
 
   const keys = await getKeys();

@@ -207,49 +207,42 @@ function normalizeBoxes(rawBoxes) {
   }).filter(Boolean);
 }
 
-// Text-only fallback (no vision) — tries all keys on gemini-2.5-flash
+// Text-only fallback (no vision) — tries all keys across models
 async function fetchGeminiWithFallback(contents) {
   await syncKeysFromFirestore();
-  const maxRetries = Math.max(3, geminiKeys.length);
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const key = getActiveGeminiKey();
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents }),
-      });
-      if (!response.ok) {
-        const errText = await response.text();
-        console.warn(`[Bot Gemini] HTTP ${response.status}: ${errText.slice(0,200)}. Rotating key...`);
-        rotateGeminiKey();
-        continue;
+  const TEXT_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  for (const model of TEXT_MODELS) {
+    for (let i = 0; i < geminiKeys.length; i++) {
+      const key = geminiKeys[(currentKeyIndex + i) % geminiKeys.length];
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents }),
+        });
+        if (!response.ok) {
+          const errText = await response.text();
+          console.warn(`[Bot Gemini] ${model} key=${i} HTTP ${response.status}: ${errText.slice(0, 150)}`);
+          continue;
+        }
+        const json = await response.json();
+        if (!json.candidates || json.candidates.length === 0) continue;
+        const jsonStr = JSON.stringify(json);
+        return { json: async () => JSON.parse(jsonStr), ok: true };
+      } catch (err) {
+        console.warn(`[Bot Gemini] ${model} key=${i} error:`, err.message);
       }
-      const json = await response.json();
-      // Validate that candidates actually exist — safety blocks return 200 but empty candidates
-      if (!json.candidates || json.candidates.length === 0) {
-        const blockReason = json.promptFeedback?.blockReason || 'unknown';
-        console.warn(`[Bot Gemini] Empty candidates (blockReason=${blockReason}). Rotating key...`);
-        rotateGeminiKey();
-        continue;
-      }
-      // Wrap JSON back as fake Response so existing callers can call .json()
-      const jsonStr = JSON.stringify(json);
-      return { json: async () => JSON.parse(jsonStr), ok: true };
-    } catch (err) {
-      console.warn(`[Bot Gemini] Call error on attempt ${attempt}:`, err.message);
-      rotateGeminiKey();
     }
   }
   throw new Error('All Gemini API keys exhausted or failed.');
 }
 
-// Vision-specific cascade: tries gemini-2.5-flash → 2.0-flash → 1.5-pro
+// Vision-specific cascade: tries gemini-2.5-flash → 2.0-flash → 1.5-flash
 // Each model is tried with all keys before falling to next model.
 async function fetchGeminiVision(parts) {
   await syncKeysFromFirestore();
-  const VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+  const VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   for (const model of VISION_MODELS) {
     for (let i = 0; i < geminiKeys.length; i++) {
       const key = geminiKeys[(currentKeyIndex + i) % geminiKeys.length];
