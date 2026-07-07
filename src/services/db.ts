@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getFirestore, 
   initializeFirestore,
@@ -47,7 +47,12 @@ export let db: any = null;
 try {
   const config = getFirebaseConfig();
   if (config.apiKey && config.apiKey !== "AIzaSyDummyKeyForJansetuFastPrototypeScale") {
-    const app = initializeApp(config);
+    let app;
+    if (getApps().length === 0) {
+      app = initializeApp(config);
+    } else {
+      app = getApp();
+    }
     try {
       db = initializeFirestore(app, {
         localCache: persistentLocalCache({
