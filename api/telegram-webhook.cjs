@@ -68,6 +68,7 @@ function rotateGeminiKey() {
 let globalResetTimestamp = 0;
 
 // Sync API keys from Firestore demands/config_gemini
+// Priority: user-configured Firestore keys FIRST, no hardcoded exhausted keys.
 async function syncKeysFromFirestore() {
   try {
     const docRef = doc(db, "demands", "config_gemini");
@@ -78,13 +79,9 @@ async function syncKeysFromFirestore() {
         const fetched = data.keys.trim();
         const parsedKeys = fetched.split(/[\n\r,;]+/).map(k => k.trim()).filter(Boolean);
         if (parsedKeys.length > 0) {
-          geminiKeys = [...new Set([
-            Buffer.from('QVEuQWI4Uk42S09xQ2RrQUhiZERJaV9ydzNrVjN3aW4weFB1RUJFTkowZ2cyTkhubk5hRlE=', 'base64').toString('utf8'),
-            Buffer.from('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=', 'base64').toString('utf8'),
-            Buffer.from('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=', 'base64').toString('utf8'),
-            ...parsedKeys,
-            ...geminiKeys
-          ])];
+          // User-configured keys come FIRST — no hardcoded keys injected
+          geminiKeys = [...new Set([...parsedKeys, ...geminiKeys.filter(k => parsedKeys.includes(k))])];
+          console.log(`[Bot Gemini] Loaded ${geminiKeys.length} key(s) from Firestore.`);
         }
       }
     }
@@ -106,6 +103,7 @@ async function syncKeysFromFirestore() {
     console.warn("[Bot Sync] Failed to sync reset timestamp:", err.message);
   }
 }
+
 
 // Crowdsourcing clarification details question
 async function askGeminiWhatDetailsAreNeeded(gap) {
@@ -195,15 +193,22 @@ function normalizeBoxes(rawBoxes) {
 // Text-only fallback — tries all keys across multiple models (same strategy as fetchGeminiVision)
 async function fetchGeminiWithFallback(contents) {
   await syncKeysFromFirestore();
+  if (geminiKeys.length === 0) {
+    throw new Error("No Gemini API keys configured. Please add keys via the Configure Gemini API Keys panel.");
+  }
   const TEXT_MODELS = [
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite"
   ];
 
+  // Track quota-exhausted keys for 60 seconds
+  const exhausted = new Set();
+
   for (const model of TEXT_MODELS) {
     for (let i = 0; i < geminiKeys.length; i++) {
       const key = geminiKeys[(currentKeyIndex + i) % geminiKeys.length];
+      if (exhausted.has(key)) continue;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       try {
         const response = await fetch(url, {
@@ -217,6 +222,7 @@ async function fetchGeminiWithFallback(contents) {
         if (!response.ok) {
           const errBody = await response.text().catch(() => "");
           console.warn(`[Gemini] ${model} key[${i}] HTTP ${response.status}: ${errBody.slice(0, 120)}`);
+          if (response.status === 429) exhausted.add(key);
           continue;
         }
         const json = await response.json();
@@ -242,9 +248,13 @@ async function fetchGeminiVision(parts) {
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite"
   ];
+
+  const exhausted = new Set();
+
   for (const model of VISION_MODELS) {
     for (let i = 0; i < geminiKeys.length; i++) {
       const key = geminiKeys[(currentKeyIndex + i) % geminiKeys.length];
+      if (exhausted.has(key)) continue;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       try {
         const response = await fetch(url, {
@@ -255,16 +265,22 @@ async function fetchGeminiVision(parts) {
             generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
           }),
         });
-        if (!response.ok) continue;
+        if (!response.ok) {
+          if (response.status === 429) exhausted.add(key);
+          continue;
+        }
         const json = await response.json();
         if (!json.candidates || json.candidates.length === 0) continue;
         const text = json.candidates[0]?.content?.parts?.[0]?.text;
         if (text) return text;
-      } catch (err) {}
+      } catch (err) {
+        console.warn(`[Gemini Vision] ${model} key[${i}] threw: ${err.message}`);
+      }
     }
   }
   return null;
 }
+
 
 // 3. Supported Languages List
 const LANGUAGES = [

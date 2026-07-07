@@ -1,6 +1,11 @@
 /**
  * Shared service for communicating with Google Gemini API models.
  * Implements a multi-key backup fallback system with model cascade for vision tasks.
+ *
+ * KEY PRIORITY ORDER (highest → lowest):
+ *   1. Keys entered by user in "Configure Gemini API Keys" panel (stored in localStorage)
+ *   2. Keys synced from Firestore demands/config_gemini
+ *   No hardcoded keys — all exhausted. Use the configure panel to add fresh keys.
  */
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -8,71 +13,84 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './db';
 
-// Cache for loaded Firestore keys
+// In-memory cache of Firestore keys (so we don't re-fetch on every call)
 let cachedFirestoreKeys: string[] = [];
+let lastFirestoreFetch = 0;
+const FIRESTORE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-async function getKeys(): Promise<string[]> {
-  const keysString = localStorage.getItem('jansetu_gemini_key') || '';
+// Set of keys known to be quota-exhausted right now (429). Cleared after 1 minute.
+const exhaustedKeys = new Map<string, number>(); // key -> timestamp when it was marked exhausted
 
-  // If it's the old blocked key, empty, or dummy, we fetch from Firestore config
-  if (!keysString || keysString === 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw' || keysString === 'AIzaSyDummyKeyForJansetuFastPrototypeScale') {
-    if (cachedFirestoreKeys.length > 0) {
-      return cachedFirestoreKeys;
-    }
+function isKeyExhausted(key: string): boolean {
+  const ts = exhaustedKeys.get(key);
+  if (!ts) return false;
+  if (Date.now() - ts > 60_000) {
+    exhaustedKeys.delete(key); // expired, try again
+    return false;
+  }
+  return true;
+}
 
-    try {
-      if (db) {
-        let fetched = '';
-        const docRef1 = doc(db, 'demands', 'config_gemini');
-        const docSnap1 = await getDoc(docRef1);
-        if (docSnap1.exists()) {
-          const data = docSnap1.data();
-          if (data && data.keys) {
-            fetched = data.keys.trim();
-          }
-        }
-        
-        if (!fetched) {
-          const docRef2 = doc(db, 'config', 'gemini');
-          const docSnap2 = await getDoc(docRef2);
-          if (docSnap2.exists()) {
-            const data = docSnap2.data();
-            if (data && data.keys) {
-              fetched = data.keys.trim();
-            }
-          }
-        }
+function markKeyExhausted(key: string) {
+  exhaustedKeys.set(key, Date.now());
+  console.warn(`[Jansetu AI] Key marked quota-exhausted for 60s: ${key.slice(0, 12)}...`);
+}
 
-        if (fetched) {
-          localStorage.setItem('jansetu_gemini_key', fetched);
-          cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
-          
-          // k2 is the working/primary key, k1 is the exhausted backup — prepend k2 first
-          const k1 = atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
-          const k2 = atob('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=');
-          if (!cachedFirestoreKeys.includes(k1)) cachedFirestoreKeys.push(k1);
-          if (!cachedFirestoreKeys.includes(k2)) cachedFirestoreKeys.unshift(k2);
-          return cachedFirestoreKeys;
+async function getFirestoreKeys(): Promise<string[]> {
+  const now = Date.now();
+  if (cachedFirestoreKeys.length > 0 && now - lastFirestoreFetch < FIRESTORE_CACHE_TTL) {
+    return cachedFirestoreKeys;
+  }
+  try {
+    if (db) {
+      let fetched = '';
+      const docRef1 = doc(db, 'demands', 'config_gemini');
+      const docSnap1 = await getDoc(docRef1);
+      if (docSnap1.exists()) {
+        const data = docSnap1.data();
+        if (data && data.keys) fetched = data.keys.trim();
+      }
+      if (!fetched) {
+        const docRef2 = doc(db, 'config', 'gemini');
+        const docSnap2 = await getDoc(docRef2);
+        if (docSnap2.exists()) {
+          const data = docSnap2.data();
+          if (data && data.keys) fetched = data.keys.trim();
         }
       }
-    } catch (e) {
-      console.warn("[Jansetu AI] Failed to load keys from Firestore, falling back to local defaults:", e);
+      if (fetched) {
+        cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
+        lastFirestoreFetch = now;
+        return cachedFirestoreKeys;
+      }
     }
+  } catch (e) {
+    console.warn('[Jansetu AI] Failed to load keys from Firestore:', e);
   }
+  return cachedFirestoreKeys;
+}
 
-  const target = keysString || atob('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=');
-  const parsed = target
+async function getKeys(): Promise<string[]> {
+  // 1. User-configured keys from the "Configure Gemini API Keys" footer panel
+  const localRaw = localStorage.getItem('jansetu_gemini_key') || '';
+  const localKeys = localRaw
     .split(/[\n\r,;]+/)
     .map(k => k.trim())
-    .filter(k => k.length > 0);
-  
-  // k2 is the working/primary key — ensure it's always first
-  const k1 = atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
-  const k2 = atob('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=');
-  if (!parsed.includes(k1)) parsed.push(k1);
-  if (!parsed.includes(k2)) parsed.unshift(k2);
-  return parsed;
+    .filter(k => k.length > 10 && k !== 'AIzaSyDummyKeyForJansetuFastPrototypeScale' && k !== 'AIzaSyCx80ru6-RXeTi3GvqkFsMVyMf-vpgIoVw');
+
+  // 2. Keys from Firestore (configured via the web panel and synced)
+  const firestoreKeys = await getFirestoreKeys();
+
+  // Merge: local first, then Firestore, deduplicated
+  const all = [...new Set([...localKeys, ...firestoreKeys])].filter(k => k.length > 10);
+
+  if (all.length === 0) {
+    console.warn('[Jansetu AI] No API keys configured. Open "Configure Gemini API Keys" at the bottom of any page and add your Google Gemini API key from https://aistudio.google.com/apikey');
+  }
+
+  return all;
 }
+
 
 async function callGemini(model: string, key: string, payload: any): Promise<any> {
   const url = `${GEMINI_BASE}/${model}:generateContent?key=${key}`;
@@ -89,6 +107,10 @@ async function callGemini(model: string, key: string, payload: any): Promise<any
       const parsed = JSON.parse(errText);
       if (parsed.error?.message) errMsg = parsed.error.message;
     } catch (_) {}
+    // Mark this key as quota-exhausted so the cascade skips it for 60s
+    if (response.status === 429) {
+      markKeyExhausted(key);
+    }
     throw new Error(`Gemini API Error [${model}] — ${errMsg}`);
   }
 
@@ -120,6 +142,9 @@ export async function fetchGemini(
   model: string = 'gemini-2.5-flash'
 ): Promise<Response> {
   const keys = await getKeys();
+  if (keys.length === 0) {
+    throw new Error('No Gemini API keys configured. Please open \u201cConfigure Gemini API Keys\u201d at the bottom of the page and add your key from https://aistudio.google.com/apikey');
+  }
   let lastError: any = new Error('No Gemini keys available');
 
   // Cascade models to try
@@ -135,6 +160,10 @@ export async function fetchGemini(
 
   for (const modelName of uniqueModels) {
     for (let i = 0; i < keys.length; i++) {
+      if (isKeyExhausted(keys[i])) {
+        console.log(`[Jansetu AI] Skipping quota-exhausted key[${i}] for ${modelName}`);
+        continue;
+      }
       try {
         const json = await callGemini(modelName, keys[i], payload);
         console.log(`[Jansetu AI] Succeeded on model=${modelName} keyIndex=${i}`);
@@ -170,9 +199,17 @@ export async function fetchGeminiVision(
   ];
 
   const keys = await getKeys();
+  if (keys.length === 0) {
+    console.error('[Jansetu Vision] No API keys configured.');
+    return fallbackDescription ? { text: fallbackDescription, model: 'fallback', keyIndex: -1 } : null;
+  }
 
   for (const model of VISION_MODELS) {
     for (let i = 0; i < keys.length; i++) {
+      if (isKeyExhausted(keys[i])) {
+        console.log(`[Jansetu Vision] Skipping quota-exhausted key[${i}] for ${model}`);
+        continue;
+      }
       try {
         const payload = {
           contents: [{ parts }],
