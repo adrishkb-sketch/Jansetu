@@ -13,7 +13,6 @@
 
 Jansetu's AI instantly verifies the problem using Google Gemini Multimodal Vision, tags its severity, maps it to the exact constituency using geospatial boundaries, and auto-generates AI action plans and budgetary audits for the MP's office.
 
-**We are not just submitting an idea; we are submitting a production-ready, highly scalable platform prepared for immediate deployment in any district.**
 
 ---
 
@@ -28,30 +27,28 @@ Jansetu's AI instantly verifies the problem using Google Gemini Multimodal Visio
 
 ---
 
-## 🏆 Why Jansetu is Built to Win: The 4 Judging Criteria
-
-We architected Jansetu from the ground up to secure maximum points across the official judging matrix.
+## 🏆 Hackathon Judging Criteria Alignment
 
 ### 1. Impact & Relevance (Solving the MP's Core Problem)
-**Why we are the best:** We drastically reduce the bureaucratic friction between a citizen facing a problem and an MP releasing MPLADS funds to fix it.
+We reduce the bureaucratic friction between a citizen facing a problem and an MP releasing MPLADS funds to fix it.
 * **Hyper-Localized:** Uses Haversine geospatial calculations over a dataset of 543 constituency polygons to automatically route a grievance directly to the correct MP's dashboard.
 * **Inclusive Accessibility:** Built for everyone. A farmer in rural Karnataka can upload a voice note in Kannada via Telegram, and the AI will transcribe, translate, verify the agricultural issue, and present it to the MP in English on a categorized dashboard.
 * **Democratic Prioritization:** Features an intelligent upvoting system. Issues are clustered semantically by Gemini so duplicate complaints are merged, allowing the community to prioritize what needs fixing first.
 
 ### 2. Technical Execution (Google Cloud Excellence)
-**Why we are the best:** We didn't just use APIs; we built a robust, cloud-native architecture.
+We built a robust, cloud-native architecture utilizing Google Cloud and Firebase.
 * **Firestore as a Scalable Data Lake:** All interactions, session data, MP budget statuses, and public demographic sets (Census/NFHS) are dynamically fetched via Firebase Firestore, mirroring a BigQuery enterprise architecture.
 * **Advanced Error Handling:** Implemented a sophisticated Gemini Key rotation and fallback cascade mechanism. If rate limits are hit on one model or key, the backend automatically fails over to backup keys and models without dropping the citizen's session.
 * **Real-time Synchronization:** The Manager dashboard, MP dashboard, and Citizen view all reflect changes (like status updates from "Pending" to "Funds Released") instantly across the Firestore network.
 
 ### 3. Innovation (Deep AI Integration)
-**Why we are the best:** We moved beyond basic "chatbots" to create an autonomous AI workflow.
+We leverage autonomous AI workflows rather than basic conversational bots.
 * **AI Visual Evidence Verification:** When a citizen uploads a photo of a pothole, Gemini Vision detects the anomaly, calculates bounding boxes, and our backend dynamically generates an SVG overlay highlighting the damage in red before returning it to the user.
 * **Smart Context Gathering (Crowdsourcing):** If an issue is reported with missing data, the AI acts as an investigator, automatically asking targeted follow-up questions to gather exact dimensions, landmarks, or details from the community.
 * **AI Action Plans:** The MP's dashboard features a one-click Gemini-powered "Generate Speech/Audit" tool that synthesizes thousands of local data points into a concise 2-minute actionable brief for parliamentary sessions.
 
-### 4. Deployability & Scalability (Production-Ready)
-**Why we are the best:** Jansetu is engineered to handle massive scale safely.
+### 4. Deployability & Scalability
+Jansetu is engineered to handle variable scale securely.
 * **Serverless Architecture:** The Telegram bot runs as a stateless webhook on Vercel (`api/telegram-webhook.cjs`), meaning it can scale infinitely to handle thousands of concurrent photo uploads during a civic crisis without server crashes.
 * **Zero Python Bottlenecks:** We completely eliminated heavy Python subprocesses for image processing, migrating to the blazing-fast Node.js `sharp` library for native SVG manipulation, reducing image processing latency by over 90%.
 * **Security & Auth:** Built-in modular authentication states ensure that MP dashboards and funds are strictly isolated from citizen views. 
