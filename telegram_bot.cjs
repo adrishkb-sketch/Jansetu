@@ -115,27 +115,23 @@ async function syncKeysFromFirestore() {
 
 // Crowdsourcing clarification details question
 async function askGeminiWhatDetailsAreNeeded(gap) {
-  if (gap.clarificationQuestion) {
-    return gap.clarificationQuestion;
-  }
-  const description = gap.items?.[0]?.content || gap.items?.[0]?.speechTranscript || '';
-  const prompt = `
-    Analyze this citizen complaint which is marked as incomplete:
-    Description: "${description}"
-    
-    Identify what specific additional details or pictures are needed from the public (e.g. landmarks, precise street names, dimensions of the pothole, duration of the issue, clear pictures of the damage).
-    Output a friendly, concise, single question/prompt asking the local public to provide these missing details so we can verify the issue.
-    Example: "Please provide the exact street name or any nearby landmark where the water logging is occurring."
-  `;
+  const itemsText = (gap.items || [])
+    .map((item, idx) => `[Contribution ${idx + 1}]: ${item.content || item.speechTranscript || ''}`)
+    .join('\n');
+  const prompt = `You are the AI coordinator of Jansetu. We have an incomplete civic complaint/suggestion:
+Category: ${gap.category}, Scope: ${gap.scope}.
+Here is all the description and evidence collected so far:
+${itemsText}
+
+Analyze this context and write a polite, friendly 1-sentence question in English asking the user to provide the exact missing detail that is still needed to understand the problem fully and solve it (like specific landmark, landmark markers, street name, pothole dimensions, water smell/color, timing, or duration of the issue). Output ONLY the direct question, no meta-text.`;
+  
   try {
     const res = await fetchGeminiWithFallback([{ parts: [{ text: prompt }] }]);
     const data = await res.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (text) return text;
-  } catch (e) {
-    console.error("Gemini details prompt call failed:", e);
-  }
-  return "Please provide more details or pictures of the issue to help us verify it.";
+  } catch (err) {}
+  return gap.clarificationQuestion || "Could you please describe the issue in more detail or provide any nearby landmark?";
 }
 
 // Auto-detect actual MIME type from base64 header bytes
@@ -888,7 +884,7 @@ async function runBotInputAnalysis(chatId, session) {
       "problemBrief": "A 2-3 sentence clear summary outlining the infrastructure deficits, risks, and impact.",
       "detectedLocationName": "The specific landmark, institution, street, or place name mentioned in the text, or null if none found",
       "detectedLocationType": "school | hospital | police_station | road | market | park | temple | bus_stand | colony | other | null",
-      "requiresClarification": boolean (set to true if the details lack precise user-provided landmark markers, street names, duration, or dimensions. IMPORTANT: If the input does not contain the phrase 'Additional user clarification', set requiresClarification to true and ask a friendly follow-up question requesting the exact landmark, road name, or duration of the issue),
+      "requiresClarification": boolean (set to true if the details still lack precise user-provided landmark markers, street names, duration, dimensions, or specific timing. Keep requiresClarification as true and ask a follow-up question for any missing critical information, unless the description is already fully detailed, complete and actionable. Set to false ONLY when you are fully satisfied that the description is complete and clear.),
       "clarificationQuestion": "A clear question asking for the missing parameter, or null if requiresClarification is false"
     }
   `;

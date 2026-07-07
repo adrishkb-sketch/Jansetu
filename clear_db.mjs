@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyADllQ8Um7qsJ4trH5WkRCWfVvHVh_qpp4",
@@ -20,6 +20,9 @@ async function clearCollection(colName) {
   const qSnapshot = await getDocs(colRef);
   let count = 0;
   for (const document of qSnapshot.docs) {
+    if (colName === 'demands' && document.id === 'config_gemini') {
+      continue;
+    }
     await deleteDoc(doc(db, colName, document.id));
     count++;
   }
@@ -27,6 +30,10 @@ async function clearCollection(colName) {
 }
 
 async function main() {
+  const nowStr = new Date().toISOString();
+  await setDoc(doc(db, 'demands', 'config_gemini'), { resetTimestamp: nowStr }, { merge: true });
+  console.log(`Set global resetTimestamp to ${nowStr}`);
+
   await clearCollection('demands');
   await clearCollection('plans');
   await clearCollection('mp_funds');

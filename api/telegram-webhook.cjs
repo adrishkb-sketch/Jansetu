@@ -99,18 +99,15 @@ async function syncKeysFromFirestore() {
 
 // Crowdsourcing clarification details question
 async function askGeminiWhatDetailsAreNeeded(gap) {
-  if (gap.clarificationQuestion) {
-    return gap.clarificationQuestion;
-  }
-  const description = gap.items?.[0]?.content || gap.items?.[0]?.speechTranscript || "";
-  const prompt = `
-    Analyze this citizen complaint which is marked as incomplete:
-    Description: "${description}"
-    
-    Identify what specific additional details or pictures are needed from the public (e.g. landmarks, precise street names, dimensions of the pothole, duration of the issue, clear pictures of the damage).
-    Output a friendly, concise, single question/prompt asking the local public to provide these missing details so we can verify the issue.
-    Example: "Please provide the exact street name or any nearby landmark where the water logging is occurring."
-  `;
+  const itemsText = (gap.items || [])
+    .map((item, idx) => `[Contribution ${idx + 1}]: ${item.content || item.speechTranscript || ""}`)
+    .join("\n");
+  const prompt = `You are the AI coordinator of Jansetu. We have an incomplete civic complaint/suggestion:
+Category: ${gap.category}, Scope: ${gap.scope}.
+Here is all the description and evidence collected so far:
+${itemsText}
+
+Analyze this context and write a polite, friendly 1-sentence question in English asking the user to provide the exact missing detail that is still needed to understand the problem fully and solve it (like specific landmark, landmark markers, street name, pothole dimensions, water smell/color, timing, or duration of the issue). Output ONLY the direct question, no meta-text.`;
   try {
     const res = await fetchGeminiWithFallback([{ parts: [{ text: prompt }] }]);
     const data = await res.json();
@@ -119,7 +116,7 @@ async function askGeminiWhatDetailsAreNeeded(gap) {
   } catch (e) {
     console.error("Gemini details prompt call failed:", e);
   }
-  return "Please provide more details or pictures of the issue to help us verify it.";
+  return gap.clarificationQuestion || "Please provide more details or pictures of the issue to help us verify it.";
 }
 
 // Auto-detect actual MIME type from base64 header bytes
@@ -950,8 +947,8 @@ async function runBotInputAnalysis(chatId, session) {
       "problemBrief": "A 2-3 sentence summary.",
       "detectedLocationName": "landmark name or null",
       "detectedLocationType": "school | hospital | police_station | road | market | park | temple | bus_stand | colony | other | null",
-      "requiresClarification": boolean,
-      "clarificationQuestion": "clarification question or null",
+      "requiresClarification": boolean (set to true if critical details are still missing or vague, e.g. exact landmark, street/road name, pothole size, duration of issue, or specific timeline/benefits for suggestions. Keep requiresClarification as true and ask a follow-up question unless the description is already fully detailed, complete and actionable. Set to false ONLY when you are fully satisfied that the description is complete and clear.),
+      "clarificationQuestion": "A friendly direct 1-sentence question asking the user to clarify the remaining missing parameter, or null if requiresClarification is false",
       "isValidCivicIssue": boolean
     }
 
