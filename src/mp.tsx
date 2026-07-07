@@ -283,7 +283,7 @@ function MPApp() {
 
   // Generate Parliamentary Speech (Only targets pending/unvoiced grievances)
   const handleGenerateSpeech = async () => {
-    const unvoicedDemands = matchingDemands.filter(d => !d.status || ['pending', 'needs_info'].includes(d.status));
+    const unvoicedDemands = matchingDemands.filter(d => d.status !== 'raised');
     
     if (unvoicedDemands.length === 0) {
       alert("All active citizen issues for this category/constituency have already been raised or funded! No new unvoiced concerns found.");
@@ -749,7 +749,7 @@ function MPApp() {
         {/* MP Hero Stats Bar */}
         {(() => {
           const constDemands = matchingDemands;
-          const pendingToRaise = constDemands.filter((d: any) => !d.status || ['pending','needs_info'].includes(d.status)).length;
+          const pendingToRaise = constDemands.filter((d: any) => d.status !== 'raised').length;
           const alreadyRaised = constDemands.filter((d: any) => ['raised','funded','work_started','completed','solved'].includes(d.status)).length;
           const totalImpact = constDemands.reduce((s: number, d: any) => s + (d.estimatedImpact || 1), 0);
           return (
@@ -1030,7 +1030,7 @@ function MPApp() {
 
               {/* Grievance Inbox (Awaiting Review) */}
               {(() => {
-                const list = matchingDemands.filter(d => !d.status || ['pending', 'needs_info'].includes(d.status));
+                const list = matchingDemands.filter(d => d.status !== 'raised');
                 return (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
