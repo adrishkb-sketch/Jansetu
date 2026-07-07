@@ -210,7 +210,7 @@ function normalizeBoxes(rawBoxes) {
 // Text-only fallback (no vision) — tries all keys across models
 async function fetchGeminiWithFallback(contents) {
   await syncKeysFromFirestore();
-  const TEXT_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  const TEXT_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-8b'];
   for (const model of TEXT_MODELS) {
     for (let i = 0; i < geminiKeys.length; i++) {
       const key = geminiKeys[(currentKeyIndex + i) % geminiKeys.length];
@@ -242,7 +242,7 @@ async function fetchGeminiWithFallback(contents) {
 // Each model is tried with all keys before falling to next model.
 async function fetchGeminiVision(parts) {
   await syncKeysFromFirestore();
-  const VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  const VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-8b'];
   for (const model of VISION_MODELS) {
     for (let i = 0; i < geminiKeys.length; i++) {
       const key = geminiKeys[(currentKeyIndex + i) % geminiKeys.length];

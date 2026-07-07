@@ -198,7 +198,7 @@ async function fetchGeminiWithFallback(contents) {
   const TEXT_MODELS = [
     "gemini-2.5-flash",
     "gemini-2.0-flash",
-    "gemini-1.5-flash"
+    "gemini-2.5-flash-8b"
   ];
 
   for (const model of TEXT_MODELS) {
@@ -240,7 +240,7 @@ async function fetchGeminiVision(parts) {
   const VISION_MODELS = [
     "gemini-2.5-flash",
     "gemini-2.0-flash",
-    "gemini-1.5-flash"
+    "gemini-2.5-flash-8b"
   ];
   for (const model of VISION_MODELS) {
     for (let i = 0; i < geminiKeys.length; i++) {

@@ -125,7 +125,7 @@ export async function fetchGemini(
     model, // The requested model first
     'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-1.5-flash'
+    'gemini-2.5-flash-8b'
   ];
 
   // Remove duplicates while keeping order
@@ -160,10 +160,11 @@ export async function fetchGeminiVision(
   fallbackDescription = ''
 ): Promise<any | null> {
   // Models in preference order for vision tasks
+  // gemini-1.5-pro and gemini-1.5-flash are deprecated as of July 2026
   const VISION_MODELS = [
     'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-1.5-flash',
+    'gemini-2.5-flash-8b',
   ];
 
   const keys = await getKeys();
