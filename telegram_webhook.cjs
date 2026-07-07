@@ -177,11 +177,58 @@ const T = {
   }
 };
 
-// Webhook endpoint
-app.post('/telegram-webhook', async (req, res) => {
-  try {
-    const update = req.body;
+// --- Rate Limiter Queue for Gemini ---
+const geminiQueue = [];
+let isProcessingGeminiQueue = false;
+
+async function processGeminiQueue() {
+  if (isProcessingGeminiQueue) return;
+  isProcessingGeminiQueue = true;
+
+  while (geminiQueue.length > 0) {
+    const { url, options, resolve, reject } = geminiQueue[0];
     
+    try {
+      const res = await fetch(url, options);
+      if (res.status === 429) {
+        console.warn("[Gemini] 429 Quota Exhausted. Waiting 10 seconds before retry...");
+        await new Promise(r => setTimeout(r, 10000));
+        continue; // Retry the same request
+      }
+      
+      const data = await res.json();
+      geminiQueue.shift(); // Remove from queue on success or non-429 error
+      resolve(data);
+      
+      // Enforce ~14 RPM limit (4500ms delay between calls)
+      await new Promise(r => setTimeout(r, 4500));
+      
+    } catch (err) {
+      console.error("[Gemini] Fetch error:", err);
+      geminiQueue.shift();
+      reject(err);
+    }
+  }
+
+  isProcessingGeminiQueue = false;
+}
+
+function fetchGeminiRateLimited(url, options) {
+  return new Promise((resolve, reject) => {
+    geminiQueue.push({ url, options, resolve, reject });
+    processGeminiQueue();
+  });
+}
+// --------------------------------------
+
+// Webhook endpoint
+app.post('/telegram-webhook', (req, res) => {
+  res.sendStatus(200); // Acknowledge to Telegram immediately to prevent timeout retries
+  processWebhook(req.body).catch(err => console.error("Webhook processing error:", err));
+});
+
+async function processWebhook(update) {
+  try {
     // Handle inline button callbacks
     if (update.callback_query) {
       const queryData = update.callback_query;
@@ -271,11 +318,11 @@ app.post('/telegram-webhook', async (req, res) => {
           await bot.answerCallbackQuery(queryData.id, { text: "Error upvoting.", show_alert: true });
         }
       }
-      return res.sendStatus(200);
+      return;
     }
 
     const { message } = update;
-    if (!message) return res.sendStatus(200);
+    if (!message) return;
 
     const chatId = message.chat.id;
     const userText = message.text || '';
@@ -291,13 +338,13 @@ app.post('/telegram-webhook', async (req, res) => {
           ]
         }
       });
-      return res.sendStatus(200);
+      return;
     }
 
     const session = userState.get(chatId);
     if (!session) {
       await bot.sendMessage(chatId, "Please type /start to initialize the bot.");
-      return res.sendStatus(200);
+      return;
     }
 
     const lang = session.lang || 'en';
@@ -315,7 +362,7 @@ app.post('/telegram-webhook', async (req, res) => {
 
       await bot.sendMessage(chatId, T.constituencySelected[lang](constituency), { parse_mode: 'Markdown' });
       sendMainMenu(chatId, lang);
-      return res.sendStatus(200);
+      return;
     }
 
     // Handle Media uploads
@@ -339,7 +386,7 @@ app.post('/telegram-webhook', async (req, res) => {
           const buffer = await fileRes.arrayBuffer();
           fileBase64 = Buffer.from(buffer).toString('base64');
           
-          const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
+          const data = await fetchGeminiRateLimited(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -351,7 +398,6 @@ app.post('/telegram-webhook', async (req, res) => {
               }]
             })
           });
-          const data = await geminiRes.json();
           content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Voice input received.";
         } catch (err) {
           content = "Voice note received (Transcription failed).";
@@ -364,7 +410,7 @@ app.post('/telegram-webhook', async (req, res) => {
           const buffer = await fileRes.arrayBuffer();
           fileBase64 = Buffer.from(buffer).toString('base64');
 
-          const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
+          const data = await fetchGeminiRateLimited(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -376,7 +422,6 @@ app.post('/telegram-webhook', async (req, res) => {
               }]
             })
           });
-          const data = await geminiRes.json();
           content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Photo input received.";
         } catch (err) {
           content = "Photo attachment received (Analysis failed).";
@@ -403,12 +448,11 @@ app.post('/telegram-webhook', async (req, res) => {
             "citizenResponse": "We have received your issue..."
           }
         `;
-        const classRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
+        const data = await fetchGeminiRateLimited(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: classificationPrompt }] }] })
         });
-        const data = await classRes.json();
         const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
         aiOverview = JSON.parse(rawText.replace(/```json|```/g, ''));
         if (aiOverview) {
@@ -457,7 +501,7 @@ app.post('/telegram-webhook', async (req, res) => {
       session.step = 'MENU';
       userState.set(chatId, session);
       sendMainMenu(chatId, lang);
-      return res.sendStatus(200);
+      return;
     }
 
     // Handle tracking
@@ -484,15 +528,15 @@ app.post('/telegram-webhook', async (req, res) => {
       session.step = 'MENU';
       userState.set(chatId, session);
       sendMainMenu(chatId, lang);
-      return res.sendStatus(200);
+      return;
     }
 
-    res.sendStatus(200);
+    return;
   } catch (err) {
     console.error("Webhook processing error:", err);
-    res.sendStatus(200);
+    return;
   }
-});
+}
 
 function sendMainMenu(chatId, lang) {
   bot.sendMessage(chatId, T.mainMenuTitle[lang], {
