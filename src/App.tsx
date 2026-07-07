@@ -1715,15 +1715,26 @@ JSON:`
     // Always auto-detect MIME type from actual file header — prevents sending PNG as jpeg etc.
     const resolvedMime = detectMimeType(base64Data) || mimeType || 'image/jpeg';
 
-    const imgPromptText = `You are the AI engine of Jansetu. Analyze this image.
+    const imgPromptText = `You are an AI assistant analyzing an image for a civic issue reporting platform called Jansetu.
 
-Your task is to:
-1. Describe what is visible in the image in detail (the environment, elements, objects, condition of infrastructure, or anything else present). Give specific remarks about the conditions.
-2. Identify specific sections or items of interest (especially civic or infrastructure issues like potholes, cracks, garbage, waterlogging, streetlights, or general features like buildings, vehicles, trees, roads) and draw bounding boxes around them.
-3. For each bounding box, estimate coordinates (x, y, width, height as percentages of image dimensions 0–100). For each box: x, y, width, height (integers), label (short name), severity/condition remark ("Immediate Attention", "Moderate", "Minor", or "Normal").
+Describe EVERYTHING you see in this image in detail. Look for:
+- The general scene and environment
+- Any infrastructure issues (potholes, cracks, broken roads, waterlogging, damaged walls, broken lights, garbage, encroachments, etc.)
+- Condition of visible infrastructure elements
+- Any notable features, objects, vehicles, or people
 
-Output ONLY valid JSON. No markdown. No explanation outside JSON.
-Schema: { "description": "...", "boundingBoxes": [ { "x": 10, "y": 20, "width": 40, "height": 30, "label": "pothole", "severity": "Immediate Attention" } ] }`;
+Then output a JSON object with this exact schema:
+{
+  "description": "A thorough multi-sentence description of what you see and any issues identified",
+  "boundingBoxes": [
+    { "x": 10, "y": 20, "width": 40, "height": 30, "label": "Issue name", "severity": "Immediate Attention" }
+  ]
+}
+
+For bounding boxes: x, y, width, height are integers from 0–100 representing percentage of image dimensions.
+Severity values: "Immediate Attention", "Moderate", "Minor", or "Normal".
+
+IMPORTANT: Always include a "description" field. Output ONLY valid JSON. Do not include markdown code fences or any text outside the JSON.`;
 
     const normalizeBoxes = (rawBoxes: any[]): any[] => {
       if (!Array.isArray(rawBoxes)) return [];
@@ -1805,11 +1816,27 @@ Schema: { "description": "...", "boundingBoxes": [ { "x": 10, "y": 20, "width": 
         }
       }
 
-      if (parsed) {
+      if (parsed && parsed.description) {
         const rawBoxes = parsed.boundingBoxes || parsed.bounding_boxes || parsed.boxes || [];
         parsed.boundingBoxes = normalizeBoxes(rawBoxes);
         return parsed;
       }
+
+      // JSON parsed but no description field — try to extract description from parsed or use raw text
+      if (parsed && !parsed.description) {
+        // Some models return { summary: '...' } or similar — try common field names
+        const desc = parsed.summary || parsed.text || parsed.content || parsed.analysis || Object.values(parsed).find(v => typeof v === 'string');
+        if (desc) {
+          return { description: String(desc), requiresMoreContext: false, boundingBoxes: normalizeBoxes(parsed.boundingBoxes || parsed.boxes || []) };
+        }
+      }
+
+      // JSON parse failed entirely — use raw text as description so submission can still proceed
+      if (result?.text && result.text.length > 10) {
+        console.warn('[Jansetu Vision] JSON parse failed, using raw text as description.');
+        return { description: result.text, requiresMoreContext: false, boundingBoxes: [] };
+      }
+
       return null;
     } catch (e) {
       console.error('[Jansetu Vision] Image analysis failed entirely:', e);
