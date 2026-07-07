@@ -24,7 +24,7 @@ import {
 import { LanguageSelector, getInitialLanguage, GeminiKeysFooter } from './App';
 import { fetchGemini } from './services/gemini_api';
 import { AuthModal } from './AuthModal';
-import { ALL_CONSTITUENCIES_DATA } from './services/constituency_datasets';
+import { ALL_CONSTITUENCIES_DATA, initializeDatasets } from './services/constituency_datasets';
 import './index.css';
 
 function MPApp() {
@@ -102,6 +102,11 @@ function MPApp() {
       loadData();
     }
   }, [isAuthenticated, selectedConstituency]);
+  
+  useEffect(() => {
+    // Fetch demographic datasets from Firestore BigQuery mock
+    initializeDatasets();
+  }, []);
  
   // Load Action Plan whenever selection changes
   useEffect(() => {

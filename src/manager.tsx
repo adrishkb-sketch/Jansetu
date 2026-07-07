@@ -47,7 +47,8 @@ import {
   getClosestConstituencySegment,
   getConstituencyOfLocation,
   ALL_CONSTITUENCIES_DATA,
-  getConstituencySegments
+  getConstituencySegments,
+  initializeDatasets
 } from './services/constituency_datasets';
 import './index.css';
 
@@ -213,6 +214,11 @@ function ManagerConsole() {
   useEffect(() => {
     setConstituencySearchQuery(selectedGlobalConstituency);
   }, [selectedGlobalConstituency]);
+  
+  useEffect(() => {
+    // Fetch demographic datasets from Firestore BigQuery mock
+    initializeDatasets();
+  }, []);
 
   // AI Thematic Clustering States
   const [clusteringResults, setClusteringResults] = useState<any[]>(() => {

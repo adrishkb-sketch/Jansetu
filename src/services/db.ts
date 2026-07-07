@@ -822,3 +822,26 @@ export async function clearDatabaseCollections(): Promise<void> {
     console.error("Firestore collections clear failed: ", e);
   }
 }
+
+export async function fetchPublicDatasets(): Promise<{ rampurSegments: any, constituencies: any, mapping: any } | null> {
+  try {
+    if (!db) return null;
+    console.log("Fetching datasets from Firestore mock BigQuery...");
+    const [rampurSnap, constSnap, mappingSnap] = await Promise.all([
+      getDoc(doc(db, 'demands', 'dataset_rampur_segments')),
+      getDoc(doc(db, 'demands', 'dataset_constituencies_543')),
+      getDoc(doc(db, 'demands', 'dataset_constituencies_mapping'))
+    ]);
+    
+    if (rampurSnap.exists() && constSnap.exists() && mappingSnap.exists()) {
+      return {
+        rampurSegments: rampurSnap.data(),
+        constituencies: constSnap.data(),
+        mapping: mappingSnap.data()
+      };
+    }
+  } catch (e) {
+    console.error("Failed to fetch public datasets from Firestore:", e);
+  }
+  return null;
+}

@@ -13,6 +13,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const sharp = require('sharp');
 const TelegramBot = require('node-telegram-bot-api').default || require('node-telegram-bot-api').TelegramBot || require('node-telegram-bot-api');
 const { initializeApp } = require('firebase/app');
 const { 
@@ -772,27 +774,35 @@ Schema: { "description": "...", "boundingBoxes": [ { "x": 10, "y": 20, "width": 
 
         // Overlay boxes and send annotated image to user
         if (boundingBoxes.length > 0) {
-          const tempInputPath = path.join(__dirname, `temp_input_${chatId}.jpg`);
           const tempOutputPath = path.join(__dirname, `temp_output_${chatId}.jpg`);
-          fs.writeFileSync(tempInputPath, Buffer.from(buffer));
-          
-          await new Promise((resolve) => {
-            const boxesJson = JSON.stringify(boundingBoxes);
-            const { exec } = require('child_process');
-            exec(`python3 draw_boxes.py "${tempInputPath}" "${tempOutputPath}" '${boxesJson.replace(/'/g, "'\\''")}'`, async (error) => {
-              if (!error) {
-                try {
-                  const drawInfo = await translateBotText('AI visual detection: anomalies highlighted in red.', lang);
-                  await bot.sendPhoto(chatId, tempOutputPath, { caption: drawInfo });
-                } catch (e) {
-                  console.error('Failed to send annotated photo:', e);
-                }
-              }
-              try { fs.unlinkSync(tempInputPath); } catch (e) {}
-              try { fs.unlinkSync(tempOutputPath); } catch (e) {}
-              resolve();
-            });
-          });
+          try {
+            const metadata = await sharp(buffer).metadata();
+            const width = metadata.width || 800;
+            const height = metadata.height || 600;
+            
+            const svgText = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+              ${boundingBoxes.map(b => {
+                const bx = (b.x / 100) * width;
+                const by = (b.y / 100) * height;
+                const bw = (b.width / 100) * width;
+                const bh = (b.height / 100) * height;
+                return \`<rect x="\${bx}" y="\${by}" width="\${bw}" height="\${bh}" fill="none" stroke="red" stroke-width="4" />
+                <rect x="\${bx}" y="\${Math.max(0, by - 25)}" width="\${bw}" height="25" fill="red" />
+                <text x="\${bx + 5}" y="\${Math.max(18, by - 7)}" fill="white" font-size="16" font-family="sans-serif" font-weight="bold">\${b.label || 'Anomaly'}</text>\`;
+              }).join('')}
+            </svg>`;
+            
+            await sharp(buffer)
+              .composite([{ input: Buffer.from(svgText), blend: 'over' }])
+              .toFile(tempOutputPath);
+            
+            const drawInfo = await translateBotText('AI visual detection: anomalies highlighted in red.', lang);
+            await bot.sendPhoto(chatId, tempOutputPath, { caption: drawInfo });
+            
+            try { fs.unlinkSync(tempOutputPath); } catch (e) {}
+          } catch (e) {
+            console.error('Failed to generate or send annotated photo with sharp:', e);
+          }
         }
         // Send AI analysis description to user
         const descriptionMsg = `🔍 *AI Image Analysis Summary:* \n\n${content}`;

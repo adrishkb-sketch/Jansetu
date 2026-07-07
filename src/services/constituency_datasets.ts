@@ -35,11 +35,14 @@ export interface ConstituencyDemographics {
   soilHealthSaturation: number; // % farmers holding active soil health cards
 }
 
+import { fetchPublicDatasets } from './db';
 import ALL_CONSTITUENCIES_DATA_RAW from './constituencies_543.json';
 import CONSTITUENCIES_MAPPING_RAW from './constituency_segments_mapping.json';
 
-export const ALL_CONSTITUENCIES_DATA: Record<string, ConstituencyDemographics> = (ALL_CONSTITUENCIES_DATA_RAW as unknown) as Record<string, ConstituencyDemographics>;
-export const CONSTITUENCIES_MAPPING: Record<string, string[]> = CONSTITUENCIES_MAPPING_RAW as Record<string, string[]>;
+// Mutable variables to allow dynamic loading
+export let ALL_CONSTITUENCIES_DATA: Record<string, ConstituencyDemographics> = (ALL_CONSTITUENCIES_DATA_RAW as unknown) as Record<string, ConstituencyDemographics>;
+export let CONSTITUENCIES_MAPPING: Record<string, string[]> = CONSTITUENCIES_MAPPING_RAW as Record<string, string[]>;
+
 
 export const MINISTRY_STANDARDS: Record<string, MinistryStandard> = {
   water: {
@@ -134,7 +137,8 @@ export const MINISTRY_STANDARDS: Record<string, MinistryStandard> = {
   }
 };
 
-export const RAMPUR_SEGMENTS_DATA: Record<string, ConstituencyDemographics> = {
+// Start out with default rampur segments, will be overwritten by dynamic fetch
+export let RAMPUR_SEGMENTS_DATA: Record<string, ConstituencyDemographics> = {
   rampur_town: {
     name: 'Rampur Town Assembly Segment',
     district: 'Rampur',
@@ -236,6 +240,18 @@ export const RAMPUR_SEGMENTS_DATA: Record<string, ConstituencyDemographics> = {
     soilHealthSaturation: 71.9
   }
 };
+
+export async function initializeDatasets(): Promise<void> {
+  const data = await fetchPublicDatasets();
+  if (data) {
+    console.log("Successfully initialized public datasets from mock BigQuery/Firestore.");
+    ALL_CONSTITUENCIES_DATA = data.constituencies;
+    CONSTITUENCIES_MAPPING = data.mapping;
+    RAMPUR_SEGMENTS_DATA = data.rampurSegments;
+  } else {
+    console.warn("Failed to load dynamic datasets from Firestore. Falling back to local static JSON.");
+  }
+}
 
 function getHaversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371; // Earth's radius in km

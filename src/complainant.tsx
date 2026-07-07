@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { Network } from 'lucide-react';
 import { LanguageSelector, ComplainantPortal, getInitialLanguage, GeminiKeysFooter } from './App';
+import { initializeDatasets } from './services/constituency_datasets';
 import './index.css';
 
 function ComplainantApp() {
@@ -25,6 +26,9 @@ function ComplainantApp() {
       script.async = true;
       document.body.appendChild(script);
     }
+    
+    // Fetch demographic datasets from Firestore BigQuery mock
+    initializeDatasets();
   }, []);
 
   return (
