@@ -65,6 +65,8 @@ function rotateGeminiKey() {
   currentKeyIndex++;
 }
 
+let globalResetTimestamp = 0;
+
 // Sync API keys from Firestore demands/config_gemini
 async function syncKeysFromFirestore() {
   try {
@@ -84,6 +86,10 @@ async function syncKeysFromFirestore() {
             ...geminiKeys
           ])];
         }
+      }
+      if (data && data.resetTimestamp) {
+        globalResetTimestamp = new Date(data.resetTimestamp).getTime();
+        console.log(`[Bot Sync] Synced global reset timestamp: ${data.resetTimestamp}`);
       }
     }
   } catch (err) {
@@ -769,11 +775,16 @@ Schema: { "description": "...", "requiresMoreContext": false, "isValidCivicIssue
         const latOff = 0.015;
         const lngOff = 0.015;
 
+        await syncKeysFromFirestore();
         const snap = await getDocs(collection(db, "demands"));
         const nearbyUnverified = [];
         snap.forEach(docSnap => {
           const item = docSnap.data();
           if (docSnap.id === "config_gemini" || item.isConfig || item.isBotSession) return;
+          
+          const itemTime = new Date(item.createdAt || item.updatedAt || 0).getTime();
+          if (itemTime <= globalResetTimestamp) return;
+
           if (item.status === "verified" || item.status === "resolved" || item.status === "closed") return;
           if (!item.location?.lat || !item.location?.lng) return;
           if (Math.abs(item.location.lat - lat) <= latOff && Math.abs(item.location.lng - lng) <= lngOff) {
@@ -828,18 +839,25 @@ Schema: { "description": "...", "requiresMoreContext": false, "isValidCivicIssue
   if (session.step === "TRACK") {
     const ticketId = userText.trim();
     try {
+      await syncKeysFromFirestore();
       const docRef = doc(db, "demands", ticketId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const d = docSnap.data();
-        const detailMsg = T.ticketStatusMsg(d, docSnap.id);
-        const translatedDetail = await translateBotText(detailMsg, lang);
-        await bot.sendMessage(chatId, translatedDetail, { parse_mode: "Markdown" });
+        const itemTime = new Date(d.createdAt || d.updatedAt || 0).getTime();
+        if (itemTime > globalResetTimestamp) {
+          const detailMsg = T.ticketStatusMsg(d, docSnap.id);
+          const translatedDetail = await translateBotText(detailMsg, lang);
+          await bot.sendMessage(chatId, translatedDetail, { parse_mode: "Markdown" });
 
-        const trackUrl = `https://jansetu-ef57d.web.app/track.html?id=${docSnap.id}`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(trackUrl)}`;
-        const qrCaption = await translateBotText(`📱 Scan this QR code to view the full complaint tracking page with timeline, AI clustering status, parliamentary history, and funding details.`, lang);
-        await bot.sendPhoto(chatId, qrUrl, { caption: qrCaption });
+          const trackUrl = `https://jansetu-ef57d.web.app/track.html?id=${docSnap.id}`;
+          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(trackUrl)}`;
+          const qrCaption = await translateBotText(`📱 Scan this QR code to view the full complaint tracking page with timeline, AI clustering status, parliamentary history, and funding details.`, lang);
+          await bot.sendPhoto(chatId, qrUrl, { caption: qrCaption });
+        } else {
+          const noTicketMsg = await translateBotText(T.noTicket, lang);
+          await bot.sendMessage(chatId, noTicketMsg);
+        }
       } else {
         const noTicketMsg = await translateBotText(T.noTicket, lang);
         await bot.sendMessage(chatId, noTicketMsg);
@@ -1260,6 +1278,10 @@ async function handleCallbackQuery(queryData) {
       snap.forEach(docSnap => {
         const item = docSnap.data();
         if (docSnap.id === "config_gemini" || item.isConfig || item.isBotSession) return;
+        
+        const itemTime = new Date(item.createdAt || item.updatedAt || 0).getTime();
+        if (itemTime <= globalResetTimestamp) return;
+
         if (item.status === "pending" || item.status === "needs_info") {
           list.push({ id: docSnap.id, ...item });
         }

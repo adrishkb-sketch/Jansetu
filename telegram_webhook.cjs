@@ -48,6 +48,24 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
+let globalResetTimestamp = 0;
+
+async function syncResetTimestamp() {
+  try {
+    const docRef = doc(db, 'demands', 'config_gemini');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data && data.resetTimestamp) {
+        globalResetTimestamp = new Date(data.resetTimestamp).getTime();
+        console.log(`[Bot Sync] Synced global reset timestamp: ${data.resetTimestamp}`);
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to sync reset timestamp in webhook:", err.message);
+  }
+}
+
 // 2. Telegram Bot API Settings
 const BOT_TOKEN = "8724667418:AAFSz9FkGQd0DlyCf6TnrsVKdke-4xnx1Aw";
 const GEMINI_KEY = "AIzaSyDummyKeyForJansetuFastPrototypeScale"; // Default fallback key
@@ -201,19 +219,25 @@ app.post('/telegram-webhook', async (req, res) => {
       } else if (data === 'menu_4') {
         const consty = session.constituency || 'Rampur';
         try {
+          await syncResetTimestamp();
           const q = query(
             collection(db, 'demands'),
             where('constituency', '==', consty),
             orderBy('createdAt', 'desc'),
-            limit(5)
+            limit(15)
           );
           const snap = await getDocs(q);
           if (snap.empty) {
             await bot.sendMessage(chatId, T.noIssues[lang]);
           } else {
-            await bot.sendMessage(chatId, T.upvoteListTitle[lang]);
+            let sentCount = 0;
             for (const docSnap of snap.docs) {
               const item = docSnap.data();
+              if (docSnap.id === 'config_gemini' || item.isConfig || item.isBotSession) continue;
+              
+              const itemTime = new Date(item.createdAt || item.updatedAt || 0).getTime();
+              if (itemTime <= globalResetTimestamp) continue;
+
               const detailMsg = `📍 *Grievance:* ${item.category.toUpperCase()} issue\nStatus: ${item.status}\n👍 Upvotes: ${item.upvotes || 1}\nDetail: "${item.aiOverview?.brief || item.items?.[0]?.content?.slice(0, 100)}"`;
               
               await bot.sendMessage(chatId, detailMsg, {
@@ -224,6 +248,11 @@ app.post('/telegram-webhook', async (req, res) => {
                   ]
                 }
               });
+              sentCount++;
+              if (sentCount >= 5) break;
+            }
+            if (sentCount === 0) {
+              await bot.sendMessage(chatId, T.noIssues[lang]);
             }
           }
         } catch (err) {
@@ -434,11 +463,17 @@ app.post('/telegram-webhook', async (req, res) => {
     // Handle tracking
     if (session.step === 'TRACK') {
       try {
+        await syncResetTimestamp();
         const docRef = doc(db, 'demands', userText.trim());
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const d = docSnap.data();
-          await bot.sendMessage(chatId, T.ticketStatusMsg[lang](docSnap.id, d.category, d.status), { parse_mode: 'Markdown' });
+          const itemTime = new Date(d.createdAt || d.updatedAt || 0).getTime();
+          if (itemTime > globalResetTimestamp) {
+            await bot.sendMessage(chatId, T.ticketStatusMsg[lang](docSnap.id, d.category, d.status), { parse_mode: 'Markdown' });
+          } else {
+            await bot.sendMessage(chatId, T.noTicket[lang]);
+          }
         } else {
           await bot.sendMessage(chatId, T.noTicket[lang]);
         }
