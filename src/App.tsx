@@ -1447,6 +1447,9 @@ JSON:`
     }
   };
 
+  // Cache last analysis to avoid duplicate Gemini calls for same content
+  const lastAnalysisHashRef = useRef<string>('');
+
   const triggerGlobalAIAnalysis = (currentItems: SubmissionItem[]) => {
     // Clear any pending debounced call
     if (aiDebounceTimerRef.current) {
@@ -1459,10 +1462,11 @@ JSON:`
       setAiUnderstood(false);
       setShowAiAutoDetectSection(false);
       setImageContextWarning(false);
+      lastAnalysisHashRef.current = '';
       return;
     }
 
-    // Wait 2.5s after the LAST item change before firing Gemini
+    // Wait 6s after the LAST item change before firing Gemini (reduces quota burn on rapid changes)
     setAiIndicator({ active: true, message: '⏳ Queuing AI analysis...' });
     aiDebounceTimerRef.current = setTimeout(() => {
       const combinedText = currentItems
@@ -1475,10 +1479,17 @@ JSON:`
         .filter(Boolean)
         .join('\n');
 
-      if (combinedText.trim()) {
-        runAIAttachmentAnalysis(combinedText, currentItems);
+      if (!combinedText.trim()) return;
+
+      // Skip if content is identical to last analysis — avoids duplicate quota burn
+      const contentHash = combinedText.trim().slice(0, 200);
+      if (contentHash === lastAnalysisHashRef.current) {
+        setAiIndicator({ active: false, message: '' });
+        return;
       }
-    }, 2500);
+      lastAnalysisHashRef.current = contentHash;
+      runAIAttachmentAnalysis(combinedText, currentItems);
+    }, 6000);
   };
 
   const handleAddText = () => {
@@ -1536,34 +1547,21 @@ JSON:`
           let resolvedTranscript = finalTranscript || '';
 
           if (!resolvedTranscript.trim()) {
-            setAiIndicator({ active: true, message: 'AI checking audio for spoken content...' });
+            // Single transcription call — no pre-check to save quota. If audio has no speech the transcript will be empty.
+            setAiIndicator({ active: true, message: 'AI transcribing voice note...' });
             try {
-              const checkResponse = await fetchGemini({
+              const transResponse = await fetchGemini({
                 contents: [{
                   parts: [
                     { inlineData: { mimeType: cleanMime, data: base64data } },
-                    { text: "Analyze this audio. Is there any actual spoken speech or voice content in it? (Silence, static, wind, or background noise do not count). Reply strictly with either 'YES' or 'NO'. Do not add any other words." }
+                    { text: "You are the audio transcriber for Jansetu. Transcribe this audio verbatim in the spoken language (any Indian language or English). If there is no speech or only silence/noise, reply with exactly the word: SILENCE. Output ONLY the transcription or SILENCE, nothing else." }
                   ]
                 }]
               });
-              const checkJson = await checkResponse.json();
-              const checkText = (checkJson.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
-
-              if (checkText.includes('YES')) {
-                setAiIndicator({ active: true, message: 'AI transcribing voice note...' });
-                const transResponse = await fetchGemini({
-                  contents: [{
-                    parts: [
-                      { inlineData: { mimeType: cleanMime, data: base64data } },
-                      { text: "You are the audio transcriber for Jansetu. Please transcribe this audio file verbatim in the spoken language (which may be any Indian language or English). Output ONLY the verbatim transcription, no other text." }
-                    ]
-                  }]
-                });
-                const transJson = await transResponse.json();
-                const transText = (transJson.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
-                if (transText) {
-                  resolvedTranscript = transText;
-                }
+              const transJson = await transResponse.json();
+              const transText = (transJson.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+              if (transText && transText.toUpperCase() !== 'SILENCE') {
+                resolvedTranscript = transText;
               }
             } catch (err) {
               console.error("Audio fallback transcription failed:", err);
@@ -1712,77 +1710,73 @@ JSON:`
   const runGeminiImageAnalysis = async (base64Data: string, mimeType: string): Promise<{ description: string; requiresMoreContext: boolean; boundingBoxes?: any[] } | null> => {
     setAiIndicator({ active: true, message: 'AI analyzing uploaded image context...' });
 
-    // Always auto-detect MIME type from actual file header — prevents sending PNG as jpeg etc.
+    // Auto-detect MIME type from actual file header
     const resolvedMime = detectMimeType(base64Data) || mimeType || 'image/jpeg';
 
-    const imgPromptText = `You are an AI assistant analyzing an image for a civic issue reporting platform called Jansetu.
+    const imgPromptText = `You are an AI assistant for Jansetu, a civic issue reporting platform. Analyze this image thoroughly.
 
-Describe EVERYTHING you see in this image in detail. Look for:
-- The general scene and environment
-- Any infrastructure issues (potholes, cracks, broken roads, waterlogging, damaged walls, broken lights, garbage, encroachments, etc.)
-- Condition of visible infrastructure elements
-- Any notable features, objects, vehicles, or people
+Describe EVERYTHING you see: the scene, environment, infrastructure condition, any issues (potholes, cracks, broken roads, waterlogging, damaged walls, broken streetlights, garbage, encroachments, illegal constructions, etc.), people, vehicles, and notable objects.
 
-Then output a JSON object with this exact schema:
-{
-  "description": "A thorough multi-sentence description of what you see and any issues identified",
-  "boundingBoxes": [
-    { "x": 10, "y": 20, "width": 40, "height": 30, "label": "Issue name", "severity": "Immediate Attention" }
-  ]
-}
+Then identify ALL problem areas and draw bounding boxes around them.
 
-For bounding boxes: x, y, width, height are integers from 0–100 representing percentage of image dimensions.
-Severity values: "Immediate Attention", "Moderate", "Minor", or "Normal".
+Return ONLY this JSON (no markdown, no extra text):
+{"description":"<detailed multi-sentence description>","boundingBoxes":[{"x":15,"y":20,"width":30,"height":25,"label":"Pothole","severity":"Immediate Attention"},{"x":60,"y":10,"width":20,"height":15,"label":"Waterlogging","severity":"Moderate"}]}
 
-IMPORTANT: Always include a "description" field. Output ONLY valid JSON. Do not include markdown code fences or any text outside the JSON.`;
+Rules:
+- x,y,width,height are integers 0-100 (percentage of image dimensions, origin top-left)
+- severity: "Immediate Attention", "Moderate", "Minor", or "Normal"
+- label: short descriptive name of the problem (2-4 words)
+- If NO issues found, still return {"description":"...","boundingBoxes":[]}
+- description field is REQUIRED`;
+
+    // Client-side JSON extraction — no second Gemini call needed
+    const extractJSON = (text: string): any | null => {
+      // Strip markdown fences
+      let s = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      // Try direct parse first
+      try { return JSON.parse(s); } catch (_) {}
+      // Extract first {...} block
+      const m = s.match(/\{[\s\S]*\}/);
+      if (m) { try { return JSON.parse(m[0]); } catch (_) {} }
+      // Fix common issues: trailing commas before } or ]
+      try { return JSON.parse(s.replace(/,(\s*[}\]])/g, '$1')); } catch (_) {}
+      return null;
+    };
 
     const normalizeBoxes = (rawBoxes: any[]): any[] => {
       if (!Array.isArray(rawBoxes)) return [];
       return rawBoxes.map(b => {
         if (Array.isArray(b) && b.length >= 4) {
-          const is1000 = Math.max(...b) > 100;
-          const scale = is1000 ? 10 : 1;
-          const y1 = b[0] / scale;
-          const x1 = b[1] / scale;
-          const y2 = b[2] / scale;
-          const x2 = b[3] / scale;
+          // Gemini sometimes returns [y1, x1, y2, x2] in 0-1000 scale
+          const maxVal = Math.max(...b.map(Number));
+          const scale = maxVal > 100 ? 1000 : 100;
+          const y1 = (b[0] / scale) * 100;
+          const x1 = (b[1] / scale) * 100;
+          const y2 = (b[2] / scale) * 100;
+          const x2 = (b[3] / scale) * 100;
           return {
-            x: Math.round(x1),
-            y: Math.round(y1),
-            width: Math.round(x2 - x1),
-            height: Math.round(y2 - y1),
+            x: Math.round(Math.max(0, Math.min(99, x1))),
+            y: Math.round(Math.max(0, Math.min(99, y1))),
+            width: Math.round(Math.max(2, Math.min(100 - x1, x2 - x1))),
+            height: Math.round(Math.max(2, Math.min(100 - y1, y2 - y1))),
             label: 'Issue',
             severity: 'Immediate Attention'
           };
         }
         if (typeof b === 'object' && b !== null) {
-          let x = b.x !== undefined ? Number(b.x) : (b.xmin !== undefined ? Number(b.xmin) : (b.left !== undefined ? Number(b.left) : 0));
-          let y = b.y !== undefined ? Number(b.y) : (b.ymin !== undefined ? Number(b.ymin) : (b.top !== undefined ? Number(b.top) : 0));
-          let w = b.width !== undefined ? Number(b.width) : (b.w !== undefined ? Number(b.w) : -1);
-          let h = b.height !== undefined ? Number(b.height) : (b.h !== undefined ? Number(b.h) : -1);
-
-          if (w === -1 && b.xmax !== undefined) w = Number(b.xmax) - x;
-          if (h === -1 && b.ymax !== undefined) h = Number(b.ymax) - y;
-          if (w === -1 && b.right !== undefined) w = Number(b.right) - x;
-          if (h === -1 && b.bottom !== undefined) h = Number(b.bottom) - y;
-
-          if (w === -1) w = 20;
-          if (h === -1) h = 20;
-
-          if (x > 100 || y > 100 || w > 100 || h > 100) {
-            x = Math.round(x / 10);
-            y = Math.round(y / 10);
-            w = Math.round(w / 10);
-            h = Math.round(h / 10);
-          }
-
+          let x = Number(b.x ?? b.xmin ?? b.left ?? 0);
+          let y = Number(b.y ?? b.ymin ?? b.top ?? 0);
+          let w = b.width !== undefined ? Number(b.width) : (b.xmax !== undefined ? Number(b.xmax) - x : (b.right !== undefined ? Number(b.right) - x : 20));
+          let h = b.height !== undefined ? Number(b.height) : (b.ymax !== undefined ? Number(b.ymax) - y : (b.bottom !== undefined ? Number(b.bottom) - y : 20));
+          // Scale from 0-1000 to 0-100 if needed
+          if (Math.max(x, y, w, h) > 100) { x /= 10; y /= 10; w /= 10; h /= 10; }
           return {
-            x: Math.max(0, Math.min(100, Math.round(x))),
-            y: Math.max(0, Math.min(100, Math.round(y))),
-            width: Math.max(1, Math.min(100, Math.round(w))),
-            height: Math.max(1, Math.min(100, Math.round(h))),
-            label: b.label || b.name || 'Issue',
-            severity: b.severity || 'Immediate Attention'
+            x: Math.round(Math.max(0, Math.min(99, x))),
+            y: Math.round(Math.max(0, Math.min(99, y))),
+            width: Math.round(Math.max(2, Math.min(100 - x, w))),
+            height: Math.round(Math.max(2, Math.min(100 - y, h))),
+            label: String(b.label || b.name || 'Issue'),
+            severity: String(b.severity || 'Immediate Attention')
           };
         }
         return null;
@@ -1795,44 +1789,30 @@ IMPORTANT: Always include a "description" field. Output ONLY valid JSON. Do not 
         { text: imgPromptText }
       ];
 
+      // Single Gemini call for vision — NO second repair call (saves quota)
       const result = await fetchGeminiVision(parts);
       if (!result?.text) return null;
 
-      // Try to parse JSON — strip markdown fences if model adds them
-      const cleaned = result.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      let parsed: any = null;
-      try {
-        parsed = JSON.parse(cleaned);
-      } catch (_) {
-        // Second-pass: ask Gemini to fix malformed JSON
-        console.warn('[Jansetu Vision] Initial JSON parse failed, attempting repair...');
-        const repairResult = await fetchGeminiVision([
-          { text: `The following text is supposed to be valid JSON but has errors. Fix it and return ONLY valid JSON, no explanation:\n${cleaned}` }
-        ]);
-        if (repairResult?.text) {
-          try {
-            parsed = JSON.parse(repairResult.text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim());
-          } catch (_) {}
-        }
-      }
+      console.log('[Jansetu Vision] Raw model response:', result.text.slice(0, 300));
+
+      const parsed = extractJSON(result.text);
 
       if (parsed && parsed.description) {
-        const rawBoxes = parsed.boundingBoxes || parsed.bounding_boxes || parsed.boxes || [];
-        parsed.boundingBoxes = normalizeBoxes(rawBoxes);
-        return parsed;
+        const boxes = normalizeBoxes(parsed.boundingBoxes || parsed.bounding_boxes || parsed.boxes || []);
+        console.log(`[Jansetu Vision] Parsed OK. Boxes: ${boxes.length}`);
+        return { description: parsed.description, requiresMoreContext: false, boundingBoxes: boxes };
       }
 
-      // JSON parsed but no description field — try to extract description from parsed or use raw text
       if (parsed && !parsed.description) {
-        // Some models return { summary: '...' } or similar — try common field names
-        const desc = parsed.summary || parsed.text || parsed.content || parsed.analysis || Object.values(parsed).find(v => typeof v === 'string');
+        const desc = parsed.summary || parsed.text || parsed.content || parsed.analysis ||
+          Object.values(parsed).find((v: any) => typeof v === 'string' && v.length > 10);
         if (desc) {
           return { description: String(desc), requiresMoreContext: false, boundingBoxes: normalizeBoxes(parsed.boundingBoxes || parsed.boxes || []) };
         }
       }
 
-      // JSON parse failed entirely — use raw text as description so submission can still proceed
-      if (result?.text && result.text.length > 10) {
+      // Fallback: raw text as description (no boxes)
+      if (result.text.length > 10) {
         console.warn('[Jansetu Vision] JSON parse failed, using raw text as description.');
         return { description: result.text, requiresMoreContext: false, boundingBoxes: [] };
       }
@@ -3938,51 +3918,61 @@ IMPORTANT: Always include a "description" field. Output ONLY valid JSON. Do not 
                       border: '1px solid rgba(255,255,255,0.1)'
                     }}
                   />
-                  {inspectingPhotoItem.boundingBoxes && inspectingPhotoItem.boundingBoxes.map((box, idx) => (
+                  {inspectingPhotoItem.boundingBoxes && inspectingPhotoItem.boundingBoxes.map((box, idx) => {
+                    const severityColor = box.severity === 'Immediate Attention' ? '#ef4444'
+                      : box.severity === 'Moderate' ? '#f97316'
+                      : box.severity === 'Minor' ? '#eab308'
+                      : '#22c55e';
+                    return (
                     <div
                       key={idx}
                       style={{
                         position: 'absolute',
-                        border: '3px solid #ef4444',
-                        background: 'rgba(239, 68, 68, 0.18)',
+                        border: `2.5px solid ${severityColor}`,
+                        background: `${severityColor}22`,
                         left: `${box.x}%`,
                         top: `${box.y}%`,
                         width: `${box.width}%`,
                         height: `${box.height}%`,
                         zIndex: 10,
                         pointerEvents: 'none',
-                        boxShadow: '0 0 12px rgba(239, 68, 68, 0.6)',
+                        boxShadow: `0 0 10px ${severityColor}88`,
                         borderRadius: '4px'
                       }}
                     >
+                      {/* Label tag — placed inside box at top-left, always visible */}
                       <span style={{
                         position: 'absolute',
-                        top: '-24px',
-                        left: '-3px',
-                        background: '#ef4444',
+                        top: '2px',
+                        left: '2px',
+                        background: severityColor,
                         color: 'white',
-                        fontSize: '10px',
+                        fontSize: '9.5px',
                         padding: '2px 6px',
                         borderRadius: '4px',
                         whiteSpace: 'nowrap',
-                        fontWeight: 'bold',
-                        boxShadow: '0 3px 6px rgba(0,0,0,0.4)',
+                        fontWeight: 700,
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '4px'
+                        gap: '3px',
+                        maxWidth: 'calc(100% - 4px)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                       }}>
                         <span>{box.label}</span>
                         <span style={{
-                          background: 'rgba(0,0,0,0.2)',
-                          padding: '1px 4px',
+                          background: 'rgba(0,0,0,0.25)',
+                          padding: '0px 3px',
                           borderRadius: '2px',
-                          fontSize: '8.5px'
+                          fontSize: '8px'
                         }}>
                           {box.severity}
                         </span>
                       </span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -4015,12 +4005,16 @@ IMPORTANT: Always include a "description" field. Output ONLY valid JSON. Do not 
                         No bounding boxes or localized issues resolved.
                       </span>
                     ) : (
-                      inspectingPhotoItem.boundingBoxes.map((box, idx) => (
+                      inspectingPhotoItem.boundingBoxes.map((box, idx) => {
+                        const sc = box.severity === 'Immediate Attention' ? '#ef4444'
+                          : box.severity === 'Moderate' ? '#f97316'
+                          : box.severity === 'Minor' ? '#eab308' : '#22c55e';
+                        return (
                         <div
                           key={idx}
                           style={{
-                            background: 'rgba(239, 68, 68, 0.05)',
-                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            background: `${sc}12`,
+                            border: `1px solid ${sc}44`,
                             padding: '12px 16px',
                             borderRadius: '8px',
                             display: 'flex',
@@ -4048,7 +4042,8 @@ IMPORTANT: Always include a "description" field. Output ONLY valid JSON. Do not 
                             {box.severity}
                           </span>
                         </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
