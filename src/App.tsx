@@ -1507,14 +1507,7 @@ JSON:`
     const textLower = content.toLowerCase();
     const isRefusal = textLower.includes("dont know") || textLower.includes("don't know") || textLower.includes("no idea") || textLower.includes("submit as is") || textLower.includes("submit anyway") || textLower.includes("cannot say") || textLower.includes("can't say") || textLower.includes("cant tell") || textLower.includes("can't tell") || textLower.includes("dont tell");
     if (isRefusal) {
-      setClarificationRefusals(prev => {
-        const nextVal = prev + 1;
-        if (nextVal >= 2) {
-          setAiUnderstood(true);
-          setAiClarificationQuestion(null);
-        }
-        return nextVal;
-      });
+      setClarificationRefusals(prev => prev + 1);
     }
 
     triggerGlobalAIAnalysis(nextItems);
@@ -1595,14 +1588,7 @@ JSON:`
           const voiceLower = (resolvedTranscript || '').toLowerCase();
           const isRefusal = voiceLower.includes("dont know") || voiceLower.includes("don't know") || voiceLower.includes("no idea") || voiceLower.includes("submit as is") || voiceLower.includes("submit anyway") || voiceLower.includes("cannot say") || voiceLower.includes("can't say") || voiceLower.includes("cant tell") || voiceLower.includes("can't tell") || voiceLower.includes("dont tell");
           if (isRefusal) {
-            setClarificationRefusals(prev => {
-              const nextVal = prev + 1;
-              if (nextVal >= 2) {
-                setAiUnderstood(true);
-                setAiClarificationQuestion(null);
-              }
-              return nextVal;
-            });
+            setClarificationRefusals(prev => prev + 1);
           }
 
           triggerGlobalAIAnalysis(nextItems);

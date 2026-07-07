@@ -611,10 +611,50 @@ async function handleMessage(msg) {
           createdAt: new Date().toISOString()
         });
 
+        let isSatisfied = true;
+        let newClarificationQuestion = null;
+
+        try {
+          let aiResText = null;
+          const prompt = `You are the AI coordinator for Jansetu. We previously asked the user: "${itemData.clarificationQuestion || 'Please provide more details'}". The user has now provided updated context. Here is the full combined context (all items):\n\n${items.map((it, idx) => `[Item ${idx+1}]: ${it.content}`).join("\n")}\n\nDoes this information adequately clarify the issue and specify the necessary details (like exact location/landmark or problem extent)? Output ONLY a JSON object: {"isSatisfied": true/false, "clarificationQuestion": "new specific question if not satisfied, or null if satisfied"}`;
+          
+          if (photoFileId && fileUrl) {
+            try {
+              const fileRes = await fetch(fileUrl);
+              const buffer = await fileRes.arrayBuffer();
+              const base64 = Buffer.from(buffer).toString("base64");
+              const parts = [
+                { inlineData: { mimeType: "image/jpeg", data: base64 } },
+                { text: prompt }
+              ];
+              aiResText = await fetchGeminiVision(parts);
+            } catch(e) { console.warn("Failed to analyze image for verification", e); }
+          }
+          
+          if (!aiResText) {
+             const res = await fetchGeminiWithFallback([{ parts: [{ text: prompt }] }]);
+             const data = await res.json();
+             aiResText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          }
+
+          if (aiResText) {
+             const cleanJson = aiResText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+             const match = cleanJson.match(/\{[\s\S]*\}/);
+             if (match) {
+               const parsed = JSON.parse(match[0]);
+               if (parsed.isSatisfied !== undefined) isSatisfied = parsed.isSatisfied;
+               if (parsed.clarificationQuestion !== undefined) newClarificationQuestion = parsed.clarificationQuestion;
+             }
+          }
+        } catch(err) {
+          console.warn("Failed to verify details with Gemini", err);
+        }
+
         await updateDoc(docRef, {
           items: items,
-          status: "pending",
-          needsMoreInfo: false,
+          status: isSatisfied ? "pending" : "needs_info",
+          needsMoreInfo: !isSatisfied,
+          clarificationQuestion: newClarificationQuestion || itemData.clarificationQuestion || null,
           updatedAt: new Date().toISOString()
         });
 
@@ -622,8 +662,13 @@ async function handleMessage(msg) {
           await bot.deleteMessage(chatId, sentMsg.message_id);
         } catch {}
 
-        const successText = await translateBotText("✅ Thank you! Your crowdsourced contribution has been added. The planning team has been notified and the issue is now pending verification.", lang);
-        await bot.sendMessage(chatId, successText);
+        if (isSatisfied) {
+          const successText = await translateBotText("✅ Thank you! Your crowdsourced contribution has been added. The planning team has been notified and the issue is now pending verification.", lang);
+          await bot.sendMessage(chatId, successText);
+        } else {
+          const failText = await translateBotText(`⚠️ Thank you, but we still need a bit more info: ${newClarificationQuestion || itemData.clarificationQuestion}`, lang);
+          await bot.sendMessage(chatId, failText);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -1187,8 +1232,8 @@ async function submitFinalComplaint(chatId, session) {
     }],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    status: (sub.requiresClarification && !sub.submittedAsIs) ? "needs_info" : "pending",
-    needsMoreInfo: (sub.requiresClarification && !sub.submittedAsIs),
+    status: (sub.requiresClarification) ? "needs_info" : "pending",
+    needsMoreInfo: (sub.requiresClarification),
     clarificationQuestion: sub.clarificationQuestion || undefined,
     upvotes: 1,
     estimatedImpact: sub.population || 5000,
