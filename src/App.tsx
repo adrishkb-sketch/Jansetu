@@ -508,11 +508,7 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
       if (!hotspot.location || hotspot.location.lat === undefined || hotspot.location.lng === undefined) {
         return;
       }
-      if (selectedLocation && 
-          Math.abs(hotspot.location.lat - selectedLocation.lat) < 0.0001 && 
-          Math.abs(hotspot.location.lng - selectedLocation.lng) < 0.0001) {
-        return;
-      }
+      // Removed the code that hid hotspots exactly at the selected location, so users can still see and interact with them.
 
       // Generate dynamic HSL color matching category
       const categoriesList = ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"];
