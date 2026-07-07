@@ -2227,238 +2227,326 @@ IMPORTANT: Always include a "description" field. Output ONLY valid JSON. Do not 
       ) : isDashboardView ? (
         <div style={{ marginTop: '24px' }}>
           {!isLoggedIn ? (
-            <div className="form-card" style={{ maxWidth: '480px', margin: '40px auto', padding: '32px' }}>
-              <div style={{ background: 'rgba(99, 102, 241, 0.1)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#818cf8' }}>
-                <Award size={32} />
-              </div>
-              <h3 style={{ textAlign: 'center', margin: '0 0 8px' }}>Complainant Login</h3>
-              <p style={{ textAlign: 'center', fontSize: '13px', color: '#8e90b3', margin: '0 0 24px' }}>
-                Access your profile using your email address. No password or OTP required.
+            /* ── BEAUTIFUL LOGIN CARD ── */
+            <div style={{
+              maxWidth: '480px', margin: '40px auto', padding: '40px 36px',
+              background: 'linear-gradient(135deg, rgba(15,10,40,0.95) 0%, rgba(30,20,70,0.9) 100%)',
+              border: '1px solid rgba(139,92,246,0.35)',
+              borderRadius: '24px',
+              boxShadow: '0 30px 80px rgba(99,102,241,0.18), 0 0 0 1px rgba(255,255,255,0.04) inset',
+              backdropFilter: 'blur(24px)',
+              textAlign: 'center'
+            }}>
+              {/* Icon */}
+              <div style={{
+                width: '72px', height: '72px', borderRadius: '50%', margin: '0 auto 20px',
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(139,92,246,0.15))',
+                border: '1px solid rgba(139,92,246,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 0 32px rgba(99,102,241,0.3)',
+                fontSize: '30px'
+              }}>👤</div>
+
+              <h3 style={{ margin: '0 0 6px', fontSize: '22px', fontWeight: 700, color: '#e0e7ff', letterSpacing: '-0.3px' }}>
+                Citizen Login
+              </h3>
+              <p style={{ fontSize: '13.5px', color: '#8b8fb8', margin: '0 0 28px', lineHeight: '1.5' }}>
+                Access your profile, track all complaints & earn civic badges.<br />
+                <span style={{ color: '#6366f1', fontWeight: 600 }}>No password required</span> — just your email.
               </p>
-              
-              <div className="input-group">
-                <label>Email Address</label>
+
+              <div style={{ textAlign: 'left', marginBottom: '20px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#a5b4fc', letterSpacing: '0.5px', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
+                  Email Address
+                </label>
                 <input
                   type="email"
-                  placeholder="citizen@domain.com"
+                  placeholder="your@email.com"
                   value={loginEmail}
                   onChange={e => setLoginEmail(e.target.value)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'rgba(0,0,0,0.2)', color: 'white' }}
+                  onKeyDown={e => e.key === 'Enter' && loginEmail.trim() && handleLogin()}
+                  style={{
+                    width: '100%', padding: '13px 16px', boxSizing: 'border-box',
+                    borderRadius: '12px', border: '1.5px solid rgba(99,102,241,0.3)',
+                    background: 'rgba(0,0,0,0.3)', color: 'white', fontSize: '14px',
+                    outline: 'none', transition: 'border-color 0.2s',
+                    fontFamily: 'inherit'
+                  }}
                 />
               </div>
 
-              <button 
-                type="button" 
-                className="btn-add-action" 
+              <button
+                type="button"
                 onClick={handleLogin}
                 disabled={!loginEmail.trim()}
-                style={{ width: '100%', marginTop: '20px', padding: '12px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+                style={{
+                  width: '100%', padding: '14px',
+                  background: loginEmail.trim()
+                    ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                    : 'rgba(99,102,241,0.2)',
+                  color: loginEmail.trim() ? 'white' : '#6366f1',
+                  border: 'none', borderRadius: '12px',
+                  fontWeight: 700, fontSize: '15px', cursor: loginEmail.trim() ? 'pointer' : 'not-allowed',
+                  boxShadow: loginEmail.trim() ? '0 8px 24px rgba(99,102,241,0.35)' : 'none',
+                  transition: 'all 0.2s', fontFamily: 'inherit'
+                }}
               >
-                Access Citizen Space
+                Access My Civic Space →
               </button>
+
+              <p style={{ marginTop: '20px', fontSize: '11.5px', color: '#6b7280' }}>
+                🔒 Secure · No account creation needed
+              </p>
             </div>
           ) : (
+            /* ── LOGGED IN DASHBOARD ── */
             <div style={{ textAlign: 'left' }}>
-              {/* Profile Card Header */}
-              <div className="form-card" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(79, 70, 229, 0.08))', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
-                <div>
-                  <h3 style={{ margin: '0 0 4px', color: '#c7d2fe' }}>👤 Citizen: {loginEmail}</h3>
-                  <span style={{ fontSize: '13px', color: '#a5b4fc' }}>
-                    Rank status: <strong>{(() => {
-                      const demandsCount = citizenDemands.length;
-                      const totalUpvotes = citizenDemands.reduce((sum, d) => sum + (d.upvotes || 0), 0);
-                      const score = demandsCount * 100 + totalUpvotes * 10;
-                      if (score >= 1000) return '🏆 Level 4: Constituency Champion';
-                      if (score >= 400) return '🛡️ Level 3: Ward Guardian';
-                      if (score >= 100) return '🎖️ Level 2: Community Sentinel';
-                      return '🌱 Level 1: Civic Observer';
-                    })()}</strong>
-                  </span>
+
+              {/* ── PROFILE HERO CARD ── */}
+              <div style={{
+                padding: '28px 28px',
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.08) 50%, rgba(59,130,246,0.08) 100%)',
+                border: '1px solid rgba(99,102,241,0.3)', borderRadius: '20px',
+                display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between',
+                alignItems: 'center', gap: '20px',
+                boxShadow: '0 8px 32px rgba(99,102,241,0.1)',
+                marginBottom: '20px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{
+                    width: '56px', height: '56px', borderRadius: '50%', flexShrink: 0,
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '24px', boxShadow: '0 4px 16px rgba(99,102,241,0.4)'
+                  }}>
+                    {loginEmail.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#a5b4fc', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>Citizen Profile</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'white' }}>{loginEmail}</div>
+                    <div style={{ fontSize: '12px', color: '#6ee7b7', marginTop: '3px' }}>
+                      {(() => {
+                        const score = citizenDemands.length * 100 + citizenDemands.reduce((s, d) => s + (d.upvotes || 0), 0) * 10;
+                        if (score >= 1000) return '🏆 Level 4: Constituency Champion';
+                        if (score >= 400) return '🛡️ Level 3: Ward Guardian';
+                        if (score >= 100) return '🎖️ Level 2: Community Sentinel';
+                        return '🌱 Level 1: Civic Observer';
+                      })()}
+                    </div>
+                  </div>
                 </div>
-                
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', minWidth: '100px', textAlign: 'center' }}>
-                    <span style={{ display: 'block', fontSize: '10px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 'bold' }}>Civic Score</span>
-                    <strong style={{ fontSize: '20px', color: '#6366f1' }}>{(() => {
-                      const demandsCount = citizenDemands.length;
-                      const totalUpvotes = citizenDemands.reduce((sum, d) => sum + (d.upvotes || 0), 0);
-                      return demandsCount * 100 + totalUpvotes * 10;
-                    })()} pts</strong>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', minWidth: '100px', textAlign: 'center' }}>
-                    <span style={{ display: 'block', fontSize: '10px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 'bold' }}>Submissions</span>
-                    <strong style={{ fontSize: '20px', color: '#10b981' }}>{citizenDemands.length}</strong>
-                  </div>
-                </div>
-              </div>
 
-              {/* Achievement Badges grid */}
-              <div className="form-card" style={{ marginTop: '20px', padding: '20px' }}>
-                <h4 style={{ margin: '0 0 12px', color: '#a5b4fc' }}>🎖️ Claimed Achievement Badges</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
-                  {/* Scribe Badge */}
-                  <div style={{ 
-                    background: 'rgba(0,0,0,0.2)', 
-                    border: '1px solid', 
-                    borderColor: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'text')) ? '#6366f1' : 'rgba(255,255,255,0.05)', 
-                    opacity: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'text')) ? 1 : 0.4,
-                    padding: '12px', 
-                    borderRadius: '8px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '10px' 
-                  }}>
-                    <span style={{ fontSize: '24px' }}>✍️</span>
-                    <div>
-                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Scribe Badge</strong>
-                      <span style={{ fontSize: '10px', color: '#a5b4fc' }}>Submitted text description</span>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'Civic Score', value: `${citizenDemands.length * 100 + citizenDemands.reduce((s, d) => s + (d.upvotes || 0), 0) * 10}`, unit: 'pts', color: '#818cf8', glow: 'rgba(99,102,241,0.25)' },
+                    { label: 'Submissions', value: `${citizenDemands.length}`, unit: 'total', color: '#34d399', glow: 'rgba(16,185,129,0.2)' },
+                    { label: 'Community Votes', value: `${citizenDemands.reduce((s, d) => s + (d.upvotes || 0), 0)}`, unit: 'upvotes', color: '#fbbf24', glow: 'rgba(251,191,36,0.2)' },
+                  ].map(stat => (
+                    <div key={stat.label} style={{
+                      background: 'rgba(0,0,0,0.3)', padding: '12px 18px', borderRadius: '14px',
+                      border: `1px solid ${stat.glow}`, minWidth: '90px', textAlign: 'center',
+                      boxShadow: `0 4px 16px ${stat.glow}`
+                    }}>
+                      <div style={{ fontSize: '9.5px', color: '#8e90b3', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.6px', marginBottom: '4px' }}>{stat.label}</div>
+                      <div style={{ fontSize: '22px', fontWeight: 800, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
+                      <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px' }}>{stat.unit}</div>
                     </div>
-                  </div>
-
-                  {/* Speaker Badge */}
-                  <div style={{ 
-                    background: 'rgba(0,0,0,0.2)', 
-                    border: '1px solid', 
-                    borderColor: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'audio')) ? '#10b981' : 'rgba(255,255,255,0.05)', 
-                    opacity: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'audio')) ? 1 : 0.4,
-                    padding: '12px', 
-                    borderRadius: '8px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '10px' 
-                  }}>
-                    <span style={{ fontSize: '24px' }}>🎤</span>
-                    <div>
-                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Speaker Badge</strong>
-                      <span style={{ fontSize: '10px', color: '#6ee7b7' }}>Submitted voice notes</span>
-                    </div>
-                  </div>
-
-                  {/* Inspector Badge */}
-                  <div style={{ 
-                    background: 'rgba(0,0,0,0.2)', 
-                    border: '1px solid', 
-                    borderColor: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'photo')) ? '#fbbf24' : 'rgba(255,255,255,0.05)', 
-                    opacity: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'photo')) ? 1 : 0.4,
-                    padding: '12px', 
-                    borderRadius: '8px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '10px' 
-                  }}>
-                    <span style={{ fontSize: '24px' }}>📸</span>
-                    <div>
-                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Inspector Badge</strong>
-                      <span style={{ fontSize: '10px', color: '#fde68a' }}>Submitted photo evidence</span>
-                    </div>
-                  </div>
-
-                  {/* Collaborator Badge */}
-                  <div style={{ 
-                    background: 'rgba(0,0,0,0.2)', 
-                    border: '1px solid', 
-                    borderColor: citizenDemands.some(d => d.items?.length > 1) ? '#ec4899' : 'rgba(255,255,255,0.05)', 
-                    opacity: citizenDemands.some(d => d.items?.length > 1) ? 1 : 0.4,
-                    padding: '12px', 
-                    borderRadius: '8px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '10px' 
-                  }}>
-                    <span style={{ fontSize: '24px' }}>🤝</span>
-                    <div>
-                      <strong style={{ fontSize: '12.5px', color: 'white', display: 'block' }}>Collaborator Badge</strong>
-                      <span style={{ fontSize: '10px', color: '#fbcfe8' }}>Contributed details/updates</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Your Registered Items */}
-              <div style={{ marginTop: '24px' }}>
-                <h4 style={{ margin: '0 0 12px', color: '#c7d2fe' }}>📋 Your Submitted Issues & Suggestions</h4>
-                
+              {/* ── ACHIEVEMENT BADGES ── */}
+              <div style={{
+                padding: '22px 24px', background: 'rgba(10,8,30,0.6)',
+                border: '1px solid rgba(255,255,255,0.07)', borderRadius: '18px', marginBottom: '20px'
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#c7d2fe', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🎖️ Achievement Badges
+                  <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 400 }}>— Earned through civic participation</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+                  {[
+                    { emoji: '✍️', name: 'Scribe', desc: 'Submitted text report', color: '#818cf8', glow: 'rgba(99,102,241,0.3)', earned: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'text')) },
+                    { emoji: '🎤', name: 'Voice Reporter', desc: 'Voice note submitted', color: '#34d399', glow: 'rgba(16,185,129,0.3)', earned: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'audio')) },
+                    { emoji: '📸', name: 'Field Inspector', desc: 'Photo evidence added', color: '#fbbf24', glow: 'rgba(251,191,36,0.3)', earned: citizenDemands.some(d => d.items?.some((i: any) => i.type === 'photo')) },
+                    { emoji: '🤝', name: 'Collaborator', desc: 'Multiple details given', color: '#f472b6', glow: 'rgba(244,114,182,0.3)', earned: citizenDemands.some(d => d.items?.length > 1) },
+                    { emoji: '🌟', name: 'Community Star', desc: '5+ issues submitted', color: '#c084fc', glow: 'rgba(192,132,252,0.3)', earned: citizenDemands.length >= 5 },
+                    { emoji: '🔥', name: 'Civic Champion', desc: '10+ upvotes received', color: '#fb923c', glow: 'rgba(251,146,60,0.3)', earned: citizenDemands.reduce((s, d) => s + (d.upvotes || 0), 0) >= 10 },
+                  ].map(badge => (
+                    <div key={badge.name} style={{
+                      background: badge.earned ? `linear-gradient(135deg, rgba(0,0,0,0.4), rgba(0,0,0,0.2))` : 'rgba(0,0,0,0.15)',
+                      border: `1px solid ${badge.earned ? badge.glow.replace('0.3', '0.5') : 'rgba(255,255,255,0.05)'}`,
+                      borderRadius: '14px', padding: '14px 14px',
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      opacity: badge.earned ? 1 : 0.35,
+                      boxShadow: badge.earned ? `0 4px 20px ${badge.glow}` : 'none',
+                      transition: 'all 0.2s'
+                    }}>
+                      <div style={{
+                        width: '40px', height: '40px', borderRadius: '12px', flexShrink: 0,
+                        background: badge.earned ? `linear-gradient(135deg, ${badge.glow}, transparent)` : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${badge.earned ? badge.glow : 'rgba(255,255,255,0.05)'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px'
+                      }}>{badge.emoji}</div>
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: badge.earned ? 'white' : '#6b7280' }}>{badge.name}</div>
+                        <div style={{ fontSize: '10.5px', color: badge.earned ? badge.color : '#4b5563', marginTop: '1px' }}>{badge.desc}</div>
+                        {badge.earned && <div style={{ fontSize: '9px', color: '#6ee7b7', marginTop: '3px', fontWeight: 600 }}>✓ EARNED</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── COMPLAINTS LIST ── */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#c7d2fe', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    📋 Your Submissions
+                    <span style={{ fontSize: '12px', background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', padding: '2px 10px', borderRadius: '20px', fontWeight: 600 }}>
+                      {citizenDemands.length} total
+                    </span>
+                  </h4>
+                  <span style={{ fontSize: '11px', color: '#6b7280' }}>Newest first</span>
+                </div>
+
                 {citizenDemands.length === 0 ? (
-                  <div className="form-card" style={{ padding: '32px', textAlign: 'center', color: '#8e90b3' }}>
-                    No registered tickets found for this email address. Switch back to Form view to submit your first suggestion!
+                  <div style={{
+                    padding: '48px 32px', textAlign: 'center',
+                    background: 'rgba(10,8,30,0.6)', border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '18px', color: '#6b7280'
+                  }}>
+                    <div style={{ fontSize: '40px', marginBottom: '12px' }}>📭</div>
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#8e90b3', marginBottom: '6px' }}>No submissions yet</div>
+                    <div style={{ fontSize: '13px' }}>Switch to the form view to submit your first complaint or suggestion.</div>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
-                    {citizenDemands.map(demand => {
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {[...citizenDemands].sort((a, b) => {
+                      const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                      const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                      return bTime - aTime;
+                    }).map((demand, idx) => {
                       const isSug = demand.ticketType === 'suggestion';
+                      const statusMap: Record<string, { label: string; color: string; bg: string }> = {
+                        completed:    { label: '✅ Completed',        color: '#34d399', bg: 'rgba(16,185,129,0.12)' },
+                        work_started: { label: '🔧 Work In Progress', color: '#60a5fa', bg: 'rgba(59,130,246,0.12)' },
+                        funded:       { label: '💰 Funded',           color: '#fbbf24', bg: 'rgba(251,191,36,0.12)' },
+                        approved:     { label: '🏛️ Speech Raised',    color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+                        needs_info:   { label: '⚠️ Needs More Info',  color: '#f87171', bg: 'rgba(239,68,68,0.12)' },
+                        pending:      { label: '⏳ Pending Review',   color: '#fb923c', bg: 'rgba(251,146,60,0.12)' },
+                      };
+                      const st = statusMap[demand.status] || statusMap.pending;
+                      const statusSteps = ['pending', 'reviewed', 'approved', 'funded', 'work_started', 'completed'];
+                      const currentIdx = statusSteps.indexOf(demand.status || 'pending');
+                      const trackingUrl = `${window.location.origin}/track.html?id=${demand.id}`;
+
                       return (
-                        <div key={demand.id} className="form-card" style={{ padding: '20px', borderLeft: isSug ? '4px solid #10b981' : '4px solid #f59e0b' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                                <span style={{ fontSize: '10px', background: isSug ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', color: isSug ? '#34d399' : '#fbbf24', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                        <div key={demand.id} style={{
+                          background: 'linear-gradient(135deg, rgba(15,10,40,0.9), rgba(20,15,50,0.8))',
+                          border: `1px solid ${isSug ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}`,
+                          borderLeft: `4px solid ${isSug ? '#10b981' : '#f59e0b'}`,
+                          borderRadius: '16px', padding: '20px 22px',
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                          transition: 'transform 0.15s',
+                        }}>
+                          {/* Header Row */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+                            <div style={{ flex: 1, minWidth: '0' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                                <span style={{
+                                  fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px',
+                                  background: isSug ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                                  color: isSug ? '#34d399' : '#fbbf24',
+                                  border: `1px solid ${isSug ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                                  letterSpacing: '0.4px'
+                                }}>
                                   {isSug ? '💡 SUGGESTION' : '⚠️ COMPLAINT'}
                                 </span>
-                                <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.08)', color: '#c7d2fe', padding: '1px 6px', borderRadius: '4px', textTransform: 'capitalize' }}>
+                                <span style={{
+                                  fontSize: '10px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px',
+                                  background: 'rgba(99,102,241,0.1)', color: '#c7d2fe',
+                                  border: '1px solid rgba(99,102,241,0.2)', textTransform: 'capitalize'
+                                }}>
                                   {demand.category}
                                 </span>
+                                <span style={{ fontSize: '10px', color: '#6b7280' }}>#{idx + 1}</span>
                               </div>
-                              <strong style={{ fontSize: '14px', color: 'white', display: 'block' }}>Ticket ID: {demand.id}</strong>
-                              <span style={{ fontSize: '12px', color: '#8e90b3' }}>📍 Address: {demand.address}</span>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: 'white', marginBottom: '4px' }}>
+                                {demand.aiOverview?.brief || (demand.items?.[0]?.content?.slice(0, 80) + '...') || 'Civic Issue'}
+                              </div>
+                              <div style={{ fontSize: '11.5px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                📍 {demand.address || 'Location not specified'}
+                              </div>
                             </div>
-                            
-                            <div style={{ textAlign: 'right' }}>
-                              <span style={{ 
-                                fontSize: '11px', 
-                                padding: '3px 8px', 
-                                borderRadius: '4px', 
-                                fontWeight: 'bold',
-                                color: 'white',
-                                background: demand.status === 'completed' ? '#10b981' :
-                                            demand.status === 'work_started' ? '#3b82f6' :
-                                            demand.status === 'funded' ? '#fbbf24' :
-                                            demand.status === 'approved' ? '#818cf8' :
-                                            demand.status === 'needs_info' ? '#ef4444' : '#f59e0b'
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
+                              <span style={{
+                                fontSize: '11px', fontWeight: 700, padding: '5px 10px', borderRadius: '8px',
+                                color: st.color, background: st.bg,
+                                border: `1px solid ${st.color}40`, whiteSpace: 'nowrap'
                               }}>
-                                {demand.status === 'completed' ? 'Completed' :
-                                 demand.status === 'work_started' ? 'Work Started' :
-                                 demand.status === 'funded' ? 'Funded' :
-                                 demand.status === 'approved' ? 'Speech Raised' :
-                                 demand.status === 'needs_info' ? 'Needs More Info' : 'Pending Verification'}
+                                {st.label}
                               </span>
-                              <span style={{ display: 'block', fontSize: '11px', color: '#a5b4fc', marginTop: '6px' }}>
-                                👍 {demand.upvotes || 1} Agreements
+                              <span style={{ fontSize: '10.5px', color: '#fbbf24' }}>
+                                👍 {demand.upvotes || 1} support{(demand.upvotes || 1) !== 1 ? 's' : ''}
                               </span>
+                              {demand.timestamp && (
+                                <span style={{ fontSize: '10px', color: '#4b5563' }}>
+                                  {new Date(demand.timestamp).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          <div style={{ marginTop: '14px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '12px' }}>
-                            <span style={{ fontSize: '11px', color: '#8e90b3', display: 'block', marginBottom: '8px' }}>
-                              📋 Visual Implementation Timeline:
-                            </span>
-                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          {/* Progress Timeline */}
+                          <div style={{
+                            padding: '14px 16px', background: 'rgba(0,0,0,0.25)',
+                            borderRadius: '12px', marginBottom: '14px'
+                          }}>
+                            <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              Implementation Progress
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
                               {[
-                                { key: 'pending', label: 'Pending' },
-                                { key: 'reviewed', label: 'Proposed' },
-                                { key: 'approved', label: 'Speech Raised' },
-                                { key: 'funded', label: 'Funded' },
-                                { key: 'work_started', label: 'In Progress' },
-                                { key: 'completed', label: 'Completed' }
+                                { key: 'pending', label: 'Submitted', icon: '📥' },
+                                { key: 'reviewed', label: 'Reviewed', icon: '🔍' },
+                                { key: 'approved', label: 'Approved', icon: '✅' },
+                                { key: 'funded', label: 'Funded', icon: '💰' },
+                                { key: 'work_started', label: 'In Work', icon: '🔧' },
+                                { key: 'completed', label: 'Done', icon: '🎉' },
                               ].map((step, sIdx, arr) => {
-                                const statusList = ['pending', 'reviewed', 'approved', 'funded', 'work_started', 'completed'];
-                                const currentIdx = statusList.indexOf(demand.status || 'pending');
-                                const targetIdx = statusList.indexOf(step.key);
-                                const isDone = targetIdx <= currentIdx;
-                                const color = isDone ? (step.key === 'completed' ? '#34d399' : '#818cf8') : 'rgba(255,255,255,0.08)';
-
+                                const sTargetIdx = statusSteps.indexOf(step.key);
+                                const isDone = sTargetIdx <= currentIdx;
+                                const isCurrent = sTargetIdx === currentIdx;
                                 return (
                                   <React.Fragment key={step.key}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '40px' }}>
                                       <div style={{
-                                        width: '10px', height: '10px', borderRadius: '50%',
-                                        background: color, border: '2px solid rgba(0,0,0,0.3)'
-                                      }} />
-                                      <span style={{ fontSize: '8px', color: isDone ? 'white' : '#8e90b3', marginTop: '2px', display: 'block', whiteSpace: 'nowrap' }}>
+                                        width: '28px', height: '28px', borderRadius: '50%',
+                                        background: isDone
+                                          ? (step.key === 'completed' ? 'linear-gradient(135deg, #34d399, #10b981)' : 'linear-gradient(135deg, #818cf8, #6366f1)')
+                                          : 'rgba(255,255,255,0.05)',
+                                        border: `2px solid ${isDone ? (step.key === 'completed' ? '#34d399' : '#6366f1') : 'rgba(255,255,255,0.08)'}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '12px',
+                                        boxShadow: isCurrent ? '0 0 12px rgba(99,102,241,0.6)' : 'none',
+                                        transition: 'all 0.3s'
+                                      }}>
+                                        {isDone ? (step.key === 'completed' ? '✓' : '✓') : '·'}
+                                      </div>
+                                      <span style={{ fontSize: '8px', color: isDone ? '#c7d2fe' : '#4b5563', marginTop: '4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                         {step.label}
                                       </span>
                                     </div>
                                     {sIdx < arr.length - 1 && (
-                                      <div style={{ height: '2px', background: isDone && (sIdx < currentIdx) ? '#818cf8' : 'rgba(255,255,255,0.08)', flex: 1, marginBottom: '10px' }} />
+                                      <div style={{
+                                        flex: 1, height: '2px', marginBottom: '12px',
+                                        background: sTargetIdx < currentIdx
+                                          ? 'linear-gradient(90deg, #6366f1, #818cf8)'
+                                          : 'rgba(255,255,255,0.06)',
+                                        borderRadius: '2px', transition: 'background 0.3s'
+                                      }} />
                                     )}
                                   </React.Fragment>
                                 );
@@ -2466,17 +2554,36 @@ IMPORTANT: Always include a "description" field. Output ONLY valid JSON. Do not 
                             </div>
                           </div>
 
-                          {demand.aiOverview?.brief && (
-                            <p style={{ margin: '12px 0 0', fontSize: '13px', color: '#c7d2fe', background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px' }}>
-                              <strong>AI Summary:</strong> {demand.aiOverview.brief}
-                            </p>
-                          )}
+                          {/* Ticket Info + Track Button Row */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '10.5px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                🔖 <span style={{ fontFamily: 'monospace', color: '#8e90b3', fontSize: '10px' }}>{demand.id}</span>
+                              </span>
+                              <span style={{ fontSize: '10.5px', color: '#6b7280' }}>✍️ {demand.items?.filter((i: any) => i.type === 'text').length || 0}</span>
+                              <span style={{ fontSize: '10.5px', color: '#6b7280' }}>🔊 {demand.items?.filter((i: any) => i.type === 'audio').length || 0}</span>
+                              <span style={{ fontSize: '10.5px', color: '#6b7280' }}>🖼️ {demand.items?.filter((i: any) => i.type === 'photo').length || 0}</span>
+                            </div>
 
-                          {/* Render Attachments count */}
-                          <div style={{ marginTop: '12px', display: 'flex', gap: '12px', fontSize: '11px', color: '#8e90b3' }}>
-                            <span>✍️ {demand.items?.filter((i: any) => i.type === 'text').length || 0} Text notes</span>
-                            <span>🔊 {demand.items?.filter((i: any) => i.type === 'audio').length || 0} Voice recordings</span>
-                            <span>🖼️ {demand.items?.filter((i: any) => i.type === 'photo').length || 0} Images</span>
+                            <a
+                              href={trackingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                padding: '8px 16px', borderRadius: '10px',
+                                background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15))',
+                                border: '1px solid rgba(99,102,241,0.4)',
+                                color: '#a5b4fc', textDecoration: 'none',
+                                fontSize: '12px', fontWeight: 600,
+                                transition: 'all 0.2s',
+                                boxShadow: '0 2px 10px rgba(99,102,241,0.15)'
+                              }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'linear-gradient(135deg, rgba(99,102,241,0.35), rgba(139,92,246,0.25))')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15))')}
+                            >
+                              🔗 Track Issue
+                            </a>
                           </div>
                         </div>
                       );
@@ -2487,6 +2594,7 @@ IMPORTANT: Always include a "description" field. Output ONLY valid JSON. Do not 
             </div>
           )}
         </div>
+
       ) : (
         <div className="portal-grid">
           {/* Left Column: Contact, Location, Insights, and Duplicates */}
