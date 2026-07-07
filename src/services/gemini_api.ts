@@ -47,10 +47,11 @@ async function getKeys(): Promise<string[]> {
           localStorage.setItem('jansetu_gemini_key', fetched);
           cachedFirestoreKeys = fetched.split(/[\n\r,;]+/).map((k: string) => k.trim()).filter((k: string) => k.length > 0);
           
+          // k2 is the working/primary key, k1 is the exhausted backup — prepend k2 first
           const k1 = atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
           const k2 = atob('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=');
+          if (!cachedFirestoreKeys.includes(k1)) cachedFirestoreKeys.push(k1);
           if (!cachedFirestoreKeys.includes(k2)) cachedFirestoreKeys.unshift(k2);
-          if (!cachedFirestoreKeys.includes(k1)) cachedFirestoreKeys.unshift(k1);
           return cachedFirestoreKeys;
         }
       }
@@ -59,16 +60,17 @@ async function getKeys(): Promise<string[]> {
     }
   }
 
-  const target = keysString || atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
+  const target = keysString || atob('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=');
   const parsed = target
     .split(/[\n\r,;]+/)
     .map(k => k.trim())
     .filter(k => k.length > 0);
   
+  // k2 is the working/primary key — ensure it's always first
   const k1 = atob('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=');
   const k2 = atob('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=');
+  if (!parsed.includes(k1)) parsed.push(k1);
   if (!parsed.includes(k2)) parsed.unshift(k2);
-  if (!parsed.includes(k1)) parsed.unshift(k1);
   return parsed;
 }
 
@@ -125,7 +127,7 @@ export async function fetchGemini(
     model, // The requested model first
     'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-2.5-flash-8b'
+    'gemini-2.0-flash-lite'
   ];
 
   // Remove duplicates while keeping order
@@ -164,7 +166,7 @@ export async function fetchGeminiVision(
   const VISION_MODELS = [
     'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-2.5-flash-8b',
+    'gemini-2.0-flash-lite',
   ];
 
   const keys = await getKeys();
