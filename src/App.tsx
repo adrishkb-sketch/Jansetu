@@ -4179,6 +4179,9 @@ function App() {
             <button className="btn-hero-secondary" onClick={() => scrollToSection('how-it-works')}>
               <span>How It Works</span>
             </button>
+            <a href="https://t.me/jansetu_bot" target="_blank" rel="noopener noreferrer" className="btn-hero-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+              <span>✈️ Open Telegram Bot</span>
+            </a>
           </div>
 
           {/* Live Platform Stats Bar */}

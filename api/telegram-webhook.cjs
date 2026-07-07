@@ -382,7 +382,11 @@ function getConstituencyFromCoords(lat, lng) {
 
 // Helpers
 const T = {
-  welcome: "Welcome to Jansetu Bot! Please choose your preferred language:",
+  welcome: `Welcome to *Jansetu Bot*! 🇮🇳
+
+I am your AI assistant helping you connect directly with your Member of Parliament. You can use me to submit civic issues, provide suggestions, and track development works in your constituency.
+
+Please choose your preferred language to begin:`,
   locationRequest: "Please share your current location (GPS) by tapping the button below so we can find your parliamentary constituency.",
   locationBtn: "📍 Share Current Location",
   constituencySelected: (constituency) => `Location matched! Your Parliamentary Constituency is: *${constituency}*`,
