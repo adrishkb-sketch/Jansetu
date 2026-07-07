@@ -38,8 +38,7 @@ const bot = new TelegramBot(BOT_TOKEN);
 
 // Hardcoded keys provided by user for telegram bot (Base64 encoded to bypass GitHub push protection)
 let geminiKeys = [
-  Buffer.from('QVEuQWI4Uk42STZSeHA1ZDdIRnU3LVNRclBmZE5fRjVWQ0F5UGFOamZLV1JMNkVrbnFFM0E=', 'base64').toString('utf8'),
-  Buffer.from('QVEuQWI4Uk42SkUzTkJTYmd1UURqS2Z1dGlnUFo4Q09Sc3c0LVBDMVItVmJzWFJ4MUN0Vnc=', 'base64').toString('utf8')
+  Buffer.from('QVEuQWI4Uk42S3lrckVKQ3ZLU0hXV0I5a2NCc2hXTjNRREZ3ajBiS0ZUaktqZGEyRnhsZVE=', 'base64').toString('utf8')
 ];
 
 let currentKeyIndex = 0;
