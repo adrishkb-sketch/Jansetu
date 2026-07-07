@@ -827,6 +827,10 @@ Schema: { "description": "...", "requiresMoreContext": false, "boundingBoxes": [
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const d = docSnap.data();
+        if (d.status === 'deleted') {
+          await bot.sendMessage(chatId, T.noTicket[lang]);
+          return;
+        }
         const itemTime = new Date(d.createdAt || d.updatedAt || 0).getTime();
         if (itemTime > globalResetTimestamp) {
           const detailMsg = T.ticketStatusMsg(d, docSnap.id);
@@ -1187,7 +1191,8 @@ bot.on('callback_query', async (queryData) => {
       const list = [];
       snap.forEach(docSnap => {
         const item = docSnap.data();
-        if (docSnap.id === 'config_gemini' || item.isConfig) return;
+        if (docSnap.id === 'config_gemini' || item.isConfig || item.isBotSession) return;
+        if (item.status === 'deleted') return;
         
         const itemTime = new Date(item.createdAt || item.updatedAt || 0).getTime();
         if (itemTime <= globalResetTimestamp) return;
@@ -1196,6 +1201,20 @@ bot.on('callback_query', async (queryData) => {
           list.push({ id: docSnap.id, ...item });
         }
       });
+
+      if (list.length === 0) {
+        try {
+          await bot.deleteMessage(chatId, sentMsg.message_id);
+        } catch {}
+        const noIssuesMsg = await translateBotText("No local issues found for now.", lang);
+        await bot.sendMessage(chatId, noIssuesMsg);
+        session.step = 'MENU';
+        session.localGaps = null;
+        userState.set(chatId, session);
+        bot.answerCallbackQuery(queryData.id);
+        sendMainMenu(chatId, lang);
+        return;
+      }
 
       list.sort((a, b) => {
         const distA = getHaversineDistance(session.location.lat, session.location.lng, a.location?.lat || 28.803, a.location?.lng || 79.025);
@@ -1406,7 +1425,7 @@ async function showCurrentLocalGap(chatId, session) {
   const lang = session.lang || 'en';
 
   if (gaps.length === 0 || idx >= gaps.length) {
-    const noGapsMsg = await translateBotText("🎉 Great job! No pending or incomplete local gaps found near your location.", lang);
+    const noGapsMsg = await translateBotText("No local issues found for now.", lang);
     await bot.sendMessage(chatId, noGapsMsg);
     
     session.step = 'MENU';

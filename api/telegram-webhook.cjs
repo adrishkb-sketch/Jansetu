@@ -788,6 +788,7 @@ Schema: { "description": "...", "requiresMoreContext": false, "isValidCivicIssue
         snap.forEach(docSnap => {
           const item = docSnap.data();
           if (docSnap.id === "config_gemini" || item.isConfig || item.isBotSession) return;
+          if (item.status === "deleted") return;
           
           const itemTime = new Date(item.createdAt || item.updatedAt || 0).getTime();
           if (itemTime <= globalResetTimestamp) return;
@@ -851,6 +852,11 @@ Schema: { "description": "...", "requiresMoreContext": false, "isValidCivicIssue
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const d = docSnap.data();
+        if (d.status === "deleted") {
+          const noTicketMsg = await translateBotText(T.noTicket, lang);
+          await bot.sendMessage(chatId, noTicketMsg);
+          return;
+        }
         const itemTime = new Date(d.createdAt || d.updatedAt || 0).getTime();
         if (itemTime > globalResetTimestamp) {
           const detailMsg = T.ticketStatusMsg(d, docSnap.id);
@@ -1285,6 +1291,7 @@ async function handleCallbackQuery(queryData) {
       snap.forEach(docSnap => {
         const item = docSnap.data();
         if (docSnap.id === "config_gemini" || item.isConfig || item.isBotSession) return;
+        if (item.status === "deleted") return;
         
         const itemTime = new Date(item.createdAt || item.updatedAt || 0).getTime();
         if (itemTime <= globalResetTimestamp) return;
@@ -1293,6 +1300,20 @@ async function handleCallbackQuery(queryData) {
           list.push({ id: docSnap.id, ...item });
         }
       });
+
+      if (list.length === 0) {
+        try {
+          await bot.deleteMessage(chatId, sentMsg.message_id);
+        } catch {}
+        const noIssuesMsg = await translateBotText("No local issues found for now.", lang);
+        await bot.sendMessage(chatId, noIssuesMsg);
+        session.step = "MENU";
+        session.localGaps = null;
+        await saveUserSession(chatId, session);
+        await bot.answerCallbackQuery(queryData.id);
+        await sendMainMenu(chatId, lang);
+        return;
+      }
 
       list.sort((a, b) => {
         const distA = getHaversineDistance(session.location.lat, session.location.lng, a.location?.lat || 28.803, a.location?.lng || 79.025);
@@ -1554,7 +1575,7 @@ async function showCurrentLocalGap(chatId, session) {
   const lang = session.lang || "en";
 
   if (gaps.length === 0 || idx >= gaps.length) {
-    const noGapsMsg = await translateBotText("🎉 Great job! No pending or incomplete local gaps found near your location.", lang);
+    const noGapsMsg = await translateBotText("No local issues found for now.", lang);
     await bot.sendMessage(chatId, noGapsMsg);
     
     session.step = "MENU";

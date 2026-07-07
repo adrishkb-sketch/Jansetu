@@ -267,6 +267,7 @@ export async function getNearbyHotspots(lat: number, lng: number, constituency?:
         const item = docSnap.data();
         // Skip config and bot session docs
         if (docSnap.id === 'config_gemini' || item.isConfig || item.isBotSession) return;
+        if (item.status === 'deleted') return;
         
         // Filter by reset timestamp
         const itemTime = new Date(item.createdAt || item.updatedAt || 0).getTime();
@@ -349,12 +350,18 @@ export async function getAllDemands(): Promise<any[]> {
 
   let localDemands = getLocalEmulatorData();
 
-  // Filter demands by reset timestamp if present
+  // Filter demands by reset timestamp and soft delete status
   const rTime = await getGlobalResetTime();
-  if (rTime > 0) {
-    firestoreDemands = firestoreDemands.filter(d => new Date(d.createdAt || d.updatedAt || 0).getTime() > rTime);
-    localDemands = localDemands.filter(d => new Date(d.createdAt || d.updatedAt || 0).getTime() > rTime);
-  }
+  firestoreDemands = firestoreDemands.filter(d => {
+    if (d.status === 'deleted') return false;
+    if (rTime > 0 && new Date(d.createdAt || d.updatedAt || 0).getTime() <= rTime) return false;
+    return true;
+  });
+  localDemands = localDemands.filter(d => {
+    if (d.status === 'deleted') return false;
+    if (rTime > 0 && new Date(d.createdAt || d.updatedAt || 0).getTime() <= rTime) return false;
+    return true;
+  });
 
   if (hasFirestore && firestoreDemands.length > 0) {
     const merged: Record<string, any> = {};
@@ -406,13 +413,17 @@ export async function getDemandById(id: string): Promise<any | null> {
   const localDb = getLocalEmulatorData();
   let localDemand = localDb.find((item: any) => item.id === id);
 
-  // Filter demands by reset timestamp if present
+  // Filter demands by reset timestamp if present and status is not deleted
   const rTime = await getGlobalResetTime();
-  if (rTime > 0) {
-    if (firestoreDemand && new Date(firestoreDemand.createdAt || firestoreDemand.updatedAt || 0).getTime() <= rTime) {
+  if (firestoreDemand) {
+    const itemTime = new Date(firestoreDemand.createdAt || firestoreDemand.updatedAt || 0).getTime();
+    if (firestoreDemand.status === 'deleted' || (rTime > 0 && itemTime <= rTime)) {
       firestoreDemand = null;
     }
-    if (localDemand && new Date(localDemand.createdAt || localDemand.updatedAt || 0).getTime() <= rTime) {
+  }
+  if (localDemand) {
+    const itemTime = new Date(localDemand.createdAt || localDemand.updatedAt || 0).getTime();
+    if (localDemand.status === 'deleted' || (rTime > 0 && itemTime <= rTime)) {
       localDemand = null;
     }
   }
