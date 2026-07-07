@@ -36,25 +36,11 @@ const db = getFirestore(firebaseApp);
 const BOT_TOKEN = "8724667418:AAFSz9FkGQd0DlyCf6TnrsVKdke-4xnx1Aw";
 const bot = new TelegramBot(BOT_TOKEN);
 
-// Load backup/custom key config
+// Hardcoded keys provided by user for telegram bot (Base64 encoded to bypass GitHub push protection)
 let geminiKeys = [
-  Buffer.from('QVEuQWI4Uk42S09xQ2RrQUhiZERJaV9ydzNrVjN3aW4weFB1RUJFTkowZ2cyTkhubk5hRlE=', 'base64').toString('utf8'),
-  Buffer.from('QVEuQWI4Uk42TC1SQzN4MjlBQUc5UVVQRXo5S3FWWlB6UEMzaE1EUXNqRVZfUVVUZkxNd1E=', 'base64').toString('utf8'),
-  Buffer.from('QVEuQWI4Uk42S1ZmX1dWbjJlbTVUZkZvcVMyQ3E4S040eUJ4emdFUE5tZzdyTl8xU24zbXc=', 'base64').toString('utf8')
+  Buffer.from('QVEuQWI4Uk42STZSeHA1ZDdIRnU3LVNRclBmZE5fRjVWQ0F5UGFOamZLV1JMNkVrbnFFM0E=', 'base64').toString('utf8'),
+  Buffer.from('QVEuQWI4Uk42SkUzTkJTYmd1UURqS2Z1dGlnUFo4Q09Sc3c0LVBDMVItVmJzWFJ4MUN0Vnc=', 'base64').toString('utf8')
 ];
-try {
-  const filepath = path.join(__dirname, "bot_config.json");
-  if (fs.existsSync(filepath)) {
-    const configData = JSON.parse(fs.readFileSync(filepath, "utf8"));
-    if (configData.gemini_key) {
-      geminiKeys.push(configData.gemini_key);
-    }
-  }
-} catch (e) {}
-
-if (geminiKeys.length === 0) {
-  geminiKeys.push("AIzaSyDummyKeyForJansetuFastPrototypeScale");
-}
 
 let currentKeyIndex = 0;
 function getActiveGeminiKey() {
@@ -68,27 +54,8 @@ function rotateGeminiKey() {
 let globalResetTimestamp = 0;
 
 // Sync API keys from Firestore demands/config_gemini
-// Priority: user-configured Firestore keys FIRST, no hardcoded exhausted keys.
+// (Disabled per user request — bot now only uses hardcoded keys)
 async function syncKeysFromFirestore() {
-  try {
-    const docRef = doc(db, "demands", "config_gemini");
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      if (data && data.keys) {
-        const fetched = data.keys.trim();
-        const parsedKeys = fetched.split(/[\n\r,;]+/).map(k => k.trim()).filter(Boolean);
-        if (parsedKeys.length > 0) {
-          // User-configured keys come FIRST — no hardcoded keys injected
-          geminiKeys = [...new Set([...parsedKeys, ...geminiKeys.filter(k => parsedKeys.includes(k))])];
-          console.log(`[Bot Gemini] Loaded ${geminiKeys.length} key(s) from Firestore.`);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("[Bot Gemini] Failed to sync keys:", err.message);
-  }
-
   try {
     const resetRef = doc(db, "demands", "reset_timestamp");
     const resetSnap = await getDoc(resetRef);

@@ -12,8 +12,7 @@
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from './db';
+// Firestore sync removed as per user request — website ONLY uses user-pasted keys.
 
 // ─── RATE LIMIT QUEUE ────────────────────────────────────────────────────────
 // Ensures max 1 Gemini request every MIN_REQUEST_GAP_MS.
@@ -78,39 +77,7 @@ function markKeyExhausted(key: string, retryAfterMs = 90_000) {
   console.warn(`[Jansetu AI] Key exhausted, retry in ${Math.round(retryAfterMs / 1000)}s: ${key.slice(0, 14)}...`);
 }
 
-// Firestore key cache (5 min TTL)
-let cachedFirestoreKeys: string[] = [];
-let lastFirestoreFetch = 0;
-const FIRESTORE_CACHE_TTL = 5 * 60 * 1000;
-
-async function getFirestoreKeys(): Promise<string[]> {
-  const now = Date.now();
-  if (cachedFirestoreKeys.length > 0 && now - lastFirestoreFetch < FIRESTORE_CACHE_TTL) {
-    return cachedFirestoreKeys;
-  }
-  try {
-    if (db) {
-      let fetched = '';
-      for (const [col, docId] of [['demands', 'config_gemini'], ['config', 'gemini']]) {
-        if (fetched) break;
-        const snap = await getDoc(doc(db, col, docId));
-        if (snap.exists() && snap.data()?.keys) fetched = snap.data()!.keys.trim();
-      }
-      if (fetched) {
-        cachedFirestoreKeys = fetched
-          .split(/[\n\r,;]+/)
-          .map((k: string) => k.trim())
-          .filter((k: string) => k.length >= 20);
-        lastFirestoreFetch = now;
-        console.log(`[Jansetu AI] Loaded ${cachedFirestoreKeys.length} key(s) from Firestore`);
-        return cachedFirestoreKeys;
-      }
-    }
-  } catch (e) {
-    console.warn('[Jansetu AI] Firestore key fetch failed (using cached/local):', e);
-  }
-  return cachedFirestoreKeys;
-}
+// Firestore sync removed as per user request — website ONLY uses user-pasted keys.
 
 function parseLocalKeys(): string[] {
   try {
@@ -126,28 +93,16 @@ function parseLocalKeys(): string[] {
 
 /**
  * Returns ordered list of API keys to try.
- * Priority: localStorage → Firestore. Deduped.
+ * Uses ONLY localStorage (user-pasted keys). Deduped.
  */
 async function getKeys(): Promise<string[]> {
   const local = parseLocalKeys();
 
-  // If we already have local keys, don't wait for Firestore (avoids async delay on every call)
-  let firestore: string[] = [];
-  if (local.length === 0) {
-    firestore = await getFirestoreKeys();
-  } else {
-    // Refresh Firestore keys in background without blocking
-    getFirestoreKeys().then(fk => {
-      if (fk.length > 0) cachedFirestoreKeys = fk;
-    }).catch(() => {});
-    firestore = cachedFirestoreKeys;
-  }
-
-  const all = [...new Set([...local, ...firestore])];
+  const all = [...new Set(local)];
 
   if (all.length === 0) {
     console.warn(
-      '[Jansetu AI] No API keys found in localStorage or Firestore.\n' +
+      '[Jansetu AI] No API keys found in localStorage.\n' +
       'Open "Configure Gemini API Keys" at the bottom of the page and paste your key from https://aistudio.google.com/apikey'
     );
   }
