@@ -1301,9 +1301,9 @@ Return ONLY a clean JSON object matching the original schema. Do NOT include mar
                 </button>
                 <button 
                   onClick={async () => {
-                    if (window.confirm("Are you sure you want to completely wipe out all complaints, action plans, and reset the local storage cache? This will make the system 100% fresh and clean.")) {
+                    if (window.confirm("Are you sure you want to completely wipe out all complaints, action plans, and reset the local storage cache? This will clear all data globally from the Firestore database AND local browser caches, resetting the entire system.")) {
                       await clearDatabaseCollections();
-                      alert("Database collections and local storage cache have been successfully cleared!");
+                      alert("Database collections and local storage cache have been successfully cleared globally across the entire system!");
                       window.location.reload();
                     }
                   }}
