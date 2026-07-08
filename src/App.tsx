@@ -1797,17 +1797,17 @@ JSON:`
 
 Describe EVERYTHING you see: the scene, environment, infrastructure condition, any issues (potholes, cracks, broken roads, waterlogging, damaged walls, broken streetlights, garbage, encroachments, illegal constructions, etc.), people, vehicles, and notable objects.
 
-Then identify ALL problem areas and draw bounding boxes around them.
+CRITICAL: You MUST identify all defects, damages, safety hazards, and infrastructure issues in the image, and draw precise bounding boxes around EACH identified problem. Do not ignore minor issues (such as minor cracks, small patches of garbage, or slight water accumulation). If you describe a problem in your description, it MUST have a corresponding bounding box.
 
 Return ONLY this JSON (no markdown, no extra text):
 {"description":"<detailed multi-sentence description>","boundingBoxes":[{"x":15,"y":20,"width":30,"height":25,"label":"Pothole","severity":"Immediate Attention"},{"x":60,"y":10,"width":20,"height":15,"label":"Waterlogging","severity":"Moderate"}]}
 
 Rules:
-- x,y,width,height are integers 0-100 (percentage of image dimensions, origin top-left)
+- x,y,width,height are integers 0-100 (percentage of image dimensions, origin top-left of the image)
 - severity: "Immediate Attention", "Moderate", "Minor", or "Normal"
-- label: short descriptive name of the problem (2-4 words)
-- If NO issues found, still return {"description":"...","boundingBoxes":[]}
-- description field is REQUIRED`;
+- label: short descriptive name of the problem (2-4 words, e.g., "Broken Pavement", "Pothole", "Accumulated Trash")
+- Every identified issue/anomaly described must have a corresponding bounding box.
+- description field is REQUIRED.`;
 
     // Client-side JSON extraction — no second Gemini call needed
     const extractJSON = (text: string): any | null => {
