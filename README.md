@@ -20,6 +20,7 @@ Jansetu's AI instantly verifies the problem using Google Gemini Multimodal Visio
 
 * **Frontend:** React.js (Vite), Vanilla CSS (Responsive & Accessible), Lucide Icons
 * **AI Engine:** Google Gemini (1.5 Flash, 2.0 Flash, Vision) — For multimodal translation, bounding-box anomaly detection, voice transcription, and semantic clustering.
+* **On-Device Vision:** Google MediaPipe Tasks Vision (WebAssembly) — For instant, client-side browser object detection and categorization of uploaded evidence without server overhead.
 * **Backend & Cloud:** Firebase Firestore (Dynamic BigQuery mock for Census/NFHS data), Firebase Hosting
 * **Serverless Bots:** Node.js (Vercel Serverless Functions), Telegram Bot API
 * **Image Processing:** Sharp (Native Node.js pipeline for scalable bounding box generation)
@@ -44,6 +45,7 @@ We built a robust, cloud-native architecture utilizing Google Cloud and Firebase
 ### 3. Innovation (Deep AI Integration)
 We leverage autonomous AI workflows rather than basic conversational bots.
 * **AI Visual Evidence Verification:** When a citizen uploads a photo of a pothole, Gemini Vision detects the anomaly, calculates bounding boxes, and our backend dynamically generates an SVG overlay highlighting the damage in red before returning it to the user.
+* **Hybrid Vision Pipeline (Gemini + MediaPipe):** In addition to cloud-based Gemini analysis, the platform executes on-device local object detection using Google MediaPipe (running an EfficientDet-Lite0 model via WebAssembly). This provides immediate, real-time feedback by detecting common objects (vehicles, street furniture, people, etc.) directly on the user's browser, displaying a second layer of bounding boxes in cyan alongside Gemini's insights.
 * **Smart Context Gathering (Crowdsourcing):** If an issue is reported with missing data, the AI acts as an investigator, automatically asking targeted follow-up questions to gather exact dimensions, landmarks, or details from the community.
 * **AI Action Plans:** The MP's dashboard features a one-click Gemini-powered "Generate Speech/Audit" tool that synthesizes thousands of local data points into a concise 2-minute actionable brief for parliamentary sessions.
 

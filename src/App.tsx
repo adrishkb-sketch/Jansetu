@@ -26,6 +26,7 @@ import { submitDemand, getNearbyHotspots, upvoteDemand, contributeToDemand, getA
 import { doc, setDoc } from 'firebase/firestore';
 import { getConstituencyOfLocation, ALL_CONSTITUENCIES_DATA } from './services/constituency_datasets';
 import { fetchGemini, fetchGeminiVision, detectMimeType } from './services/gemini_api';
+import { runLocalObjectDetection } from './services/mediapipe_api';
 
 // ISO 639-1 / Google Translate codes for the 22 Scheduled Indian Languages + English
 const INDIAN_LANGUAGES = [
@@ -757,6 +758,7 @@ interface SubmissionItem {
   boundingBoxes?: Array<{ label: string; x: number; y: number; width: number; height: number; severity: string }>;
   audioBase64?: string;
   audioMimeType?: string;
+  mediaPipeBoxes?: Array<{ label: string; x: number; y: number; width: number; height: number; score: number }>;
 }
 
 const safeJsonParse = (text: string) => {
@@ -1843,6 +1845,21 @@ Rules:
       try {
         const base64Data = await fileToBase64(file);
         const dataUrl = `data:${file.type};base64,${base64Data}`;
+
+        // Trigger MediaPipe local detection on device in parallel
+        runLocalObjectDetection(dataUrl)
+          .then(mpBoxes => {
+            setItems(prev => prev.map(item => {
+              if (item.id === id) {
+                return { ...item, mediaPipeBoxes: mpBoxes };
+              }
+              return item;
+            }));
+          })
+          .catch(err => {
+            console.error("Local MediaPipe object detection failed:", err);
+          });
+
         const geminiResult = await runGeminiImageAnalysis(base64Data, file.type);
         
         if (geminiResult && geminiResult.description) {
@@ -1977,7 +1994,8 @@ Rules:
         content: item.content,
         fileUrl: item.fileUrl || '',
         speechTranscript: item.speechTranscript || '',
-        boundingBoxes: item.boundingBoxes || undefined
+        boundingBoxes: item.boundingBoxes || undefined,
+        mediaPipeBoxes: item.mediaPipeBoxes || undefined
       };
     });
 
@@ -3305,11 +3323,27 @@ Rules:
                                   👁️ {item.boundingBoxes.length} Box
                                 </div>
                               )}
+                              {item.mediaPipeBoxes && item.mediaPipeBoxes.length > 0 && (
+                                <div style={{
+                                  position: 'absolute',
+                                  bottom: item.boundingBoxes && item.boundingBoxes.length > 0 ? '22px' : '4px',
+                                  right: '4px',
+                                  background: 'rgba(6, 182, 212, 0.95)',
+                                  color: 'black',
+                                  fontSize: '9px',
+                                  fontWeight: 'bold',
+                                  padding: '1px 4px',
+                                  borderRadius: '3px',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                                }}>
+                                  📱 {item.mediaPipeBoxes.length} Local
+                                </div>
+                              )}
                             </div>
                             <div className="photo-details" style={{ flexGrow: 1, minWidth: 0 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                                 <span className="photo-name" style={{ fontWeight: 'bold', fontSize: '13px', color: '#fff' }}>{item.fileName}</span>
-                                {item.boundingBoxes && item.boundingBoxes.length > 0 && (
+                                {((item.boundingBoxes && item.boundingBoxes.length > 0) || (item.mediaPipeBoxes && item.mediaPipeBoxes.length > 0)) && (
                                   <button
                                     type="button"
                                     onClick={() => setInspectingPhotoItem(item)}
@@ -3324,22 +3358,40 @@ Rules:
                                       cursor: 'pointer'
                                     }}
                                   >
-                                    Inspect AI Analysis
+                                    Inspect Analysis
                                   </button>
                                 )}
                               </div>
                               {item.processing ? (
-                                <div className="ocr-processing" style={{ marginTop: '8px' }}>
-                                  <Loader2 className="spinner" size={14} />
-                                  <span>Analyzing details (Gemini Vision AI)...</span>
+                                <div className="ocr-processing" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Loader2 className="spinner" size={14} />
+                                    <span>Analyzing details (Gemini Vision AI)...</span>
+                                  </div>
+                                  {item.mediaPipeBoxes !== undefined ? (
+                                    <span style={{ fontSize: '11.5px', color: '#06b6d4', marginLeft: '20px' }}>
+                                      ✓ Local MediaPipe scan: found {item.mediaPipeBoxes.length} object{item.mediaPipeBoxes.length === 1 ? '' : 's'}.
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '11.5px', color: '#06b6d4', marginLeft: '20px', opacity: 0.7 }}>
+                                      ⏳ Running local MediaPipe object detection...
+                                    </span>
+                                  )}
                                 </div>
                               ) : (
-                                item.content && (
-                                  <div className="ocr-text-box" style={{ marginTop: '8px' }}>
-                                    <span className="box-title">AI Image Description:</span>
-                                    <p className="ocr-text">{"\"" + item.content + "\""}</p>
-                                  </div>
-                                )
+                                <div>
+                                  {item.content && (
+                                    <div className="ocr-text-box" style={{ marginTop: '8px' }}>
+                                      <span className="box-title">AI Image Description:</span>
+                                      <p className="ocr-text">{"\"" + item.content + "\""}</p>
+                                    </div>
+                                  )}
+                                  {item.mediaPipeBoxes !== undefined && (
+                                    <div style={{ marginTop: '6px', fontSize: '11.5px', color: '#06b6d4', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <span>📱 Local MediaPipe scan detected {item.mediaPipeBoxes.length} object{item.mediaPipeBoxes.length === 1 ? '' : 's'}.</span>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -3974,6 +4026,58 @@ Rules:
                     </div>
                     );
                   })}
+                  {inspectingPhotoItem.mediaPipeBoxes && inspectingPhotoItem.mediaPipeBoxes.map((box, idx) => {
+                    const mpColor = '#06b6d4'; // Cyan for Local MediaPipe
+                    return (
+                    <div
+                      key={`mp-${idx}`}
+                      style={{
+                        position: 'absolute',
+                        border: `2px dashed ${mpColor}`,
+                        background: `${mpColor}11`,
+                        left: `${box.x}%`,
+                        top: `${box.y}%`,
+                        width: `${box.width}%`,
+                        height: `${box.height}%`,
+                        zIndex: 11,
+                        pointerEvents: 'none',
+                        boxShadow: `0 0 8px ${mpColor}66`,
+                        borderRadius: '4px'
+                      }}
+                    >
+                      <span style={{
+                        position: 'absolute',
+                        top: '2px',
+                        left: '2px',
+                        background: mpColor,
+                        color: 'black',
+                        fontSize: '9px',
+                        padding: '1px 5px',
+                        borderRadius: '3px',
+                        whiteSpace: 'nowrap',
+                        fontWeight: 800,
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '2px',
+                        maxWidth: 'calc(100% - 4px)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        <span>[Local] {box.label}</span>
+                        <span style={{
+                          background: 'rgba(255,255,255,0.4)',
+                          padding: '0px 2px',
+                          borderRadius: '2px',
+                          fontSize: '8px',
+                          fontWeight: 'bold'
+                        }}>
+                          {box.score}%
+                        </span>
+                      </span>
+                    </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -4041,6 +4145,57 @@ Rules:
                             textTransform: 'uppercase'
                           }}>
                             {box.severity}
+                          </span>
+                        </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h5 style={{ margin: '0 0 10px', color: '#06b6d4', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>📱 LOCAL MEDIAPIPE DETECTION</span>
+                    <span style={{ fontSize: '10px', background: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>On-Device</span>
+                  </h5>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {!inspectingPhotoItem.mediaPipeBoxes || inspectingPhotoItem.mediaPipeBoxes.length === 0 ? (
+                      <span style={{ fontSize: '12.5px', color: '#8e90b3', fontStyle: 'italic' }}>
+                        No local objects detected at this confidence threshold.
+                      </span>
+                    ) : (
+                      inspectingPhotoItem.mediaPipeBoxes.map((box, idx) => {
+                        const mpColor = '#06b6d4';
+                        return (
+                        <div
+                          key={`mp-detail-${idx}`}
+                          style={{
+                            background: `${mpColor}12`,
+                            border: `1px solid ${mpColor}33`,
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <div>
+                            <span style={{ color: 'white', fontWeight: 'bold', fontSize: '13px', display: 'block' }}>
+                              {box.label}
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#8e90b3' }}>
+                              Area: x:{box.x}% y:{box.y}% w:{box.width}% h:{box.height}%
+                            </span>
+                          </div>
+                          <span style={{
+                            background: mpColor,
+                            color: 'black',
+                            fontWeight: 'bold',
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                          }}>
+                            {box.score}% CONF
                           </span>
                         </div>
                         );
