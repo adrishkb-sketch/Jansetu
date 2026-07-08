@@ -261,9 +261,20 @@ interface GoogleMapComponentProps {
   nearbyHotspots: any[];
   focusedPlace: { lat: number; lng: number; name: string } | null;
   circleData: { lat: number; lng: number; radius: number } | null;
+  constituencyHighlightCenter?: { lat: number; lng: number } | null;
+  constituencyName?: string | null;
 }
 
-export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation, nearbyHotspots, focusedPlace, circleData }: GoogleMapComponentProps) {
+export function GoogleMapComponent({
+  apiKey,
+  onLocationSelect,
+  selectedLocation,
+  nearbyHotspots,
+  focusedPlace,
+  circleData,
+  constituencyHighlightCenter = null,
+  constituencyName = null
+}: GoogleMapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -272,6 +283,7 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
   const hotspotMarkersRef = useRef<any[]>([]);
   const circleRef = useRef<any>(null);
   const hotspotCirclesRef = useRef<any[]>([]);
+  const constituencyCircleRef = useRef<any>(null);
   const { isLoaded, loadError } = useGoogleMapsLoader(apiKey);
   const [geocoding, setGeocoding] = useState(false);
 
@@ -281,8 +293,8 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
     const google = (window as any).google;
     if (!google || !google.maps) return;
 
-    const defaultCenter = selectedLocation || { lat: 20.5937, lng: 78.9629 };
-    const defaultZoom = selectedLocation ? 15 : 5;
+    const defaultCenter = selectedLocation || constituencyHighlightCenter || { lat: 20.5937, lng: 78.9629 };
+    const defaultZoom = selectedLocation ? 15 : (constituencyHighlightCenter ? 10 : 5);
 
     const map = new google.maps.Map(mapRef.current, {
       center: defaultCenter,
@@ -417,6 +429,9 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
     return () => {
       google.maps.event.clearInstanceListeners(map);
       google.maps.event.clearInstanceListeners(marker);
+      if (constituencyCircleRef.current) {
+        constituencyCircleRef.current.setMap(null);
+      }
     };
   }, [isLoaded]);
 
@@ -523,7 +538,12 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
         map: mapInstanceRef.current,
         title: `${hotspot.category.toUpperCase()}: ${hotspot.upvotes} support votes`,
         icon: {
-          url: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png'
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 6,
+          fillColor: circleColor,
+          fillOpacity: 0.95,
+          strokeColor: '#ffffff',
+          strokeWeight: 1.5
         }
       });
 
@@ -559,6 +579,75 @@ export function GoogleMapComponent({ apiKey, onLocationSelect, selectedLocation,
       hotspotCirclesRef.current.push(hotspotCircle);
     });
   }, [nearbyHotspots, isLoaded, selectedLocation]);
+
+  // Handle dynamic centering, auto-fitting bounds, and constituency highlighting
+  useEffect(() => {
+    if (!isLoaded || !mapInstanceRef.current) return;
+    const google = (window as any).google;
+    if (!google || !google.maps) return;
+
+    // Clean up previous constituency circle
+    if (constituencyCircleRef.current) {
+      constituencyCircleRef.current.setMap(null);
+      constituencyCircleRef.current = null;
+    }
+
+    if (constituencyHighlightCenter) {
+      console.log(`[Jansetu Map] Highlighting constituency: ${constituencyName || 'Selected Area'}`);
+      // Zoom and center to the selected constituency
+      mapInstanceRef.current.setCenter(constituencyHighlightCenter);
+      mapInstanceRef.current.setZoom(10);
+
+      // Highlight the constituency area using a teal circle
+      constituencyCircleRef.current = new google.maps.Circle({
+        strokeColor: '#14b8a6',
+        strokeOpacity: 0.6,
+        strokeWeight: 2,
+        fillColor: '#14b8a6',
+        fillOpacity: 0.08,
+        map: mapInstanceRef.current,
+        center: constituencyHighlightCenter,
+        radius: 25000 // 25 km radius highlight
+      });
+    } else {
+      // Pan India / No constituency selected: Auto-fit to all points
+      if (selectedLocation) {
+        mapInstanceRef.current.setCenter(selectedLocation);
+        mapInstanceRef.current.setZoom(15);
+      } else if (nearbyHotspots && nearbyHotspots.length > 0) {
+        const bounds = new google.maps.LatLngBounds();
+        let validPoints = 0;
+        nearbyHotspots.forEach(h => {
+          if (h.location && typeof h.location.lat === 'number' && typeof h.location.lng === 'number') {
+            bounds.extend(h.location);
+            validPoints++;
+          }
+        });
+
+        if (validPoints > 0) {
+          if (validPoints === 1) {
+            const first = nearbyHotspots.find(h => h.location?.lat);
+            if (first) {
+              mapInstanceRef.current.setCenter(first.location);
+              mapInstanceRef.current.setZoom(13);
+            }
+          } else {
+            mapInstanceRef.current.fitBounds(bounds);
+            const listener = google.maps.event.addListener(mapInstanceRef.current, 'idle', () => {
+              if (mapInstanceRef.current.getZoom() > 15) {
+                mapInstanceRef.current.setZoom(15);
+              }
+              google.maps.event.removeListener(listener);
+            });
+          }
+        }
+      } else {
+        // Fallback to Pan India default view
+        mapInstanceRef.current.setCenter({ lat: 20.5937, lng: 78.9629 });
+        mapInstanceRef.current.setZoom(5);
+      }
+    }
+  }, [constituencyHighlightCenter, constituencyName, nearbyHotspots, isLoaded, selectedLocation]);
 
   const handleAutoDetect = () => {
     if (!navigator.geolocation) {

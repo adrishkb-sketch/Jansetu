@@ -1821,7 +1821,9 @@ Output ONLY the raw JSON array (e.g. ["ID1", "ID2"]). No markdown codeblocks, no
                 <GoogleMapComponent
                   apiKey={localStorage.getItem('jansetu_gmaps_key') || 'AIzaSyAMU-m9NMhYgCFuizEReDHEThu2Yhwj2Lg'}
                   onLocationSelect={() => {}}
-                  selectedLocation={selectedDemand?.location || { lat: 28.803, lng: 79.025 }}
+                  selectedLocation={selectedDemand ? selectedDemand.location : null}
+                  constituencyHighlightCenter={filterConstituency !== 'all' ? ALL_CONSTITUENCIES_DATA[filterConstituency]?.centerCoords : null}
+                  constituencyName={filterConstituency !== 'all' ? filterConstituency : null}
                   nearbyHotspots={filteredDemands.map(fd => ({
                     id: fd.id,
                     location: fd.location,
