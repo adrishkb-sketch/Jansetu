@@ -62,14 +62,8 @@ function sleep(ms: number) {
 // Keys marked 429-exhausted. Cleared after 90s so they're retried.
 const exhaustedKeys = new Map<string, number>();
 
-function isKeyExhausted(key: string): boolean {
-  const ts = exhaustedKeys.get(key);
-  if (!ts) return false;
-  if (Date.now() - ts > 90_000) {
-    exhaustedKeys.delete(key);
-    return false;
-  }
-  return true;
+function isKeyExhausted(_key: string): boolean {
+  return false; // Disabled key lockout to allow immediate recovery
 }
 
 function markKeyExhausted(key: string, retryAfterMs = 90_000) {
@@ -252,7 +246,11 @@ export async function fetchGeminiVision(
 
     const payload = {
       contents: [{ parts }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
+      generationConfig: { 
+        temperature: 0.2, 
+        maxOutputTokens: 2048,
+        responseMimeType: "application/json"
+      },
     };
 
     for (const model of VISION_MODELS) {

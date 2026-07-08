@@ -1164,86 +1164,16 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     mapContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const translateToEnglish = async (text: string): Promise<string> => {
-    try {
-      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`);
-      if (res.ok) {
-        const json = await res.json();
-        const translated = json[0].map((x: any) => x[0]).join('');
-        if (translated) return translated.trim();
-      }
-    } catch (err) {
-      console.warn("Google Translate to English failed, falling back to Gemini:", err);
-    }
 
-    const payload = {
-      contents: [{
-        parts: [{
-          text: `Translate the following text into standard, grammatical English. Do not add any notes, explanation, introduction, or markdown, just return the direct English translation. If the text is already in English, return it exactly as is:\n\n${text}`
-        }]
-      }]
-    };
-    try {
-      const response = await fetchGemini(payload);
-      const json = await response.json();
-      const translated = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      return translated.trim();
-    } catch (e) {
-      console.error("translateToEnglish fallback error:", e);
-      throw e;
-    }
-  };
-
-  const translateFromEnglish = async (text: string, targetLangCode: string): Promise<string> => {
-    if (targetLangCode === 'en') return text;
-    try {
-      const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLangCode}&dt=t&q=${encodeURIComponent(text)}`);
-      if (res.ok) {
-        const json = await res.json();
-        const translated = json[0].map((x: any) => x[0]).join('');
-        if (translated) return translated.trim();
-      }
-    } catch (err) {
-      console.warn(`Google Translate to ${targetLangCode} failed, falling back to Gemini:`, err);
-    }
-
-    const langName = INDIAN_LANGUAGES.find(l => l.code === targetLangCode)?.name || 'Hindi';
-    const payload = {
-      contents: [{
-        parts: [{
-          text: `Translate the following English text to ${langName}. Do not add any note, comments, prefix, or markdown, just output the translation directly:\n\n${text}`
-        }]
-      }]
-    };
-    try {
-      const response = await fetchGemini(payload);
-      const json = await response.json();
-      const translated = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      return translated.trim();
-    } catch (e) {
-      console.error("translateFromEnglish fallback error:", e);
-      throw e;
-    }
-  };
 
   const runAIAttachmentAnalysis = async (textToAnalyze: string, _currentItems: SubmissionItem[]) => {
     if (!location) return;
 
     setAiError(null);
-    setAiIndicator({ active: true, message: 'AI translating content...' });
+    setAiIndicator({ active: true, message: 'AI identifying problem details & checking correlations...' });
     setIsAiAnalyzing(true);
 
-    let englishText = textToAnalyze;
-    if (selectedLang !== 'en') {
-      try {
-        setAiIndicator({ active: true, message: 'AI translating regional speech/text to English...' });
-        englishText = await translateToEnglish(textToAnalyze);
-      } catch (err) {
-        console.warn("Background English translation failed, falling back to raw input:", err);
-      }
-    }
-
-    setAiIndicator({ active: true, message: 'AI identifying problem details & checking correlations...' });
+    let englishText = textToAnalyze; // Pass raw input directly to Gemini, Gemini will translate it internally!
 
     let insightsText = "No local landmarks data available.";
     if (insights) {
@@ -1269,6 +1199,12 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
         category: h.category,
         content: h.items?.[0]?.content || h.address
       }));
+
+      let translationInstruction = "";
+      if (selectedLang !== 'en') {
+        const langName = INDIAN_LANGUAGES.find(l => l.code === selectedLang)?.name || 'Hindi';
+        translationInstruction = `\n11. Target Regional Language: Since the user's selected interface language is "${langName}" (code: "${selectedLang}"), you MUST translate the generated 'clarificationQuestion' and 'problemBrief' into "${langName}" and provide them in the fields 'clarificationQuestionRegional' and 'problemBriefRegional' respectively. If no clarification is required, set 'clarificationQuestionRegional' to null. Ensure the translation is natural and culturally appropriate.`;
+      }
 
       // Build base prompt parts
       const promptParts: any[] = [
@@ -1317,6 +1253,7 @@ If a match is found, return the matching issue's ID in 'matchedHotspotId'. Other
 - Set safetyRisk: Choose exactly one from: ["No Threat", "Low Risk", "Medium Risk", "High Threat / Hazard"]
 10. Resolved Circle Calculation:
 - If the complaint describes an approximate area, street segment, or boundaries, lookup the coordinates of those landmarks in the list provided or calculate relative offsets from the pin coordinates (${location?.lat || 28.6139}, ${location?.lng || 77.2090}), and return the absolute latitude/longitude center and estimated radius (in meters) of this region in fields 'resolvedCircleLat' (number), 'resolvedCircleLng' (number), and 'resolvedCircleRadius' (number). If no location descriptions are present, return null for these three fields.
+${translationInstruction}
 
 Format the output strictly as a JSON object with keys:
 {
@@ -1328,15 +1265,13 @@ Format the output strictly as a JSON object with keys:
   "matchedHotspotId": "..." or null,
   "requiresClarification": true/false,
   "clarificationQuestion": "..." or null,
+  "clarificationQuestionRegional": "..." or null,
   "mentionedLandmarkName": "..." or null,
   "urgency": "...",
   "assetType": "...",
   "fundingSource": "...",
   "problemBrief": "...",
-  "priorityScore": 85,
-  "priorityLabel": "...",
-  "estimatedBudget": "...",
-  "safetyRisk": "...",
+  "problemBriefRegional": "..." or null,
   "resolvedCircleLat": 28.6139 or null,
   "resolvedCircleLng": 77.2090 or null,
   "resolvedCircleRadius": 150 or null
@@ -1352,7 +1287,10 @@ JSON:`
       const response = await fetchGemini({
         contents: [{
           parts: promptParts
-        }]
+        }],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
       });
 
       const json = await response.json();
@@ -1361,26 +1299,8 @@ JSON:`
         const result = safeJsonParse(text);
         
         // Translate the clarification question and problem brief back to selected regional language
-        let finalQuestion = result.clarificationQuestion;
-        let finalBrief = result.problemBrief;
-        
-        if (selectedLang !== 'en') {
-          setAiIndicator({ active: true, message: 'AI translating overview and follow-up questions...' });
-          if (finalQuestion) {
-            try {
-              finalQuestion = await translateFromEnglish(finalQuestion, selectedLang);
-            } catch (err) {
-              console.warn("Failed to translate question back:", err);
-            }
-          }
-          if (finalBrief) {
-            try {
-              finalBrief = await translateFromEnglish(finalBrief, selectedLang);
-            } catch (err) {
-              console.warn("Failed to translate brief back:", err);
-            }
-          }
-        }
+        let finalQuestion = selectedLang !== 'en' ? (result.clarificationQuestionRegional || result.clarificationQuestion) : result.clarificationQuestion;
+        let finalBrief = selectedLang !== 'en' ? (result.problemBriefRegional || result.problemBrief) : result.problemBrief;
 
         if (result.originalTranscript || result.translatedText) {
           setItems(prevItems => {
@@ -1797,7 +1717,23 @@ JSON:`
     // Auto-detect MIME type from actual file header
     const resolvedMime = detectMimeType(base64Data) || mimeType || 'image/jpeg';
 
+    // Gather any existing text notes or transcribed voice notes to serve as context for the vision model
+    const existingComments = items
+      .filter(item => item.type === 'text' || item.type === 'audio')
+      .map(item => {
+        if (item.type === 'text') return `User Note: ${item.content}`;
+        if (item.type === 'audio') return `User Voice Note: ${item.speechTranscript || item.content}`;
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n');
+
+    const commentContext = existingComments 
+      ? `\nUser's submitted comments/context for this issue:\n${existingComments}\n\nCRITICAL: Analyze the image with special focus on the user's comments above. If they point out or describe a specific problem (e.g. garbage, pothole, leak), locate it in the image and draw a bounding box around it.`
+      : '';
+
     const imgPromptText = `You are an AI assistant for Jansetu, a civic issue reporting platform. Analyze this image thoroughly.
+${commentContext}
 
 Describe EVERYTHING you see: the scene, environment, infrastructure condition, any issues (potholes, cracks, broken roads, waterlogging, damaged walls, broken streetlights, garbage, encroachments, illegal constructions, etc.), people, vehicles, and notable objects.
 
