@@ -17,19 +17,31 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 // ─── RATE LIMIT QUEUE ────────────────────────────────────────────────────────
 // Ensures max 1 Gemini request every MIN_REQUEST_GAP_MS.
 // Free tier: ~10-15 RPM → 1 req / 6s safely avoids rate limits entirely.
-const MIN_REQUEST_GAP_MS = 7000; // 7 seconds between requests
+const MIN_REQUEST_GAP_MS = 8000; // 8 seconds between requests
 let lastRequestTime = 0;
 let requestQueue: Array<() => void> = [];
 let queueRunning = false;
 
-function scheduleRequest<T>(fn: () => Promise<T>): Promise<T> {
+function scheduleRequest<T>(fn: () => Promise<T>, retriesLeft = 3): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     requestQueue.push(async () => {
       try {
         const result = await fn();
         resolve(result);
-      } catch (e) {
-        reject(e);
+      } catch (e: any) {
+        if (e.status === 429 && retriesLeft > 0) {
+          const waitTime = e.retryAfterMs || 6000;
+          console.warn(`[Jansetu Queue] Rate limited (429). Retrying in ${waitTime}ms...`);
+          await sleep(waitTime);
+          try {
+            const retryRes = await scheduleRequest(fn, retriesLeft - 1);
+            resolve(retryRes);
+          } catch (retryErr) {
+            reject(retryErr);
+          }
+        } else {
+          reject(e);
+        }
       }
     });
     if (!queueRunning) drainQueue();

@@ -1179,7 +1179,8 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     if (insights) {
       const serializeGroup = (label: string, list?: PlaceDetail[]) => {
         if (!list || list.length === 0) return `${label}: None found within 5km`;
-        return `${label}: ${list.map(p => `${p.name} (dist: ${p.distance.toFixed(2)} km, lat: ${p.lat}, lng: ${p.lng})`).join(', ')}`;
+        const top4 = list.slice(0, 4); // Only include closest 4 landmarks to prevent rate-limiting token exhaustion
+        return `${label}: ${top4.map(p => `${p.name} (dist: ${p.distance.toFixed(2)} km, lat: ${p.lat}, lng: ${p.lng})`).join(', ')}`;
       };
       insightsText = [
         serializeGroup("Schools", insights.schools),
