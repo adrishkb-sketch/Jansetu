@@ -1810,9 +1810,8 @@ Rules:
         { text: imgPromptText }
       ];
 
-      // Single Gemini call for vision — NO second repair call (saves quota)
+      // fetchGeminiVision now throws on failure, so we always get a result or a meaningful error
       const result = await fetchGeminiVision(parts);
-      if (!result?.text) return null;
 
       console.log('[Jansetu Vision] Raw model response:', result.text.slice(0, 300));
 
@@ -1839,9 +1838,10 @@ Rules:
       }
 
       return null;
-    } catch (e) {
-      console.error('[Jansetu Vision] Image analysis failed entirely:', e);
-      return null;
+    } catch (e: any) {
+      console.error('[Jansetu Vision] Image analysis failed:', e?.message || e);
+      // Re-throw with a clear message so handleImageUpload can display it
+      throw new Error(e?.message || 'Gemini Vision failed to analyze the image');
     }
   };
 
@@ -1914,28 +1914,20 @@ Rules:
             });
             return nextItems;
           });
-          // Bug 4 Fix: 500ms delay ensures Vision queue slot has released before synthesis is queued
+          // 500ms delay ensures Vision queue slot has released before synthesis is queued
           setTimeout(() => triggerGlobalAIAnalysis(nextItems), 500);
-        } else {
-          setItems(prev => prev.map(item => {
-            if (item.id === id) {
-              return {
-                ...item,
-                content: 'Image upload processed but description not generated.',
-                fileUrl: dataUrl,
-                processing: false
-              };
-            }
-            return item;
-          }));
         }
-      } catch (err) {
-        console.error('Image analysis pipeline failed:', err);
+      } catch (err: any) {
+        console.error('Image analysis pipeline failed:', err?.message || err);
+        const errMsg = err?.message || 'Gemini Vision failed to analyze the image.';
+        const isRateLimit = errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('429');
         setItems(prev => prev.map(item => {
           if (item.id === id) {
             return {
               ...item,
-              content: 'Failed to process image.',
+              content: isRateLimit
+                ? '⏳ AI is rate-limited. Please wait ~1 minute and try again.'
+                : `AI Vision failed: ${errMsg.slice(0, 120)}`,
               processing: false
             };
           }
