@@ -7,6 +7,13 @@
 
 ---
 
+> [!IMPORTANT]
+> **Demo Login Credentials:**
+> * **Manager Portal:** Username: `manager` | Password: `password`
+> * **MP Workspace:** Username: `mp` | Password: `password`
+
+---
+
 ## 📖 Overview
 
 **Jansetu** is a multimodal, multilingual civic platform that decentralizes how real, on-the-ground governance problems are reported, verified, and actioned. Citizens can report issues—like broken infrastructure, sanitation gaps, or agricultural needs—in their native language via our Web App or Telegram Bot using text, voice, or photos. 

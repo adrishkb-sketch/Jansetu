@@ -8,8 +8,8 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ role, onSuccess, onClose }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState(role === 'manager' ? 'manager' : 'mp');
+  const [password, setPassword] = useState('password');
   const [error, setError] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
 
