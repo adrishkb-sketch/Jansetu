@@ -1195,11 +1195,10 @@ export function ComplainantPortal({ selectedLang, onBack }: ComplainantPortalPro
     }
 
     try {
-      const hotspotsList = nearbyHotspots.map(h => ({
-        id: h.id,
-        category: h.category,
-        content: h.items?.[0]?.content || h.address
-      }));
+      // Bug 3 Fix: Use compact format and top-5 only to prevent input token exhaustion
+      const hotspotsList = nearbyHotspots
+        .slice(0, 5)
+        .map(h => `id: ${h.id} | category: ${h.category} | issue: ${(h.items?.[0]?.content || h.address || '').slice(0, 80)}`);
 
       let translationInstruction = "";
       if (selectedLang !== 'en') {
@@ -1223,8 +1222,8 @@ You must:
 2. Determine the category: Choose exactly one from: ["water", "roads", "education", "health", "power", "agriculture", "safety", "environment", "welfare", "housing", "anticorruption", "digital", "disaster", "women", "justice", "economy", "consumer", "taxes", "tourism", "youth", "innovation", "rural", "security", "cyber", "climate", "space", "foreign", "others"].
 3. Determine the impact scope: Choose exactly one from: ["household", "street", "ward", "constituency"].
 4. Estimate the population affected: Return a numerical estimate of how many citizens are affected (e.g. 5, 150, 2000, etc.) in the 'estimatedPopulation' field.
-5. Check for duplicates/correlations: We have a list of existing active issues in the same region:
-${JSON.stringify(hotspotsList)}
+5. Check for duplicates/correlations: We have a list of existing active issues in the same region (top 5 closest):
+${hotspotsList.join('\n')}
 Determine if the citizen's complaint matches any of these active issues (i.e. is the same core issue at the same general place).
 If a match is found, return the matching issue's ID in 'matchedHotspotId'. Otherwise, return null.
 6. Verify against Ground Truth infrastructure:
@@ -1481,6 +1480,7 @@ JSON:`
 
     // Wait 6s after the LAST item change before firing Gemini (reduces quota burn on rapid changes)
     setAiIndicator({ active: true, message: '⏳ Queuing AI analysis...' });
+    // Bug 2 Fix: 10s debounce ensures prior Vision/transcription queue slots (8s each) have cleared before synthesis fires
     aiDebounceTimerRef.current = setTimeout(() => {
       const combinedText = currentItems
         .map(item => {
@@ -1508,7 +1508,7 @@ JSON:`
       }
       lastAnalysisHashRef.current = contentHash;
       runAIAttachmentAnalysis(combinedText, currentItems);
-    }, 6000);
+    }, 10000);
   };
 
   const handleAddText = () => {
@@ -1914,7 +1914,8 @@ Rules:
             });
             return nextItems;
           });
-          setTimeout(() => triggerGlobalAIAnalysis(nextItems), 50);
+          // Bug 4 Fix: 500ms delay ensures Vision queue slot has released before synthesis is queued
+          setTimeout(() => triggerGlobalAIAnalysis(nextItems), 500);
         } else {
           setItems(prev => prev.map(item => {
             if (item.id === id) {

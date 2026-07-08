@@ -260,8 +260,9 @@ export async function fetchGeminiVision(
       contents: [{ parts }],
       generationConfig: { 
         temperature: 0.2, 
-        maxOutputTokens: 2048,
-        responseMimeType: "application/json"
+        maxOutputTokens: 2048
+        // NOTE: Do NOT set responseMimeType here — vision calls on free-tier models reject JSON mode
+        // The vision prompt instructs Gemini to output raw JSON text, which extractJSON() handles client-side
       },
     };
 
