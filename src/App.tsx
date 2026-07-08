@@ -1561,7 +1561,12 @@ JSON:`
         .map(item => {
           if (item.type === 'text') return `User Text Note: ${item.content}`;
           if (item.type === 'audio') return `User Voice Transcript: ${item.speechTranscript || item.content}`;
-          if (item.type === 'photo') return `AI Image Description: ${item.content || item.ocrText}`;
+          if (item.type === 'photo') {
+            const mpObjStr = item.mediaPipeBoxes && item.mediaPipeBoxes.length > 0
+              ? ` (On-device MediaPipe scan also detected these local objects in the image: ${item.mediaPipeBoxes.map(b => `${b.label} with ${b.score}% confidence`).join(', ')})`
+              : '';
+            return `AI Image Description: ${item.content || item.ocrText}${mpObjStr}`;
+          }
           return '';
         })
         .filter(Boolean)
