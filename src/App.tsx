@@ -4362,7 +4362,7 @@ function App() {
             <button className="btn-hero-secondary" onClick={() => scrollToSection('how-it-works')}>
               <span>How It Works</span>
             </button>
-            <a href="https://t.me/jansetu_bot" target="_blank" rel="noopener noreferrer" className="btn-hero-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+            <a href="https://t.me/JanSetuBot" target="_blank" rel="noopener noreferrer" className="btn-hero-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
               <span>✈️ Open Telegram Bot</span>
             </a>
           </div>
@@ -4477,7 +4477,7 @@ function App() {
               <div className="terminal-output">
                 <div>[✓] STATUS       :: ACTIVE — Firebase Hosting (Production)</div>
                 <div>[✓] AI ENGINE    :: Google Gemini 2.5 Flash — Multi-key fallback active</div>
-                <div>[✓] CHANNELS     :: Web Portal + Telegram Bot (@jansetu_bot) + WhatsApp Petition Links</div>
+                <div>[✓] CHANNELS     :: Web Portal + Telegram Bot (@JanSetuBot) + WhatsApp Petition Links</div>
                 <div>[✓] LANGUAGES    :: 23 Indian Languages — Live Speech Recognition + Auto-Translation</div>
                 <div>[✓] GEOSPATIAL   :: Google Maps + Places API — Hotspot Radius Clustering</div>
                 <div>[✓] LIVE STATS   :: Issues Filed: {liveStats.total} | Constituencies: {liveStats.constituencies} | Citizens Impacted: {liveStats.citizens.toLocaleString()}</div>
