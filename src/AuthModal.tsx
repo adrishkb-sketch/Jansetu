@@ -188,8 +188,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ role, onSuccess, onClose }
             </div>
           </div>
 
+          {!isSignUp && (
+            <style>{`
+              @keyframes pulse-glow {
+                0% { box-shadow: 0 0 8px ${themeColor}88; }
+                50% { box-shadow: 0 0 22px ${themeColor}ff; transform: scale(1.02); }
+                100% { box-shadow: 0 0 8px ${themeColor}88; }
+              }
+              .btn-demo-pulse {
+                animation: pulse-glow 2.5s infinite ease-in-out;
+              }
+            `}</style>
+          )}
           <button
             type="submit"
+            className={!isSignUp ? "btn-demo-pulse" : ""}
             style={{
               marginTop: '8px',
               backgroundColor: themeColor,
@@ -207,9 +220,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ role, onSuccess, onClose }
               transition: 'all 0.2s'
             }}
           >
-            <span>{isSignUp ? 'Create Account & Login' : 'Login to Portal'}</span>
+            <span>{isSignUp ? 'Create Account & Login' : '✨ Click to Login (Demo Mode)'}</span>
             <ArrowRight size={18} />
           </button>
+          {!isSignUp && (
+            <p style={{
+              fontSize: '11px',
+              color: '#38bdf8',
+              textAlign: 'center',
+              margin: '8px 0 0 0',
+              fontWeight: '600',
+              letterSpacing: '0.02em',
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+            }}>
+              💡 Demo credentials prefilled! Just click Login above to access.
+            </p>
+          )}
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '24px' }}>

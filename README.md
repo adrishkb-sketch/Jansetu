@@ -64,25 +64,25 @@ Jansetu is engineered to handle variable scale securely.
 
 ---
 
-## 🚀 Getting Started Locally
+## 🏗️ System Architecture & Technology Deep-Dive
 
-1. **Clone the repo**
-   ```bash
-   git clone https://github.com/adrishkb-sketch/Jansetu.git
-   cd Jansetu
-   ```
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-3. **Run the local dev server**
-   ```bash
-   npm run dev
-   ```
-4. **Deploy to Firebase**
-   ```bash
-   npm run build
-   firebase deploy --only hosting
-   ```
+Jansetu is engineered with a modular, serverless, and resilient architecture designed to handle citizen scale with minimal overhead:
+
+### 1. Ingestion Layer (Web & Mobile Channels)
+* **React (TypeScript & Vite):** Powers all responsive web dashboards (Citizen, Manager, MP, and Tracking). TypeScript ensures compilation safety and zero runtime schema crashes.
+* **Telegram Bot API (Node.js/Express Webhook):** The chatbot gateway processes real-time mobile messages. It is built as a serverless stateless function in Vercel to scale infinitely under spike load.
+
+### 2. Edge Processing & AI Verification Tier
+* **Google MediaPipe Tasks Vision (WebAssembly):** Executes an `efficientdet_lite0` object detection model directly in the citizen's browser. This runs client-side OCR and object detection to tag anomalies instantly before data is uploaded, saving server compute.
+* **Google Gemini 2.5 & 2.0 Flash Cascade:** Ingests multimodal voice notes and photos. Transcribes regional audio files verbatim, extracts visual context from images, and draws anomaly bounding boxes dynamically.
+* **Resilient Key Rotation:** Built a custom fallback queue in the backend. If a Gemini API key hits a rate limit (HTTP 429), the service automatically rotates to backup keys and falls back through models (2.5-flash → 2.0-flash → 2.0-flash-lite) to maintain 100% uptime.
+
+### 3. Database & Analytical Core
+* **Firebase Firestore:** Acts as our real-time NoSQL data lake, syncing citizen tickets and MP proposals instantly. It dynamically serves localized Census and NFHS-5 demographics across all 543 Lok Sabha constituencies.
+* **Combined Priority Index (CPI) Engine:** Automatically scores grievances from 0–100 by calculating:
+  $$\text{CPI} = (\text{Base Priority} \times 0.45) + (\text{Upvotes Normalization} \times 0.35) + (\text{Demographic Vulnerability} \times 0.20)$$
+  It cross-references geolocation coordinates with Ministry Standards (e.g., Jal Jeevan Mission, Swachh Bharat) to measure the infrastructure gap.
+
+---
 
 *Proudly built for the Google Cloud Hackathon. Let's build a better, AI-powered democracy together.*
